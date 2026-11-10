@@ -1,0 +1,35 @@
+{
+  "name": "weevils",
+  "private": true,
+  "version": "0.1.0",
+  "license": "MIT",
+  "type": "module",
+  "scripts": {
+    "dev": "vite",
+    "build": "npm run typecheck && vite build",
+    "typecheck": "tsc --noEmit && tsc --noEmit -p server",
+    "test": "vitest run",
+    "icons": "node scripts/make-icons.mjs",
+    "i18n:check": "node scripts/check-i18n.mjs",
+    "lint:sh": "for f in install.sh server/install.sh server/weevils-cli server/weevils-service server/wv scripts/fresh.sh scripts/fresh/entrypoint.sh test/docker/run.sh; do bash -n \"$f\" || exit 1; done && sh -n server/hook.sh && if command -v shellcheck >/dev/null 2>&1; then shellcheck -S error install.sh server/install.sh server/weevils-cli server/weevils-service server/wv scripts/fresh.sh scripts/fresh/entrypoint.sh test/docker/run.sh server/hook.sh; fi",
+    "lint": "npm run typecheck && npm run i18n:check && npm run lint:sh",
+    "check": "npm run lint && npm test"
+  },
+  "dependencies": {
+    "motion": "^14.10.1",
+    "react": "^19.3.1",
+    "react-dom": "^19.3.1",
+    "web-push": "^4.0.0"
+  },
+  "devDependencies": {
+    "@types/node": "^26.6.6",
+    "@types/react": "^19.3.0",
+    "@types/react-dom": "^19.3.0",
+    "@types/web-push": "^3.6.4",
+    "@vitejs/plugin-react": "^6.2.1",
+    "happy-dom": "^21.0.4",
+    "typescript": "^7.0.2",
+    "vite": "^8.3.6",
+    "vitest": "^5.1.0"
+  }
+}

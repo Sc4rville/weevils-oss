@@ -1,0 +1,53 @@
+import { describe, expect, it } from 'vitest'
+import type { Message } from '../../shared/api.ts'
+import { mergePending, type Pending } from './pending'
+
+const msg = (id: string, text: string, role: Message['role'] = 'user'): Message => ({ id, role, text, at: 0 })
+const pend = (typed: string, after?: string, shown = typed): Pending => ({ id: `pending-${typed}-${after}`, role: 'user', text: shown, at: 0, typed, after })
+const texts = (list: Message[]) => list.map((m) => m.text)
+
+describe('mergePending', () => {
+  const before = [msg('a', 'earlier'), msg('b', 'sure', 'assistant')]
+
+  it('pas encore arrivé : la bulle reste sous le fil', () => {
+    expect(texts(mergePending(before, [pend('hello', 'b')]))).toEqual(['earlier', 'sure', 'hello'])
+  })
+
+  it('arrivé : la bulle disparaît', () => {
+    expect(texts(mergePending([...before, msg('c', 'hello')], [pend('hello', 'b')]))).toEqual(['earlier', 'sure', 'hello'])
+  })
+
+  it('retours à la ligne aplatis par la pane : reconnu quand même', () => {
+    expect(texts(mergePending([...before, msg('c', 'line one line two')], [pend('line one\n  line two ', 'b')]))).toEqual(['earlier', 'sure', 'line one line two'])
+  })
+
+  it('envoi avec photo : l’agent reçoit le chemin, la bulle « (photo) » disparaît quand même', () => {
+    const real = [...before, msg('c', 'hey (photo: /home/u/.local/share/weevils/inbox/2026-11-09-a.jpg)')]
+    expect(texts(mergePending(real, [pend('hey', 'b', 'hey (photo)')]))).toEqual(texts(real))
+  })
+
+  it('photo seule (rien de tapé) : effacée par le premier message arrivé après', () => {
+    const real = [...before, msg('c', 'Look at this photo. (photo: /x/inbox/2026-11-09-a.jpg)')]
+    expect(texts(mergePending(real, [pend('', 'b', '(photo)')]))).toEqual(texts(real))
+  })
+
+  it('un message identique plus ancien n’efface pas la nouvelle bulle (« ok » renvoyé)', () => {
+    const real = [msg('a', 'ok'), msg('b', 'done', 'assistant')]
+    expect(texts(mergePending(real, [pend('ok', 'b')]))).toEqual(['ok', 'done', 'ok'])
+  })
+
+  it('deux envois identiques : chaque message arrivé n’efface qu’une bulle', () => {
+    const p = [pend('ok', 'b'), { ...pend('ok', 'b'), id: 'pending-2' }]
+    expect(texts(mergePending([...before, msg('c', 'ok')], p))).toEqual(['earlier', 'sure', 'ok', 'ok'])
+    expect(texts(mergePending([...before, msg('c', 'ok'), msg('d', 'ok')], p))).toEqual(['earlier', 'sure', 'ok', 'ok'])
+  })
+
+  it('une réponse de l’agent qui reprend le texte ne compte pas', () => {
+    expect(texts(mergePending([...before, msg('c', 'hello to you too', 'assistant')], [pend('hello', 'b')]))).toEqual(['earlier', 'sure', 'hello to you too', 'hello'])
+  })
+
+  it('fil pas encore chargé à l’envoi, ou dernier message connu sorti du fil : tout le fil compte', () => {
+    expect(texts(mergePending([msg('c', 'hello')], [pend('hello')]))).toEqual(['hello'])
+    expect(texts(mergePending([msg('c', 'hello')], [pend('hello', 'trimmed')]))).toEqual(['hello'])
+  })
+})

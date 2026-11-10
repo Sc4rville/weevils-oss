@@ -1,0 +1,105 @@
+/* Floating tips: a small flat card, stuck to the edge it slid from, above the 24/7 rail. One pop color, a thick ink
+   border, no rounded corner, no shadow. */
+
+.tip {
+  position: fixed;
+  z-index: 30;
+  bottom: calc(var(--safe-b) + var(--rail) + 14px);
+  width: min(340px, calc(100vw - 44px));
+  background: var(--c);
+  color: var(--ink);
+  border: 3px solid var(--ink);
+  touch-action: pan-y;
+  user-select: none;
+  -webkit-user-select: none;
+  cursor: grab;
+}
+
+/* Flush with its edge, like a band that peeks in. */
+.tip.left {
+  left: 0;
+  border-left: 0;
+  padding-left: env(safe-area-inset-left, 0px);
+}
+
+.tip.right {
+  right: 0;
+  border-right: 0;
+  padding-right: env(safe-area-inset-right, 0px);
+}
+
+.tip-top {
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  padding-left: 16px;
+}
+
+.tip-ic {
+  display: inline-flex;
+}
+
+.tip-kind {
+  font-size: 0.875rem;
+  font-weight: 700;
+}
+
+.tip-x {
+  margin-left: auto;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 48px;
+  height: 44px;
+}
+
+.tip-body {
+  display: block;
+  width: 100%;
+  text-align: left;
+  padding: 0 16px 16px;
+  cursor: pointer;
+}
+
+.tip-text {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  overflow: hidden;
+  margin: 0;
+  font-size: 1.1875rem;
+  font-weight: 800;
+  line-height: 1.2;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+p.tip-text {
+  padding: 0 16px 18px;
+}
+
+/* The accept target: big, full width, ink on the card's color. */
+.tip-go {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  min-height: 50px;
+  margin-top: 14px;
+  padding: 0 14px;
+  background: var(--ink);
+  color: var(--c);
+  font-size: 1.0625rem;
+  font-weight: 800;
+}
+
+.tip-body:active .tip-go {
+  transform: translateY(1px);
+}
+
+.tip-x:focus-visible,
+.tip-body:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: -6px;
+}

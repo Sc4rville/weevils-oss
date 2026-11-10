@@ -1,0 +1,173 @@
+/* Coin infrastructure : machines, « / », cerveau. Aplat, angles vifs, aucun arrondi. */
+
+:root,
+[data-theme='light'] {
+  --warn: #d95f00;
+  --crit: #d4001c;
+}
+[data-theme='dark'] {
+  --warn: #ffa347;
+  --crit: #ff5a6a;
+}
+:root[data-theme='zen'] {
+  --warn: oklch(0.56 0.12 55);
+  --crit: oklch(0.5 0.16 25);
+}
+
+.lv-ok {
+  fill: currentColor;
+  background: currentColor;
+}
+.lv-warn {
+  fill: var(--warn);
+  background: var(--warn);
+}
+.lv-crit {
+  fill: var(--crit);
+  background: var(--crit);
+}
+.lv-off {
+  fill: none;
+}
+.lv-text-warn {
+  color: var(--warn);
+}
+.lv-text-crit {
+  color: var(--crit);
+}
+
+.gauge {
+  display: block;
+  height: 3px;
+  background: color-mix(in oklab, currentColor 22%, transparent);
+  overflow: hidden;
+}
+.gauge > span {
+  display: block;
+  height: 100%;
+}
+.gauge.none > span {
+  width: 0 !important;
+}
+.gauge.big {
+  height: 8px;
+  margin-top: 6px;
+}
+
+/* ---- Page machine. */
+.ipage > .in {
+  width: 100%;
+}
+
+.mx-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-block: 10px 4px;
+}
+.mx-tab {
+  padding: 6px 12px;
+  font-weight: 700;
+  border: 2.5px solid var(--ink);
+}
+.mx-tab.on {
+  background: var(--ink);
+  color: var(--c);
+}
+.mx-tab.off {
+  opacity: 0.45;
+}
+
+.stat {
+  padding-block: 8px;
+}
+.stat-h {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 12px;
+}
+.stat-h .meta {
+  text-align: right;
+  font-variant-numeric: tabular-nums;
+}
+.stat.minor .gauge.big {
+  height: 4px;
+}
+.stat.share .gauge > .lv-ok {
+  background: var(--ink);
+}
+
+.chart svg {
+  display: block;
+  width: 100%;
+  height: 96px;
+}
+.c-mem {
+  fill: color-mix(in oklab, var(--ink) 22%, transparent);
+}
+.c-cpu {
+  fill: none;
+  stroke: var(--ink);
+  stroke-width: 2.5px;
+  stroke-linejoin: miter;
+}
+.c-peak {
+  fill: var(--crit);
+}
+.chart-h {
+  display: flex;
+  justify-content: space-between;
+  font-variant-numeric: tabular-nums;
+  margin-top: 2px;
+}
+
+.row-static {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding-block: 8px;
+}
+.row-static .st {
+  width: 22px;
+  flex: none;
+  text-align: center;
+}
+.row-static .stack-text {
+  flex: 1;
+  min-width: 0;
+}
+.row-static .stack-text > * {
+  display: block;
+}
+
+.advice {
+  padding-block: 8px;
+  font-weight: 600;
+  line-height: 1.35;
+}
+
+/* Une ligne clé · valeur : la clé discrète à gauche, la valeur en gras à droite. */
+.kv {
+  display: flex;
+  justify-content: space-between;
+  align-items: baseline;
+  gap: 16px;
+  min-height: 40px;
+  padding-block: 8px;
+  text-align: left;
+}
+.kv .meta {
+  flex: none;
+}
+.kv .v {
+  font-weight: 700;
+  text-align: right;
+  min-width: 0;
+  overflow-wrap: anywhere;
+  font-variant-numeric: tabular-nums;
+}
+button.kv {
+  width: 100%;
+}

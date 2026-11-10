@@ -1,0 +1,99 @@
+#!/usr/bin/env bash
+# wv — lance claude ou codex dans une session tmux que weevils voit et pilote depuis l'iPhone.
+#
+#   wv                  claude dans le dossier courant
+#   wv "fais ceci"      claude avec un premier message
+#   wv codex [msg]      codex
+#   wv ls               sessions wv en cours
+#   wv a [nom]          s'y rattacher (la plus récente par défaut)
+#   wv @<hôte> <repo> [...]  la même chose sur une autre machine, par ssh (<premier dossier de WEEVILS_PROJECTS
+#                            là-bas>/<repo>, ~/projects par défaut)
+#   wv @<hôte> a | ls        s'y rattacher / lister là-bas
+#   wv main …                pareil sur la machine principale (machine secondaire installée avec --secondary)
+#
+# Sans demande de permission (comme d'habitude) ; WV_SAFE=1 wv … (ou WEEVILS_SAFE=1 dans ~/.config/weevils/env)
+# pour garder les confirmations.
+set -euo pipefail
+
+# Langue des messages : celle de l'app (prefs.json de weevilsd), sinon WEEVILS_LANG (env ou ~/.config/weevils/env),
+# LC_ALL, LANG ; anglais par défaut. Même ordre que weevilsd (server/i18n.ts).
+wv_lang() {
+  local c cfg=${WEEVILS_CONFIG:-$HOME/.config/weevils/env}
+  for c in "$(sed -n 's/.*"lang" *: *"\([a-z]*\)".*/\1/p' ~/.local/share/weevils/prefs.json 2>/dev/null)" \
+    "${WEEVILS_LANG:-$(sed -n 's/^[[:space:]]*WEEVILS_LANG[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([A-Za-z_.-]*\).*/\1/p' "$cfg" 2>/dev/null | tail -1)}" \
+    "${LC_ALL:-}" "${LANG:-}"; do
+    case "$c" in fr|fr[-_.]*|FR*) echo fr; return ;; en|en[-_.]*|EN*) echo en; return ;; esac
+  done
+  echo en
+}
+if [ "$(wv_lang)" = fr ]; then
+  m_none="aucune session wv" # i18n-ignore : messages français, l'anglais est juste en dessous
+  m_title="nouvelle session" # i18n-ignore
+  m_nomain="pas de machine principale (installe avec --secondary <hôte>, ou wv @<hôte>)" # i18n-ignore
+else
+  m_none="no wv sessions"
+  m_title="new session"
+  m_nomain="no main machine (install with --secondary <host>, or use wv @<host>)"
+fi
+
+# WV_SAFE gagne ; sinon WEEVILS_SAFE du fichier de config, comme weevilsd : les deux interrupteurs disent la même chose.
+WV_SAFE=${WV_SAFE:-$(sed -n 's/^[[:space:]]*WEEVILS_SAFE[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([0-9]*\).*/\1/p' "${WEEVILS_CONFIG:-$HOME/.config/weevils/env}" 2>/dev/null | head -1 || true)}
+if [ "${WV_SAFE:-}" = 1 ]; then claude_flags=(); codex_flags=()
+else claude_flags=(--dangerously-skip-permissions); codex_flags=(--dangerously-bypass-approvals-and-sandbox); fi
+
+host=''
+case "${1:-}" in
+  # Ancien alias retiré : refuser plutôt que lancer un agent local avec « vps … » pour message.
+  vps) echo "wv: 'wv vps' is gone, use 'wv @vps …' (or 'wv main …')" >&2; exit 1 ;;
+  @?*) host=${1#@} ;;
+  main) host=$(sed -n "s/^WEEVILS_MAIN_HOST=//p" ~/.config/weevils/service.conf 2>/dev/null | tr -d "'\"")
+    [ -n "$host" ] || { echo "$m_nomain" >&2; exit 1; } ;;
+esac
+if [ -n "$host" ]; then
+  shift
+  case "${1:-}" in
+    ''|a|attach|ls) exec ssh -t "$host" "bash -lc 'wv ${1:-a} ${2:-}'" ;;
+  esac
+  repo=$1; shift
+  # Le dépôt est cherché dans le premier dossier de WEEVILS_PROJECTS de la machine distante (~/projects sinon).
+  roots='r=$(sed -n "s/^[[:space:]]*WEEVILS_PROJECTS[[:space:]]*=[[:space:]]*//p" ~/.config/weevils/env 2>/dev/null | head -1 | tr -d "\"'"'"'" | cut -d: -f1)'
+  exec ssh -t "$host" "$roots; cd \"\${r:-\$HOME/projects}\"/$(printf '%q' "$repo") && bash -lc $(printf '%q' "wv $(printf '%q ' "$@")")"
+fi
+
+tool=claude
+case "${1:-}" in
+  ls)
+    tmux list-sessions -F '#{session_name}  #{@wv_tool}  #{@wv_cwd}' 2>/dev/null | grep '^wv-' || echo "$m_none"
+    exit 0 ;;
+  a|attach)
+    name=${2:-$(tmux list-sessions -F '#{session_created} #{session_name}' 2>/dev/null | grep ' wv-' | sort -n | tail -1 | cut -d' ' -f2)}
+    [ -n "$name" ] || { echo "$m_none"; exit 1; }
+    if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t "=$name"; else exec tmux attach -t "=$name"; fi ;;
+  claude|codex)
+    tool=$1; shift ;;
+esac
+
+dir=$(basename "$PWD")
+short=$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')
+name="wv-${dir:0:18}-$short"
+title=${1:-$m_title}
+
+# Rien ne doit interrompre la session (mise à jour, conseils, télémétrie) : mêmes variables que weevilsd.
+quiet=(-e CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 -e DISABLE_AUTOUPDATER=1 -e DISABLE_BUG_COMMAND=1 -e DISABLE_ERROR_REPORTING=1 -e DISABLE_TELEMETRY=1 -e DISABLE_COST_WARNINGS=1 -e DISABLE_TIPS=1)
+# Pas de dialogue de confiance : le dossier courant est marqué sûr dans ~/.claude.json avant de lancer claude.
+if command -v jq >/dev/null && [ "$tool" = claude ]; then
+  cfg=~/.claude.json; [ -f "$cfg" ] || echo '{}' > "$cfg"
+  t=$(mktemp) && jq --arg d "$PWD" '.projects[$d] = ((.projects[$d] // {}) + {hasTrustDialogAccepted: true})' "$cfg" > "$t" && mv "$t" "$cfg"
+fi
+if [ "$tool" = claude ]; then
+  id=$(cat /proc/sys/kernel/random/uuid)
+  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" claude "${claude_flags[@]}" --session-id "$id" "$@"
+  tmux set-option -t "=$name:" @wv_session_id "$id"
+else
+  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" codex "${codex_flags[@]}" "$@"
+fi
+tmux set-option -t "=$name:" @wv_tool "$tool"
+tmux set-option -t "=$name:" @wv_title "${title:0:60}"
+tmux set-option -t "=$name:" @wv_cwd "$PWD"
+
+if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t "=$name"; else exec tmux attach -t "=$name"; fi

@@ -1,0 +1,161 @@
+#!/usr/bin/env bash
+# weevils-service — start, stop and watch weevilsd on this machine, with systemd --user when the machine has it,
+# otherwise as a plain background process (containers, WSL without systemd). Installed in ~/.local/bin by install.sh.
+#
+#   weevils-service start | stop | restart | status | logs
+#   weevils-service add-remote <id> [url]     main machine: federate another weevilsd (prints its tunnel port)
+#   weevils-service config get <KEY> | set <KEY> <value> | default <KEY> <value>
+#   weevils-service mode                      systemd or background
+set -euo pipefail
+
+# Always ~/.config/weevils (not XDG_CONFIG_HOME): the server and the systemd unit read it there.
+CONFIG_DIR=$HOME/.config/weevils
+CONFIG_FILE=${WEEVILS_CONFIG:-$CONFIG_DIR/env}
+SERVICE_CONF=$CONFIG_DIR/service.conf
+RUN_DIR=$HOME/.local/share/weevils/run
+LOG_FILE=$HOME/.local/share/weevils/weevilsd.log
+TUNNEL_LOG=$HOME/.local/share/weevils/tunnel.log
+
+# ---------------------------------------------------------------- config file (NAME=value, first occurrence wins, like server/config.ts)
+
+cfg_get() {
+  [ -f "$CONFIG_FILE" ] || return 0
+  sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*//p" "$CONFIG_FILE" | head -1 | sed "s/[[:space:]]*$//; s/^[\"']//; s/[\"']$//"
+}
+
+# cfg_set KEY VALUE [set|default] — default only fills an empty or missing key. Replaces the first line of the key
+# (or its commented example), appends otherwise. Never touches other lines.
+cfg_set() {
+  local k=$1 v=$2 mode=${3:-set}
+  mkdir -p "$(dirname "$CONFIG_FILE")"
+  [ -f "$CONFIG_FILE" ] || { : >"$CONFIG_FILE"; chmod 600 "$CONFIG_FILE"; }
+  if [ "$mode" = default ] && [ -n "$(cfg_get "$k")" ]; then return 0; fi
+  local re="^[[:space:]]*$k[[:space:]]*="
+  grep -qE "$re" "$CONFIG_FILE" || re="^[[:space:]]*#[[:space:]]*$k[[:space:]]*="
+  if grep -qE "$re" "$CONFIG_FILE"; then
+    local tmp; tmp=$(mktemp)
+    K=$k V=$v RE=$re awk 'BEGIN { done = 0 } !done && $0 ~ ENVIRON["RE"] { print ENVIRON["K"] "=" ENVIRON["V"]; done = 1; next } { print }' "$CONFIG_FILE" >"$tmp"
+    cat "$tmp" >"$CONFIG_FILE" && rm -f "$tmp"
+  else
+    printf '%s=%s\n' "$k" "$v" >>"$CONFIG_FILE"
+  fi
+}
+
+# ---------------------------------------------------------------- systemd --user, when it is there
+
+systemd_user() {
+  [ -d /run/systemd/system ] && command -v systemctl >/dev/null || return 1
+  export XDG_RUNTIME_DIR=${XDG_RUNTIME_DIR:-/run/user/$(id -u)}
+  if [ -z "${DBUS_SESSION_BUS_ADDRESS:-}" ] && [ -S "$XDG_RUNTIME_DIR/bus" ]; then
+    export DBUS_SESSION_BUS_ADDRESS=unix:path=$XDG_RUNTIME_DIR/bus
+  fi
+  systemctl --user show-environment >/dev/null 2>&1
+}
+
+load_service_conf() {
+  WEEVILS_ROLE=main WEEVILS_DIR='' WEEVILS_NODE=$(command -v node || true) WEEVILS_PATH=$PATH WEEVILS_MAIN_HOST='' WEEVILS_TUNNEL_PORT=''
+  # shellcheck disable=SC1090
+  [ -f "$SERVICE_CONF" ] && . "$SERVICE_CONF"
+  WEEVILS_PORT=$(cfg_get WEEVILS_PORT); WEEVILS_PORT=${WEEVILS_PORT:-4179}
+}
+
+units() { if [ "$WEEVILS_ROLE" = secondary ] && [ -n "$WEEVILS_MAIN_HOST" ]; then echo weevilsd weevils-tunnel; else echo weevilsd; fi; }
+
+# ---------------------------------------------------------------- background mode (no systemd)
+
+pid_alive() { local f=$RUN_DIR/$1.pid; [ -f "$f" ] && kill -0 "$(cat "$f")" 2>/dev/null; }
+
+bg_start() {
+  mkdir -p "$RUN_DIR"
+  if ! pid_alive weevilsd; then
+    [ -n "$WEEVILS_DIR" ] || { echo "weevils-service: $SERVICE_CONF is missing, run install.sh again" >&2; exit 1; }
+    # A simple command in the background (no "cd &&" list): $! is node itself, and nothing keeps our stdout open.
+    (cd "$WEEVILS_DIR" || exit 1
+      PATH=$WEEVILS_PATH NODE_ENV=production setsid nohup "$WEEVILS_NODE" server/index.ts >>"$LOG_FILE" 2>&1 </dev/null &
+      echo $! >"$RUN_DIR/weevilsd.pid")
+  fi
+  if [ "$(units)" != weevilsd ] && ! pid_alive weevils-tunnel; then
+    (setsid nohup bash -c 'while :; do ssh -NT -o BatchMode=yes -o ServerAliveInterval=20 -o ServerAliveCountMax=3 -o ExitOnForwardFailure=yes -R "127.0.0.1:$1:127.0.0.1:$2" "$3"; sleep 10; done' \
+      _ "$WEEVILS_TUNNEL_PORT" "$WEEVILS_PORT" "$WEEVILS_MAIN_HOST" >>"$TUNNEL_LOG" 2>&1 </dev/null &
+      echo $! >"$RUN_DIR/weevils-tunnel.pid")
+  fi
+}
+
+bg_stop() {
+  local u
+  for u in weevils-tunnel weevilsd; do
+    # Only the daemon dies: the tmux server holding the agent sessions is its own process and keeps running.
+    # The tunnel loop is killed with its whole process group (the loop and its ssh).
+    if pid_alive "$u"; then
+      if [ "$u" = weevils-tunnel ]; then kill -- "-$(cat "$RUN_DIR/$u.pid")" 2>/dev/null || true
+      else kill "$(cat "$RUN_DIR/$u.pid")" 2>/dev/null || true; fi
+    fi
+    rm -f "$RUN_DIR/$u.pid"
+  done
+}
+
+bg_status() {
+  local u
+  for u in $(units); do
+    if pid_alive "$u"; then echo "$u: running (pid $(cat "$RUN_DIR/$u.pid"), background)"; else echo "$u: stopped"; fi
+  done
+}
+
+# ---------------------------------------------------------------- main machine: register a secondary one
+
+add_remote() {
+  local id=${1:?id} url=${2:-} remotes port used
+  remotes=$(cfg_get WEEVILS_REMOTES)
+  local existing; existing=$(tr ',' '\n' <<<"$remotes" | sed -n "s/^[[:space:]]*$id=//p" | head -1)
+  if [ -z "$url" ]; then
+    if [ -n "$existing" ]; then url=$existing
+    else
+      # First free port from 4192 that no other remote uses.
+      used=$(grep -oE ':[0-9]+' <<<"$remotes" | tr -d : || true)
+      port=4192
+      while grep -qx "$port" <<<"$used" || { command -v ss >/dev/null && ss -ltn 2>/dev/null | grep -q "127.0.0.1:$port "; }; do port=$((port + 1)); done
+      url=http://127.0.0.1:$port
+    fi
+  fi
+  if [ "$existing" != "$url" ]; then
+    local rest; rest=$(tr ',' '\n' <<<"$remotes" | grep -v "^[[:space:]]*$id=" | grep -v '^[[:space:]]*$' | paste -sd, - || true)
+    cfg_set WEEVILS_REMOTES "${rest:+$rest,}$id=$url"
+    "$0" restart >/dev/null 2>&1 || true
+  fi
+  echo "${url##*:}"
+}
+
+# ----------------------------------------------------------------
+
+cmd=${1:-status}
+case "$cmd" in
+  config)
+    case "${2:-}" in
+      get) cfg_get "${3:?key}" ;;
+      set) cfg_set "${3:?key}" "${4-}" set ;;
+      default) cfg_set "${3:?key}" "${4-}" default ;;
+      *) echo "usage: weevils-service config get|set|default KEY [value]" >&2; exit 1 ;;
+    esac ;;
+  add-remote) shift; load_service_conf; add_remote "$@" ;;
+  mode) if systemd_user; then echo systemd; else echo background; fi ;;
+  start | stop | restart | status | logs)
+    load_service_conf
+    if systemd_user && [ -f "$HOME/.config/systemd/user/weevilsd.service" ]; then
+      case "$cmd" in
+        start) bg_stop; systemctl --user enable --now $(units) >/dev/null 2>&1; systemctl --user start $(units) ;;
+        stop) systemctl --user stop $(units) ;;
+        restart) bg_stop; systemctl --user enable $(units) >/dev/null 2>&1; systemctl --user restart $(units) ;;
+        status) for u in $(units); do echo "$u: $(systemctl --user is-active "$u" 2>/dev/null || true) (systemd --user)"; done ;;
+        logs) exec journalctl --user -u weevilsd -n 100 -f ;;
+      esac
+    else
+      case "$cmd" in
+        start) bg_start ;;
+        stop) bg_stop ;;
+        restart) bg_stop; sleep 1; bg_start ;;
+        status) bg_status ;;
+        logs) exec tail -n 100 -f "$LOG_FILE" ;;
+      esac
+    fi ;;
+  *) sed -n 2,9p "$0" | sed 's/^# \{0,1\}//'; exit 1 ;;
+esac

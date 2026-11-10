@@ -1,0 +1,103 @@
+#!/usr/bin/env bash
+# weevils — la commande de l'orchestrateur (et de n'importe quel agent sur cette machine) pour parler aux sessions.
+# Elle appelle le weevilsd local : une requête née sur la machine est de confiance, pas de code à fournir.
+#
+#   weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
+#   weevils new <projet> "message" [codex]   weevils projects
+set -euo pipefail
+base="http://127.0.0.1:${WEEVILS_PORT:-4179}"
+from=${WEEVILS_FROM:-weevils}
+py=python3
+
+# Langue des messages : celle de l'app (prefs.json de weevilsd), sinon WEEVILS_LANG (env ou ~/.config/weevils/env),
+# LC_ALL, LANG ; anglais par défaut. Même ordre que weevilsd (server/i18n.ts).
+wv_lang() {
+  local c cfg=${WEEVILS_CONFIG:-$HOME/.config/weevils/env}
+  for c in "$(sed -n 's/.*"lang" *: *"\([a-z]*\)".*/\1/p' ~/.local/share/weevils/prefs.json 2>/dev/null)" \
+    "${WEEVILS_LANG:-$(sed -n 's/^[[:space:]]*WEEVILS_LANG[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([A-Za-z_.-]*\).*/\1/p' "$cfg" 2>/dev/null | tail -1)}" \
+    "${LC_ALL:-}" "${LANG:-}"; do
+    case "$c" in fr|fr[-_.]*|FR*) echo fr; return ;; en|en[-_.]*|EN*) echo en; return ;; esac
+  done
+  echo en
+}
+if [ "$(wv_lang)" = fr ]; then
+  # i18n-ignore : messages français, l'anglais est juste en dessous (même chose dans la branche else)
+  usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
+weevils new <projet> "message" [codex]   weevils projects' # i18n-ignore
+  a_id='id de session' a_msg='message' a_project='projet' a_first='premier message' # i18n-ignore
+  export WVM_NOT_FOUND='session introuvable : ' WVM_AMBIGUOUS='plusieurs sessions commencent par {} : {}' # i18n-ignore
+  export WVM_NO_SESSIONS='aucune session ouverte' WVM_NO_MESSAGES='(aucun message)' WVM_USER='utilisateur' # i18n-ignore
+  export WVM_ERROR='erreur' WVM_NEW='nouvelle session ' # i18n-ignore
+  m_sent='reçu par %s' m_not_sent='NON reçu par %s : %s' # i18n-ignore
+else
+  usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
+weevils new <project> "message" [codex]  weevils projects'
+  a_id='session id' a_msg='message' a_project='project' a_first='first message'
+  export WVM_NOT_FOUND='no such session: ' WVM_AMBIGUOUS='several sessions start with {}: {}'
+  export WVM_NO_SESSIONS='no open sessions' WVM_NO_MESSAGES='(no messages)' WVM_USER='user'
+  export WVM_ERROR='error' WVM_NEW='new session '
+  m_sent='received by %s' m_not_sent='NOT received by %s: %s'
+fi
+
+json() { local code=$1; shift; "$py" -c "import json,sys,os; E=os.environ; d=json.load(sys.stdin); $code" "$@"; }
+
+resolve() {
+  # Id complet à partir d'un préfixe (8 caractères suffisent).
+  curl -sf -m 8 "$base/api/snapshot" | "$py" -c "
+import json,sys,os
+E=os.environ
+want=sys.argv[1]; d=json.load(sys.stdin)
+hits=[s['id'] for s in d['sessions'] if s['id'].startswith(want)]
+if len(hits)==1: print(hits[0])
+elif not hits: print(E['WVM_NOT_FOUND']+want, file=sys.stderr); sys.exit(1)
+else: print(E['WVM_AMBIGUOUS'].format(want, ', '.join(h[:12] for h in hits)), file=sys.stderr); sys.exit(1)
+" "$1"
+}
+
+case "${1:-}" in
+  sessions)
+    curl -sf -m 8 "$base/api/snapshot" | json "
+names={p['id']:p['name'] for p in d['projects']}
+rows=[s for s in d['sessions'] if s['status']!='done']
+if not rows: print(E['WVM_NO_SESSIONS'])
+for s in rows:
+    now=(' · '+s['now']) if s.get('now') else ''
+    print(f\"{s['id'][:8]}  {names.get(s['projectId'],s['projectId']):<14} {s['tool']:<6} @{s['machineId']:<4} {s['status']:<10} {s['title']}{now}\")
+" ;;
+  projects)
+    curl -sf -m 8 "$base/api/snapshot" | json "
+for p in d['projects']:
+    where=', '.join(f\"{r} ({m})\" for r,m in p['where'].items()) or '—'
+    print(f\"{p['id']:<14} {p['name']:<14} {where}\")
+" ;;
+  read)
+    id=$(resolve "${2:?$a_id}")
+    n=${3:-12}
+    curl -sf -m 8 "$base/api/sessions/$id" | json "
+s=d['session']; print(f\"# {s['title']} · {s['tool']} · {s['status']}\" + (' · '+s['now'] if s.get('now') else ''))
+n=max(1,int(sys.argv[1])) if len(sys.argv)>1 else 12
+msgs=d.get('messages') or []
+if not msgs: print(E['WVM_NO_MESSAGES'])
+for m in msgs[-n:]:
+    who={'user':E['WVM_USER'],'assistant':s['tool'],'orchestrator':m.get('author') or 'weevboss','event':'→'}.get(m.get('role'),m.get('role','?'))
+    t=' '.join((m.get('text') or '').split())
+    print(f\"{who}: {t[:600]}\")
+" "$n" ;;
+  send)
+    id=$(resolve "${2:?$a_id}")
+    text=${3:?$a_msg}
+    out=$("$py" -c 'import json,sys; print(json.dumps({"text":sys.argv[1],"from":sys.argv[2]}))' "$text" "$from" \
+      | curl -s -m 40 -w '\n%{http_code}' -H 'content-type: application/json' --data-binary @- "$base/api/sessions/$id/send")
+    code=${out##*$'\n'}
+    if [ "$code" = 200 ]; then printf "$m_sent\n" "${id:0:8}"
+    else printf "$m_not_sent\n" "${id:0:8}" "$(printf '%s' "${out%$'\n'*}" | "$py" -c 'import json,sys,os; print(json.load(sys.stdin).get("error",os.environ["WVM_ERROR"]))' 2>/dev/null || echo "$WVM_ERROR $code")" >&2; exit 1; fi ;;
+  new)
+    project=${2:?$a_project}
+    text=${3:?$a_first}
+    tool=claude; [ "${4:-}" = codex ] && tool=codex
+    "$py" -c 'import json,sys; print(json.dumps({"projectId":sys.argv[1],"tool":sys.argv[2],"text":sys.argv[3],"from":sys.argv[4]}))' "$project" "$tool" "$text" "$from" \
+      | curl -sf -m 30 -H 'content-type: application/json' --data-binary @- "$base/api/sessions" | json "print(E['WVM_NEW']+d['id'][:8])" ;;
+  *)
+    echo "$usage"
+    exit 1 ;;
+esac
