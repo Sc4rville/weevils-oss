@@ -5,6 +5,7 @@ import type { Author, Message, Session } from '../../shared/api.ts'
 import { useApp } from './app-context'
 import { dur, inline, isCommand, plain, segments, status, step, userText } from './format'
 import { copyText, useLongPress } from './copy'
+import { markSeen } from './hints'
 import C from '../i18n/copy'
 import { getLang, tr, useT } from '../i18n'
 import M from '../i18n/bits'
@@ -251,7 +252,24 @@ export function Composer({
   formRef?: React.RefObject<HTMLFormElement | null>
 }) {
   const t = useT(M)
-  const [text, setText] = useState('')
+  // Le texte en cours survit à un rechargement (mise à jour automatique de l'app, public/sw.js) : gardé dans l'onglet,
+  // par champ (son libellé), effacé à l'envoi.
+  const key = `weevils-draft:${label}`
+  const [text, setText] = useState(() => {
+    try {
+      return sessionStorage.getItem(key) ?? ''
+    } catch {
+      return ''
+    }
+  })
+  useEffect(() => {
+    try {
+      if (text) sessionStorage.setItem(key, text)
+      else sessionStorage.removeItem(key)
+    } catch {
+      /* stockage indisponible */
+    }
+  }, [key, text])
   const field = useRef<HTMLInputElement>(null)
   const [busy, setBusy] = useState(false)
   const [files, setFiles] = useState<Attachment[]>([])
@@ -495,6 +513,7 @@ function Bubble({ className, style, who, copy, mid, children }: { className: str
   const press = useLongPress(async () => {
     const ok = await copyText(copy)
     if (ok) {
+      markSeen('g-copy')
       setCopied(true)
       navigator.vibrate?.(12)
       window.clearTimeout(timer.current)

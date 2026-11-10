@@ -10,6 +10,10 @@ export default defineMessages({
     h24: 'la bande h24 : ce qui tourne en continu, même téléphone éteint. tape encore pour l’ouvrir',
     repos: 'tous tes repos github. le + en met un dans le fil, un nom l’ouvre',
     calm: 'le mode conversation : rien que les messages. tape-en une pour y entrer, pince encore pour revenir',
+    devil: 'le diable : un autre modèle, sans filtre, dans ce même fil. tape encore pour basculer',
+    voiceOff: 'la voix n’est pas encore branchée : weevboss te dit comment, en haut',
+    reposOff: 'github n’est pas encore branché : weevboss te dit comment, en haut',
+    newSessionOff: 'claude code n’est pas encore connecté : weevboss te dit comment, en haut',
   },
   en: {
     voice: 'the logo is weevboss’s voice. tap to talk, again to stop, once more to send',
@@ -19,5 +23,9 @@ export default defineMessages({
     h24: 'the 24/7 band: what runs around the clock, even with your phone off. tap again to open it',
     repos: 'all your github repos. the + puts one in the feed, a name opens it',
     calm: 'conversation mode: just the messages. tap one to step in, pinch again to come back',
+    devil: 'the devil: another model, unfiltered, in this same thread. tap again to switch',
+    voiceOff: 'the voice isn’t plugged in yet: weevboss tells you how, up top',
+    reposOff: 'github isn’t plugged in yet: weevboss tells you how, up top',
+    newSessionOff: 'claude code isn’t signed in yet: weevboss tells you how, up top',
   },
 })

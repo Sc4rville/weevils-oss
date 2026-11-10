@@ -1,14 +1,14 @@
 import { createContext, useContext } from 'react'
 import type { Snapshot } from '../../shared/api.ts'
 
-export type Theme = 'light' | 'dark' | 'zen'
+export type Theme = 'light' | 'dark' | 'zen' | 'graphite'
 
 /** Ordre du sélecteur (un tap = le suivant). */
-export const THEMES: Theme[] = ['light', 'dark', 'zen']
+export const THEMES: Theme[] = ['light', 'dark', 'zen', 'graphite']
 export const isTheme = (v: unknown): v is Theme => THEMES.includes(v as Theme)
 
 /** Barre d'état iOS (theme-color) quand aucune page n'est ouverte : la couleur de la bande du haut. */
-export const THEME_COLOR: Record<Theme, string> = { light: '#B39BFF', dark: '#5522B5', zen: '#CFC2D5' }
+export const THEME_COLOR: Record<Theme, string> = { light: '#B39BFF', dark: '#5522B5', zen: '#CFC2D5', graphite: '#C4C4C4' }
 
 export type Page =
   | { kind: 'session'; id: string }

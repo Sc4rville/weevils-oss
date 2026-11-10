@@ -334,42 +334,6 @@
   line-height: 1.2;
 }
 
-.ob-cmd {
-  display: flex;
-  flex-direction: column;
-  gap: 10px;
-}
-
-.ob-host {
-  display: flex;
-  flex-direction: column;
-  gap: 4px;
-  font-size: 0.875rem;
-  font-weight: 650;
-}
-
-.ob-host input {
-  width: 100%;
-  padding: 6px 0;
-  border-bottom: 3px solid var(--ink);
-  font-size: 1.0625rem;
-  font-weight: 700;
-}
-
-.ob-code {
-  display: block;
-  padding: 12px 14px;
-  background: var(--ink);
-  color: var(--c);
-  font-family: inherit;
-  font-size: 0.875rem;
-  font-weight: 600;
-  line-height: 1.4;
-  word-break: break-all;
-  user-select: all;
-  -webkit-user-select: all;
-}
-
 /* ---- 2. session */
 
 .ob-screen {

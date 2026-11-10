@@ -14,8 +14,8 @@ import './onboarding.css'
 
 const KEY = 'weevils-onboarded'
 const REPLAY = 'weevils:onboarding'
-/** Commande d'installation d'une machine relais (contrat d'installation partagé). */
-const INSTALL = 'curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s -- --secondary'
+/** « En ajouter une autre » : juste après l'intro, weevboss ouvre son fil sur le branchement d'une machine (src/ui/setup.tsx). */
+export const WANT_MACHINE = 'weevils-want-machine'
 /** Une couleur de la palette par étape. */
 const COLORS = ['p9', 'p2', 'agent'] as const
 const ACCENTS = ['p4', 'p12', 'p6'] as const
@@ -218,7 +218,7 @@ export function Onboarding() {
               onDragEnd={onDragEnd}
               aria-labelledby={`ob-t${step}`}
             >
-              {step === 0 && <MachineStep machines={snap.machines} host={snap.config.publicHost} />}
+              {step === 0 && <MachineStep machines={snap.machines} />}
               {step === 1 && (
                 <Step n={1} title={t.sessionTitle} line={ticks[1] ? t.sessionDoneLine : t.sessionLine} visual={<SessionVisual done={ticks[1]} />}>
                   {ticks[1] ? <Big onClick={() => go(2)} label={t.onward} /> : <Big onClick={newSession} label={t.newSession} icon="plus" />}
@@ -308,30 +308,18 @@ const pop = (i: number) => ({ initial: { scale: 0, rotate: -12 }, animate: { sca
 
 // ---- 1. Machine
 
-function MachineStep({ machines, host }: { machines: Machine[]; host: string }) {
+function MachineStep({ machines }: { machines: Machine[] }) {
   const t = useT(M)
   const [adding, setAdding] = useState(false)
-  const [target, setTarget] = useState(host)
-  const [copied, setCopied] = useState(false)
-  const cmd = `${INSTALL} ${target.trim() || t.hostPlaceholder}`
   const shown = machines.slice(0, 3)
-
-  const copy = async () => {
+  // Rien à copier ni à taper : weevboss pose les questions (hébergeur, adresse, mot de passe) juste après l'intro.
+  const add = () => {
     try {
-      await navigator.clipboard.writeText(cmd)
+      localStorage.setItem(WANT_MACHINE, '1')
     } catch {
-      // http sans contexte sécurisé : l'ancienne méthode.
-      const ta = document.createElement('textarea')
-      ta.value = cmd
-      ta.style.position = 'fixed'
-      ta.style.opacity = '0'
-      document.body.appendChild(ta)
-      ta.select()
-      document.execCommand('copy')
-      ta.remove()
+      /* stockage indisponible : la page machine garde son bouton */
     }
-    setCopied(true)
-    setTimeout(() => setCopied(false), 1800)
+    setAdding(true)
   }
 
   return (
@@ -356,7 +344,7 @@ function MachineStep({ machines, host }: { machines: Machine[]; host: string }) 
             </motion.li>
           ))}
           <motion.li className="ob-machine ghost" {...pop(shown.length)}>
-            <motion.button className="ob-tile" onClick={() => setAdding(true)} aria-label={t.addOther} animate={{ y: [0, -6, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
+            <motion.button className="ob-tile" onClick={add} aria-label={t.addOther} animate={{ y: [0, -6, 0] }} transition={{ duration: 1.8, repeat: Infinity, ease: 'easeInOut' }}>
               <Icon name="plus" />
             </motion.button>
           </motion.li>
@@ -369,21 +357,10 @@ function MachineStep({ machines, host }: { machines: Machine[]; host: string }) 
         <p className="ob-line">{adding ? t.addLine : t.machineLine}</p>
       </div>
       <div className="ob-actions">
-        <AnimatePresence initial={false}>
-          {adding && (
-            <motion.div key="cmd" className="ob-cmd" initial={{ opacity: 0, y: 16 }} animate={{ opacity: 1, y: 0 }} exit={{ opacity: 0, y: 16 }}>
-              <label className="ob-host">
-                <span>{t.hostLabel}</span>
-                <input value={target} onChange={(e) => setTarget(e.target.value)} placeholder={t.hostPlaceholder} autoComplete="off" autoCapitalize="off" spellCheck={false} />
-              </label>
-              <code className="ob-code">{cmd}</code>
-            </motion.div>
-          )}
-        </AnimatePresence>
-        {adding ? <Big onClick={() => void copy()} label={copied ? t.copied : t.copy} icon={copied ? 'check' : 'file'} /> : <Big onClick={() => setAdding(true)} label={t.addOther} icon="plus" />}
+        <Big onClick={add} label={adding ? t.addNoted : t.addOther} icon={adding ? 'check' : 'plus'} />
         {adding && (
           <span className="ob-sr" role="status">
-            {copied ? t.copied : ''}
+            {t.addNoted}
           </span>
         )}
       </div>

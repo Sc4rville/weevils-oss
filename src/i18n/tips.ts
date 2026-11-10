@@ -26,7 +26,6 @@ export default defineMessages({
     tip_calm: 'pince l’écran : le mode conversation, plus calme',
     tip_ultracode: 'dis « ultracode » à weevboss : plusieurs agents en parallèle',
     tip_homeScreen: 'ajoute weevils à l’écran d’accueil : plein écran et notifications',
-    tip_wv: 'tape wv dans un terminal : la session apparaît ici',
     tip_import: 'importe tes conversations chatgpt et claude : weevils les range',
   },
   en: {
@@ -52,7 +51,6 @@ export default defineMessages({
     tip_calm: 'pinch the screen: conversation mode, calmer',
     tip_ultracode: 'say “ultracode” to weevboss: several agents in parallel',
     tip_homeScreen: 'add weevils to your home screen: full screen and notifications',
-    tip_wv: 'type wv in a terminal: the session shows up here',
     tip_import: 'import your chatgpt and claude chats: weevils sorts them',
   },
 })

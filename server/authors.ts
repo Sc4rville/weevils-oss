@@ -41,6 +41,8 @@ export function loadAuthors(env: Record<string, string | undefined> = process.en
 }
 
 let cache: AuthorConfig[] | undefined
+/** Relit les auteurs (un auteur vient d’être ajouté depuis l’app). */
+export const resetAuthors = () => void (cache = undefined)
 export const authors = () => (cache ??= loadAuthors())
 export const authorById = (id: string | undefined) => (id ? authors().find((a) => a.id === id) : undefined)
 /** Ce que l'app reçoit : ni adresses ni secrets. */

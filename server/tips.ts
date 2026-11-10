@@ -171,12 +171,12 @@ export const RULES: Rule[] = [
     check: ({ snap }) => {
       if (snap.machines.length !== 1 || snap.sessions.length === 0) return []
       const t = tr(M)
-      return [{ id: 'one-machine', rule: 'one-machine', personal: true, text: t.oneMachine, accept: t.addMachine, action: { kind: 'intro' } }]
+      return [{ id: 'one-machine', rule: 'one-machine', personal: true, text: t.oneMachine, accept: t.addMachine, action: { kind: 'setup', brick: 'machine' } }]
     },
   },
   {
     rule: 'no-dictation',
-    check: ({ dictation }) => (dictation ? [] : [{ id: 'no-dictation', rule: 'no-dictation', personal: true, text: tr(M).noDictation }]),
+    check: ({ dictation }) => (dictation ? [] : [{ id: 'no-dictation', rule: 'no-dictation', personal: true, text: tr(M).noDictation, accept: tr(M).plugVoice, action: { kind: 'setup', brick: 'voice' } }]),
   },
 ]
 

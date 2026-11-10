@@ -10,6 +10,7 @@ import { durLong } from './format'
 import { Icon } from './icons'
 import { Shell } from './shell'
 import { copyText } from './copy'
+import { askSetup } from './setup'
 import './infra.css'
 
 const quotaLevel = (p: number): Level => (p >= 90 ? 'crit' : p >= 75 ? 'warn' : 'ok')
@@ -104,7 +105,7 @@ const money = (n: number, cur: string | null) => `${Math.round(n * 100) / 100} $
 const dayName = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(intlLocale(), { weekday: 'short' })
 
 export function InfraPage({ machine, projectId }: { machine?: string; projectId?: string }) {
-  const { snap, push } = useApp()
+  const { snap, push, home, setExpanded } = useApp()
   const t = useT(M)
   const fromProject = projectId ? snap.sessions.find((s) => s.projectId === projectId)?.machineId : undefined
   const [id, setId] = useState(machine ?? fromProject ?? snap.machines[0]?.id ?? '')
@@ -252,6 +253,20 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
             </Line>
           ),
         )}
+        {/* Brancher une machine : weevboss pose les questions dans son fil (hébergeur, adresse, mot de passe), rien à taper d'autre. */}
+        <div className="in label">{t.addTitle}</div>
+        <Line
+          ch="+"
+          go="→"
+          meta={t.addMeta}
+          onClick={() => {
+            home()
+            setExpanded('agent')
+            askSetup('machine')
+          }}
+        >
+          <span className="strong">{t.addLine}</span>
+        </Line>
         <div style={{ height: 12 }} aria-hidden />
       </div>
     </Shell>

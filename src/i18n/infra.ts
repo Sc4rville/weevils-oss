@@ -43,6 +43,9 @@ export default defineMessages({
     // Fichiers
     entries: (n: number) => `${n} ${n > 1 ? 'éléments' : 'élément'}`,
     // Abonnement
+    addTitle: 'autres machines',
+    addLine: 'brancher une autre machine',
+    addMeta: 'un VPS, un serveur : l’hébergeur, l’adresse, le mot de passe',
     usageTitle: 'abonnement',
     usageLine: 'abonnements et quotas',
     usageMeta: 'claude et codex · 5 h, semaine, par projet',
@@ -92,6 +95,9 @@ export default defineMessages({
     episode: (cpu: number, mem: number) => `CPU ${cpu}% · memory ${mem}%`,
     noMeasure: 'no measurements yet',
     entries: (n: number) => `${n} ${n === 1 ? 'item' : 'items'}`,
+    addTitle: 'other machines',
+    addLine: 'plug in another machine',
+    addMeta: 'a VPS, a server: the host, the address, the password',
     usageTitle: 'subscription',
     usageLine: 'subscriptions & quotas',
     usageMeta: 'claude and codex · 5 h, week, by project',

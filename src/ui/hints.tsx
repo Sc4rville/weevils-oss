@@ -12,10 +12,10 @@ import './hints.css'
 // Also, on load: the server's install id. A different one than the device knew (server reinstalled or reset from
 // scratch) → the device forgets everything it kept about the old one (weevils-* in localStorage) and reloads.
 
-export type HintId = 'voice' | 'star' | 'newSession' | 'attention' | 'h24' | 'repos' | 'calm'
+export type HintId = 'voice' | 'star' | 'newSession' | 'attention' | 'h24' | 'repos' | 'calm' | 'devil'
 
 /** Every hint, for a device that already knew weevils before hints existed (they are all marked seen at once). */
-export const HINT_IDS: HintId[] = ['voice', 'star', 'newSession', 'attention', 'h24', 'repos', 'calm']
+export const HINT_IDS: HintId[] = ['voice', 'star', 'newSession', 'attention', 'h24', 'repos', 'calm', 'devil']
 
 const INSTALL = 'weevils-install'
 /** Shown at least this long, plus a little per character, at most MAX_MS. */
@@ -105,18 +105,32 @@ function show(id: HintId, el: Element | null, key: Shown['key'] = id): boolean {
   return true
 }
 
+/** A gesture or an element was used for real: its hint, or the animation that shows it, will never come. */
+export function markSeen(id: string) {
+  if (!seen || seen.has(id)) return
+  seen.add(id)
+  void post({ seen: [id] })
+  emit()
+}
+/** Already seen or done (true until the list is loaded: nothing is shown before). */
+export const isSeen = (id: string) => !seen || seen.has(id)
+
 /**
  * First tap on an element: shows its hint and returns true (the caller then does nothing else this time).
  * Already seen, not loaded yet, or the intro is open: false, the tap acts as usual.
  */
 export const tapHint = (id: HintId, el: Element | null, variant?: Shown['key']) => show(id, el, variant)
 
-/** A page's hint, the first time it opens (anchored to `anchor` when given, otherwise at the bottom of the screen). */
-export function useViewHint(id: HintId, anchor?: RefObject<Element | null>) {
+/** A page's hint, the first time it opens (anchored to `anchor` when given, otherwise at the bottom of the screen).
+ * `off`: a setting this page needs is missing; the bubble then sends to weevboss, and `onOff` asks him to explain. */
+export function useViewHint(id: HintId, anchor?: RefObject<Element | null>, off?: { variant: Shown['key']; onOff: () => void } | false) {
   useEffect(() => {
-    const t = setTimeout(() => show(id, anchor?.current ?? null), VIEW_DELAY_MS)
+    const t = setTimeout(() => {
+      if (show(id, anchor?.current ?? null, off ? off.variant : id) && off) off.onOff()
+    }, VIEW_DELAY_MS)
     return () => clearTimeout(t)
-  }, [id, anchor])
+    // eslint-disable-next-line react-hooks/exhaustive-deps
+  }, [id, anchor, !!off])
 }
 
 const hide = () => {

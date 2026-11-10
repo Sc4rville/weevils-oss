@@ -5,7 +5,7 @@ export default defineMessages({
   fr: {
     bodyTooLarge: 'corps trop grand',
     badJson: 'JSON invalide',
-    notBuilt: 'app non construite : npm run build',
+    notBuilt: 'l’app n’est pas encore construite : relance l’installation de weevils',
     wrongCode: 'code incorrect',
     sessionNotFound: 'session introuvable',
     conversationNotFound: 'conversation introuvable',
@@ -18,7 +18,7 @@ export default defineMessages({
   en: {
     bodyTooLarge: 'request too large',
     badJson: 'invalid JSON',
-    notBuilt: 'app not built: npm run build',
+    notBuilt: 'the app isn’t built yet: run the weevils installer again',
     wrongCode: 'wrong code',
     sessionNotFound: 'session not found',
     conversationNotFound: 'conversation not found',

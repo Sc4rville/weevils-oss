@@ -1,11 +1,12 @@
 // weevilsd : API + flux temps réel pour l'app, et récepteur local des hooks Claude Code.
 // Lancer : node server/index.ts (Node 22, TypeScript natif).
 
+import { spawn } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
-import { CONFIG_DIR, DATA_DIR, DIST_DIR, HOOK_PORT, HOST, MACHINE, ORCHESTRATOR, PORT } from './config.ts'
+import { CONFIG_DIR, DATA_DIR, DIST_DIR, HOOK_PORT, HOST, MACHINE, ORCHESTRATOR, PORT, PUBLIC_URL } from './config.ts'
 import { openaiKey, transcribe } from './transcribe.ts'
 import { addChunk, clip, cue, finishUpload, logMarks, newShortcutToken, shortcutAuthed, shortcutToken, speakStream, voiceTurn } from './voicepipe.ts'
 import { cartesia, cartesiaVoices } from './fast.ts'
@@ -14,6 +15,7 @@ import { setLang, tr } from './i18n.ts'
 import M from './i18n/api.ts'
 import P from './i18n/push.ts'
 import V from './i18n/voice.ts'
+import S from './i18n/setup.ts'
 import { tipRoutes } from './tips.ts'
 import { Hints, hintRoutes } from './hints.ts'
 import { browserSafe, isLocal, trustedFrom } from './http.ts'
@@ -23,12 +25,14 @@ import { brief, detail as infraDetail, listDir, readAny, startInfra } from './in
 import { quotas, today as usageToday } from './usage.ts'
 import type { InfraDetail, MachineBrief, MachineFacts, Reach, UsageRow } from '../shared/infra.ts'
 import { facts } from './discover.ts'
+import { Setup, installPlan, writeConfig } from './setup.ts'
+import { isBrick, isSetupKey, type Device } from '../shared/setup.ts'
 
 const w = new Weevils()
 w.start()
 startInfra()
 // Pont e-mail (agents externes) : sur la machine de l'orchestrateur, seulement si WEEVILS_MAIL_ADDRESS / _PASSWORD sont remplis.
-if (ORCHESTRATOR) startMailBridge(w, DATA_DIR)
+let mailBridge = ORCHESTRATOR ? startMailBridge(w, DATA_DIR) : null
 
 // ---------------------------------------------------------------- secret partagé (ce soir) → passkey (demain)
 
@@ -52,6 +56,37 @@ try {
   /* aucun appareil connecté */
 }
 const saveTokens = () => fs.writeFileSync(TOKENS_FILE, JSON.stringify([...tokens]), { mode: 0o600 })
+
+// ---------------------------------------------------------------- accueil et branchements (server/setup.ts)
+
+const hints = new Hints(DATA_DIR)
+const setup = new Setup({
+  bump: () => w.bump(),
+  feed: () => ({ machines: w.snapshot().machines, projects: w.snapshot().projects.length }),
+  remoteFacts: async () => (await Promise.all(w.remotes.filter((r) => r.online).map((r) => r.call<MachineFacts>('GET', '/api/infra/facts').catch(() => null)))).filter((f): f is MachineFacts => !!f),
+  devices: () => tokens.size,
+  push: () => w.push.count,
+  shortcut: () => !!shortcutToken(),
+  seen: () => hints.get().seen,
+  hasHistory: () => w.snapshot().main.some((m) => m.role === 'user'),
+  startMail: () => {
+    mailBridge?.stop()
+    mailBridge = ORCHESTRATOR ? startMailBridge(w, DATA_DIR) : null
+  },
+  handoff: (text, brief) => w.sendMain(text, brief),
+})
+w.setup = setup
+const asDevice = (d: any): Device => ({
+  os: ['ios', 'android', 'mac', 'windows', 'linux'].includes(d?.os) ? d.os : 'other',
+  mobile: !!d?.mobile,
+  standalone: !!d?.standalone,
+})
+/** Le lien de connexion (avec le code), pour le QR de l'accueil : l'adresse publique, sinon celle par laquelle l'app est ouverte. */
+const loginLink = (req: http.IncomingMessage) => {
+  const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? `127.0.0.1:${PORT}`)
+  const proto = String(req.headers['x-forwarded-proto'] ?? 'http')
+  return `${(PUBLIC_URL || `${proto}://${host}`).replace(/\/$/, '')}/#k=${SECRET}`
+}
 
 const cookieToken = (req: http.IncomingMessage) => /(?:^|;\s*)wv=([\w-]+)/.exec(req.headers.cookie ?? '')?.[1]
 const authed = (req: http.IncomingMessage) => {
@@ -187,6 +222,65 @@ const routes: [string, RegExp, Handler][] = [
     json(res, 200, { ok: true })
   }],
   ['POST', /^\/api\/devil$/, async (req, res) => json(res, 200, await w.devil(String((await readBody(req)).text ?? '')))],
+  // ---- Accueil et branchements : weevboss guide dans son fil (server/setup.ts, src/ui/setup.tsx).
+  ['GET', /^\/api\/setup$/, async (_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' })
+    res.end((await setup.report()) + '\n')
+  }],
+  ['GET', /^\/api\/setup\/install$/, async (_req, res) => {
+    res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' })
+    res.end(installPlan(await setup.detect(true)) + '\n')
+  }],
+  ['POST', /^\/api\/setup\/welcome$/, async (req, res) => {
+    await setup.welcome(asDevice((await readBody(req)).device))
+    json(res, 200, { ok: true })
+  }],
+  ['POST', /^\/api\/setup\/ask$/, async (req, res) => {
+    const b = await readBody(req)
+    if (!isBrick(b.brick)) return json(res, 400, { error: tr(S).badBrick })
+    const flow = await setup.ask(b.brick, b.device ? asDevice(b.device) : undefined)
+    json(res, 200, { ok: true, flow })
+  }],
+  ['POST', /^\/api\/setup\/apply$/, async (req, res) => {
+    const b = await readBody(req, 64 << 10)
+    if (!isBrick(b.brick) || typeof b.values !== 'object' || !b.values) return json(res, 400, { error: tr(S).badBrick })
+    await setup.apply(b.brick, Object.fromEntries(Object.entries(b.values as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')])))
+    json(res, 200, { ok: true })
+  }],
+  ['POST', /^\/api\/setup\/done$/, async (req, res) => {
+    const b = await readBody(req)
+    if (!isBrick(b.brick)) return json(res, 400, { error: tr(S).badBrick })
+    setup.done(b.brick)
+    json(res, 200, { ok: true })
+  }],
+  ['POST', /^\/api\/setup\/mark$/, async (req, res) => {
+    const id = String((await readBody(req)).id ?? '')
+    if (!/^[a-z][a-zA-Z0-9:-]{0,40}$/.test(id)) return json(res, 400, { error: tr(S).badBrick })
+    setup.mark(id)
+    json(res, 200, { ok: true })
+  }],
+  // « weevils config set » : seulement depuis la machine (weevboss), seulement les clés prévues.
+  ['POST', /^\/api\/setup\/config$/, async (req, res) => {
+    const b = await readBody(req)
+    if (!isLocal(req)) return json(res, 403, { error: tr(S).localOnly })
+    if (!isSetupKey(b.key)) return json(res, 400, { error: tr(S).badKey })
+    writeConfig({ [b.key]: String(b.value ?? '') })
+    w.bump()
+    json(res, 200, { ok: true })
+  }],
+  ['GET', /^\/api\/setup\/qr\.svg$/, async (req, res) => {
+    const svg = await new Promise<string>((resolve) => {
+      const p = spawn('qrencode', ['-t', 'SVG', '-m', '1', '-o', '-', loginLink(req)], { stdio: ['ignore', 'pipe', 'ignore'] })
+      let out = ''
+      p.stdout.on('data', (c) => (out += c))
+      p.on('error', () => resolve(''))
+      p.on('close', (code) => resolve(code === 0 ? out : ''))
+    })
+    if (!svg) return json(res, 404, { error: tr(S).noQr })
+    res.writeHead(200, { 'content-type': 'image/svg+xml', 'cache-control': 'no-store' })
+    res.end(svg)
+  }],
+  ['GET', /^\/api\/setup\/link$/, async (req, res) => json(res, 200, { link: loginLink(req) })],
   // ---- Voix rapide : son en flux, accroches en cache, enregistrement envoyé en morceaux, mesures.
   ['GET', /^\/api\/speak\/stream$/, async (_req, res, url) => speakStream(res, url.searchParams.get('text') ?? '', url.searchParams.get('oral') === '1', url.searchParams.get('voice') || undefined)],
   ['GET', /^\/api\/voice\/cue$/, async (_req, res) => {
@@ -364,7 +458,7 @@ const routes: [string, RegExp, Handler][] = [
     json(res, 200, { rows: [...rows, ...far.flat()].sort((a, b) => b.weight - a.weight) })
   }],
   ...tipRoutes(w, json, readBody, () => !!openaiKey()),
-  ...hintRoutes(new Hints(DATA_DIR), json, readBody),
+  ...hintRoutes(hints, json, readBody),
   ['POST', /^\/api\/github\/pin$/, async (req, res) => {
     const body = await readBody(req)
     w.pinRepo(String(body.repo ?? ''), !!body.pinned)

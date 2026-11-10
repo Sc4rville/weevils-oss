@@ -6,6 +6,8 @@ import { Icon } from './icons'
 import { getLang, tr, useLang, useT } from '../i18n'
 import M from '../i18n/voice'
 import { tapHint } from './hints'
+import { askSetup } from './setup'
+import { useApp } from './app-context'
 
 /**
  * Le logo de weevboss est le bouton vocal, en trois taps qui s'enchaînent vite :
@@ -102,6 +104,7 @@ const NOTE_MS = 2200
 export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }: { onText: (t: string) => void; onSend: () => void; replyKey?: string; replyText?: string; working: boolean; take: () => string }) {
   const t = useT(M)
   const lang = useLang()
+  const snapSetup = useApp().snap.setup
   // Langue changée : l'accroche gardée en mémoire est rechargée dans la nouvelle langue (le serveur suit l'app).
   const firstLang = useRef(true)
   useEffect(() => {
@@ -234,7 +237,9 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
     take()
   }
   const tap = (e: MouseEvent<HTMLButtonElement>) => {
-    if (phase === 'idle' && !speaking && tapHint('voice', e.currentTarget)) return
+    // Première fois : la bulle. Sans dictée ni voix branchées, elle renvoie vers weevboss, qui explique comment.
+    const off = snapSetup?.voice === false && snapSetup.dictation === false
+    if (phase === 'idle' && !speaking && tapHint('voice', e.currentTarget, off ? 'voiceOff' : undefined)) return void (off && askSetup('voice'))
     unlockAudio()
     // La voix se tait dès que l'utilisateur reprend la parole (le tap enchaîne sur l'enregistrement).
     if (speaking) {

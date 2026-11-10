@@ -203,7 +203,7 @@ describe('tips — rules', () => {
 
   it('cards follow the user language', () => {
     setLang('fr')
-    expect(personalTips(input({ dictation: false }))[0].text).toContain('pour dicter')
+    expect(personalTips(input({ dictation: false }))[0].text).toContain('dicte')
     setLang('en')
   })
 })

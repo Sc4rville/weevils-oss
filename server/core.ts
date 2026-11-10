@@ -19,6 +19,8 @@ import { setCartesiaVoice } from './fast.ts'
 import { keepWarm, warmCues } from './voicepipe.ts'
 import { detectLang } from '../shared/detect-lang.ts'
 import { devilConfig, devilMessages, devilSend, devilWorking } from './devil.ts'
+import { claudeLogged, withoutContext, type Setup } from './setup.ts'
+import { splitChips } from '../shared/setup.ts'
 import { createRepo, describeRepos, listRepos, loadBlurbs, remoteFile, remoteFiles } from './github.ts'
 import { TranscriptStore, digestOf, lastMessageOf, titleOf } from './transcripts.ts'
 import { llmTitles, needsTitle, shortNow } from './titles.ts'
@@ -172,6 +174,8 @@ export class Weevils {
   remotes: Remote[] = []
   convs = new ConversationStore(DATA_DIR)
   pinnedRepos: string[] = []
+  /** Accueil et branchements (server/setup.ts), posé par index.ts : ses messages se mêlent au fil de weevboss. */
+  setup: Setup | null = null
   private githubCache: Map<string, number> = new Map()
 
   // ---------------------------------------------------------------- repos GitHub
@@ -696,6 +700,7 @@ export class Weevils {
       mainHasScreen: !!this.orchestratorPane(),
       mainQueued: this.orchestratorQueued(now),
       devil: { enabled: !!devilConfig(), working: devilWorking() },
+      setup: this.setup?.flags(),
       pinnedRepos: this.pinnedRepos,
       config: { userName: USER_NAME, exposeDomain: EXPOSE_DOMAIN, publicHost: PUBLIC_URL ? new URL(PUBLIC_URL).host : '', authors: publicAuthors() },
     }
@@ -1193,7 +1198,17 @@ export class Weevils {
     const t = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
     // La bande du haut : tes messages et les réponses de weevils, pas ses appels d'outils.
     // Le devil mode écrit dans le même fil : ses échanges sont mêlés par ordre d'arrivée.
-    const msgs = [...(t?.messages.filter((m) => m.role !== 'event') ?? []), ...devilMessages()].sort((a, b) => a.at - b.at).slice(-40)
+    // L'accueil et les branchements, écrits par weevilsd au nom de weevboss, aussi. Le bloc de contexte joint à un message
+    // pour weevboss (ce qu'il n'a pas vu passer) ne s'affiche jamais.
+    const own = (t?.messages.filter((m) => m.role !== 'event') ?? []).map((m) => (m.role === 'user' ? { ...m, text: withoutContext(m.text) } : m))
+    const msgs = [...own, ...devilMessages(), ...(this.setup?.messages() ?? [])]
+      .sort((a, b) => a.at - b.at)
+      .slice(-40)
+      .map((m) => {
+        if (m.role !== 'assistant' || m.devil) return m
+        const { text, chips } = splitChips(m.text)
+        return chips.length ? { ...m, text, chips } : m
+      })
     if (!msgs.length && ORCHESTRATOR) {
       return [{ id: 'hello', role: 'assistant', text: tr(M).hello, at: Date.now() }]
     }
@@ -1209,11 +1224,20 @@ export class Weevils {
     return t.phase === 'working' && now - t.lastActivityAt < 10 * 60_000
   }
 
-  /** L'utilisateur parle à weevboss : le message part dans la session Claude de l'orchestrateur (lancée ou reprise au besoin). */
-  async sendMain(text: string) {
+  /** L'utilisateur parle à weevboss : le message part dans la session Claude de l'orchestrateur (lancée ou reprise au besoin).
+   * « brief » : la marche à suivre d'un bouton de branchement, jointe au bloc ⟦weevils …⟧ (jamais affichée). */
+  async sendMain(text: string, brief?: string) {
     if (!ORCHESTRATOR) throw new Error(tr(M).orchNotHere)
     if (!text.trim()) throw new Error(tr(M).emptyMessage)
+    // Claude Code pas connecté sur cette machine : weevboss ne peut pas répondre. Le message reste dans le fil, et la marche
+    // à suivre y arrive à sa place (weevilsd préviendra dès que la connexion est faite).
+    if (this.setup && !claudeLogged()) {
+      await this.setup.offline(text)
+      return { id: 'setup' }
+    }
     this.prepareOrchestrator()
+    // Ce que weevilsd a écrit en son nom depuis sa dernière réponse (accueil, branchements) : joint au message.
+    text = text + (this.setup?.contextFor(brief) ?? '')
     // Mesure : temps de réponse complet de weevboss, au journal.
     const since = Date.now()
     void this.waitMainReply(since, 300_000).then((r) => r && console.log(`[voix] weevboss a répondu en ${Date.now() - since} ms`))

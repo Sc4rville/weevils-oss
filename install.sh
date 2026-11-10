@@ -175,8 +175,12 @@ EN[lan_public]="WARNING: this address is not a private network address. Over pla
 FR[lan_public]="ATTENTION : cette adresse n'est pas une adresse de réseau privé. En http simple, le code d'accès et tout ce que tu fais passent en clair sur internet. Prends plutôt --domain."
 EN[lan_https]="over plain http, the phone allows neither the microphone nor notifications: HTTPS (--domain or Tailscale) brings them."
 FR[lan_https]="en http simple, le téléphone n'autorise ni le micro ni les notifications : le HTTPS (--domain ou Tailscale) les apporte."
-EN[next]="next: open the link on your phone, then Share → Add to Home Screen."
-FR[next]="ensuite : ouvre le lien sur ton téléphone, puis Partager → Sur l'écran d'accueil."
+EN[next]="next, on your phone: scan the QR code (or open the link), then iPhone: Share → Add to Home Screen; Android: ⋮ → Install app. weevboss welcomes you there and walks you through the rest."
+EN[next_local]="next, on your phone: give it a way in first (one of the four above), then open the link and add it to the home screen (iPhone: Share → Add to Home Screen; Android: ⋮ → Install app). weevboss walks you through the rest."
+EN[laptop]="this is a laptop: your agents stop when it sleeps. weevboss will suggest a small VPS so they work overnight."
+FR[next]="ensuite, sur ton téléphone : scanne le QR code (ou ouvre le lien), puis iPhone : Partager → Sur l'écran d'accueil ; Android : ⋮ → Installer l'application. weevboss t'y accueille et te guide pour la suite."
+FR[next_local]="ensuite, sur ton téléphone : donne-lui d'abord un chemin (un des quatre ci-dessus), puis ouvre le lien et ajoute-le à l'écran d'accueil (iPhone : Partager → Sur l'écran d'accueil ; Android : ⋮ → Installer l'application). weevboss te guide pour la suite."
+FR[laptop]="c'est un portable : tes agents s'arrêtent quand il se met en veille. weevboss te proposera un petit VPS pour qu'ils bossent la nuit."
 EN[secondary_ok]="this machine reports to"
 FR[secondary_ok]="cette machine remonte vers"
 EN[secondary_next]="its sessions show up in the app of the main machine. Start one here with: wv"
@@ -762,7 +766,8 @@ finish() {
   fi
   [ "$IS_WSL" = 0 ] || warn "$(t wsl)"
   agent_notes
-  [ "$mode" = local ] || info "$(t next)"
+  if ls /sys/class/power_supply/BAT* >/dev/null 2>&1 || { [ "$(uname -s)" = Darwin ] && sysctl -n hw.model 2>/dev/null | grep -qi book; }; then info "$(t laptop)"; fi
+  if [ "$mode" = local ]; then info "$(t next_local)"; else info "$(t next)"; fi
   echo
 }
 

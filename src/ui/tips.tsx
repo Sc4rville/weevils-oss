@@ -9,6 +9,7 @@ import { useApp } from './app-context'
 import { Line } from './bits'
 import { Icon, type Dir, type IconName } from './icons'
 import { replayOnboarding } from './onboarding'
+import { askSetup } from './setup'
 import { CHECK_MS, EMPTY_RETRY_MS, SHOW_MS, markShown, parseState, pick, ready, type TipsState } from './tips-schedule'
 import './tips.css'
 
@@ -41,10 +42,9 @@ const GENERAL: { key: GeneralKey; icon: IconName; dir?: Dir; when?: (e: Env) => 
   { key: 'calm', icon: 'pause', when: (e) => e.touch },
   { key: 'ultracode', icon: 'agents' },
   { key: 'homeScreen', icon: 'external', when: (e) => e.touch && !e.standalone },
-  { key: 'wv', icon: 'terminal' },
   { key: 'import', icon: 'quote' },
 ]
-type GeneralKey = 'liveUi' | 'dictate' | 'photo' | 'swipeBack' | 'repos' | 'h24' | 'calm' | 'ultracode' | 'homeScreen' | 'wv' | 'import'
+type GeneralKey = 'liveUi' | 'dictate' | 'photo' | 'swipeBack' | 'repos' | 'h24' | 'calm' | 'ultracode' | 'homeScreen' | 'import'
 
 /** Icon of each personalized rule (server/tips.ts, plus the client-side "push" rule). */
 const RULE_ICON: Record<string, [IconName, Dir?]> = {
@@ -138,7 +138,7 @@ const iconOf = (tip: TipCard): [IconName, Dir?] => {
 
 /** Mounted once on the feed. `paused`: a page is open. */
 export function Tips({ paused }: { paused: boolean }) {
-  const { h24Open, push, refresh, colors, snap } = useApp()
+  const { h24Open, push, refresh, colors, snap, home, setExpanded } = useApp()
   const t = useT(M)
   const off = useTipsOff()
   const [shown, setShown] = useState<Shown | null>(null)
@@ -231,6 +231,12 @@ export function Tips({ paused }: { paused: boolean }) {
     if (a.kind === 'intro') {
       hide()
       return replayOnboarding()
+    }
+    if (a.kind === 'setup') {
+      hide()
+      home()
+      setExpanded('agent')
+      return askSetup(a.brick)
     }
     setBusy(true)
     try {

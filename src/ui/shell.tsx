@@ -3,6 +3,7 @@ import { useEffect, useRef, type CSSProperties, type ReactNode } from 'react'
 import { THEME_COLOR, useApp, type Theme } from './app-context'
 import { spring } from './bits'
 import { Icon } from './icons'
+import { markSeen } from './hints'
 import { useT } from '../i18n'
 import M from '../i18n/shell'
 
@@ -87,7 +88,10 @@ export function Shell({
       dragElastic={{ left: 0, right: 0.9 }}
       dragSnapToOrigin
       onDragEnd={(_, info) => {
-        if (info.offset.x > 110 || info.velocity.x > 600) back()
+        if (info.offset.x > 110 || info.velocity.x > 600) {
+          markSeen('g-back')
+          back()
+        }
       }}
       role="dialog"
       aria-modal="true"

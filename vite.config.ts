@@ -1,5 +1,7 @@
 import fs from 'node:fs'
 import os from 'node:os'
+import path from 'node:path'
+import type { Plugin } from 'vite'
 import { configDefaults, defineConfig } from 'vitest/config'
 import react from '@vitejs/plugin-react'
 
@@ -13,11 +15,32 @@ function configured(name: string): string | undefined {
     return undefined
   }
 }
+// sw.js porte le nom du bundle d'entrée : chaque build change sw.js, et le service worker recharge les pages restées
+// sur une version précédente (iOS garde une app en mémoire des heures sans la recharger ; voir public/sw.js).
+function swBuild(): Plugin {
+  let entry = ''
+  let outDir = 'dist'
+  return {
+    name: 'weevils-sw-build',
+    apply: 'build',
+    configResolved(c) {
+      outDir = path.resolve(c.root, c.build.outDir)
+    },
+    generateBundle(_, bundle) {
+      for (const f of Object.values(bundle)) if (f.type === 'chunk' && f.isEntry) entry = path.basename(f.fileName)
+    },
+    closeBundle() {
+      const sw = path.join(outDir, 'sw.js')
+      if (entry && fs.existsSync(sw)) fs.writeFileSync(sw, fs.readFileSync(sw, 'utf8').replace('__WEEVILS_BUILD__', entry))
+    },
+  }
+}
+
 const publicUrl = configured('WEEVILS_PUBLIC_URL')
 const publicHost = process.env.WEEVILS_HOST ?? (publicUrl ? new URL(publicUrl).host : undefined)
 
 export default defineConfig({
-  plugins: [react()],
+  plugins: [react(), swBuild()],
   server: {
     host: '127.0.0.1',
     port: 4178,

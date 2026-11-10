@@ -9,6 +9,7 @@ import { Login } from './ui/login'
 import { Onboarding } from './ui/onboarding'
 import { Tips } from './ui/tips'
 import { HintBubble, loadHints } from './ui/hints'
+import { GestureCoach } from './ui/coach'
 import { PageView } from './ui/pages'
 import { usePinch } from './ui/calm'
 import { adoptUnknown } from './ui/seen'
@@ -261,6 +262,7 @@ export default function App() {
         <Tips paused={stack.length > 0} />
         <Onboarding />
         <HintBubble />
+        <GestureCoach />
       </MotionConfig>
     </Ctx.Provider>
   )

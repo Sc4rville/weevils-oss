@@ -6,6 +6,7 @@
 //
 // Et pour Siri / le bouton Action : /api/voice/turn, authentifié par un jeton personnel.
 
+import { splitChips } from '../shared/setup.ts'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import type http from 'node:http'
@@ -25,8 +26,8 @@ const log = (s: string) => console.log(`[voix] ${s}`)
 export const langOf = (text: string): Lang => detectLang(text) ?? lang()
 
 const clean = (text: string) =>
-  text
-    .replace(/```[\s\S]*?```/g, ' ')
+  splitChips(text)
+    .text.replace(/```[\s\S]*?```/g, ' ')
     .replace(/[`*_#>]/g, '')
     .replace(/https?:\/\/\S+/g, V[langOf(text)].aLink)
     .replace(/\s+/g, ' ')

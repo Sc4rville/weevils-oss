@@ -13,6 +13,8 @@ export type TipAction =
   | { kind: 'intro' }
   /** Asks for notifications on this device. */
   | { kind: 'push' }
+  /** Opens weevboss's thread and starts a setup flow (a brick of shared/setup.ts: machine, voice…). */
+  | { kind: 'setup'; brick: 'machine' | 'voice' | 'github' | 'claude' }
 
 export interface TipCard {
   /** Stable id, including the situation ("idle-sessions:<hash>"): a card is never shown twice. */

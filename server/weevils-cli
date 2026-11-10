@@ -4,6 +4,7 @@
 #
 #   weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
 #   weevils new <projet> "message" [codex]   weevils projects
+#   weevils setup [install | ask <brique> | mark <id>]      weevils config set <CLÉ> <valeur>
 set -euo pipefail
 base="http://127.0.0.1:${WEEVILS_PORT:-4179}"
 from=${WEEVILS_FROM:-weevils}
@@ -23,7 +24,8 @@ wv_lang() {
 if [ "$(wv_lang)" = fr ]; then
   # i18n-ignore : messages français, l'anglais est juste en dessous (même chose dans la branche else)
   usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
-weevils new <projet> "message" [codex]   weevils projects' # i18n-ignore
+weevils new <projet> "message" [codex]   weevils projects
+weevils setup [install | ask <brique> | mark <id>]   weevils config set <CLÉ> <valeur>' # i18n-ignore
   a_id='id de session' a_msg='message' a_project='projet' a_first='premier message' # i18n-ignore
   export WVM_NOT_FOUND='session introuvable : ' WVM_AMBIGUOUS='plusieurs sessions commencent par {} : {}' # i18n-ignore
   export WVM_NO_SESSIONS='aucune session ouverte' WVM_NO_MESSAGES='(aucun message)' WVM_USER='utilisateur' # i18n-ignore
@@ -31,7 +33,8 @@ weevils new <projet> "message" [codex]   weevils projects' # i18n-ignore
   m_sent='reçu par %s' m_not_sent='NON reçu par %s : %s' # i18n-ignore
 else
   usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
-weevils new <project> "message" [codex]  weevils projects'
+weevils new <project> "message" [codex]  weevils projects
+weevils setup [install | ask <brick> | mark <id>]   weevils config set <KEY> <value>'
   a_id='session id' a_msg='message' a_project='project' a_first='first message'
   export WVM_NOT_FOUND='no such session: ' WVM_AMBIGUOUS='several sessions start with {}: {}'
   export WVM_NO_SESSIONS='no open sessions' WVM_NO_MESSAGES='(no messages)' WVM_USER='user'
@@ -97,6 +100,22 @@ for m in msgs[-n:]:
     tool=claude; [ "${4:-}" = codex ] && tool=codex
     "$py" -c 'import json,sys; print(json.dumps({"projectId":sys.argv[1],"tool":sys.argv[2],"text":sys.argv[3],"from":sys.argv[4]}))' "$project" "$tool" "$text" "$from" \
       | curl -sf -m 30 -H 'content-type: application/json' --data-binary @- "$base/api/sessions" | json "print(E['WVM_NEW']+d['id'][:8])" ;;
+  setup)
+    # L'état réel de chaque brique (machine, Claude Code, GitHub, voix, diable, e-mail…), la marche à suivre pour
+    # installer ce qui manque, ou une puce de branchement postée dans le fil (la réponse arrive au nom de weevboss).
+    case "${2:-}" in
+      '') curl -sf -m 30 "$base/api/setup" ;;
+      install) curl -sf -m 30 "$base/api/setup/install" ;;
+      ask|mark)
+        key=brick; [ "$2" = mark ] && key=id
+        "$py" -c 'import json,sys; print(json.dumps({sys.argv[1]:sys.argv[2]}))' "$key" "${3:?}" \
+          | curl -sf -m 30 -H 'content-type: application/json' --data-binary @- "$base/api/setup/$2" >/dev/null && echo ok ;;
+      *) echo "$usage"; exit 1 ;;
+    esac ;;
+  config)
+    [ "${2:-}" = set ] || { echo "$usage"; exit 1; }
+    "$py" -c 'import json,sys; print(json.dumps({"key":sys.argv[1],"value":sys.argv[2]}))' "${3:?}" "${4-}" \
+      | curl -sf -m 15 -H 'content-type: application/json' --data-binary @- "$base/api/setup/config" >/dev/null && echo ok ;;
   *)
     echo "$usage"
     exit 1 ;;

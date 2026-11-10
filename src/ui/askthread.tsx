@@ -7,6 +7,7 @@ import { EDGE } from './codeview'
 import { flatText, offsetOf, pathAt, pathOrWord, rangeOf, wordUnder } from './textpick'
 import { listFiles, matchFile, parsePath } from './repofiles'
 import { step, userText } from './format'
+import { markSeen } from './hints'
 
 /**
  * Un fil de conversation qu'on interroge (session ou weevboss) : chaque mot d'un message, d'une ligne d'outil ou d'un
@@ -89,6 +90,7 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
     setSpot(null)
     setSel(next)
     setSelText(text)
+    if (next) markSeen('g-ask')
   }, [])
 
   // ---- Gestes. Capture : la bulle arrête la souris pour son propre usage, on doit tout voir avant elle.
@@ -146,6 +148,7 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
           else if (e.clientY < r.top) s = 0
         }
         setSel({ mid: g.root.dataset.mid!, s, e: end })
+        markSeen('g-ask')
         setSelText(g.flat.slice(s, end).trim())
       }
       const up = (e: PointerEvent) => {

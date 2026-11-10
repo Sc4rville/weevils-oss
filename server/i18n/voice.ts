@@ -19,12 +19,12 @@ export default defineMessages({
     badRecording: 'enregistrement invalide',
     recordingNotFound: 'enregistrement introuvable',
     missingAudio: 'audio manquant',
-    transcriptionOff: 'transcription non configurée sur le serveur',
+    transcriptionOff: 'la dictée n’est pas encore branchée : demande à weevboss de la brancher',
     transcriptionError: (status: number) => `transcription : erreur ${status}`,
     noCartesiaKey: 'clé Cartesia absente',
     noCartesiaVoice: 'aucune voix française Cartesia',
-    /** edge-tts (free voice) is not installed: say how to install it. */
-    noEdgeTts: 'voix indisponible : edge-tts n’est pas installé (pipx install edge-tts)',
+    /** edge-tts (free voice) is not installed: weevboss plugs the voice in. */
+    noEdgeTts: 'pas encore de voix : demande à weevboss de brancher la voix',
   },
   en: {
     oral: (user: string) =>
@@ -37,10 +37,10 @@ export default defineMessages({
     badRecording: 'invalid recording',
     recordingNotFound: 'recording not found',
     missingAudio: 'no audio',
-    transcriptionOff: 'transcription isn’t set up on the server',
+    transcriptionOff: 'dictation isn’t plugged in yet: ask weevboss to plug it in',
     transcriptionError: (status: number) => `transcription: error ${status}`,
     noCartesiaKey: 'no Cartesia key',
     noCartesiaVoice: 'no English Cartesia voice',
-    noEdgeTts: 'no voice: edge-tts isn’t installed (pipx install edge-tts)',
+    noEdgeTts: 'no voice yet: ask weevboss to plug in the voice',
   },
 })

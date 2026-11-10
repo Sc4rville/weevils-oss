@@ -15,10 +15,11 @@ import { isUnread, useSeen } from './seen'
 import { Appear, Collapse, Composer, INSTANT, Line, Messages, SessionRow, Working, authorTone, spring, useAuthors } from './bits'
 import B from '../i18n/bits'
 import { ago, plain, userText } from './format'
-import { Icon } from './icons'
+import { FilledIcon, Icon } from './icons'
 import { PrefLines } from './prefs'
-import { useDevil } from './devil'
-import { tapHint } from './hints'
+import { setDevil, useDevil } from './devil'
+import { markSeen, tapHint } from './hints'
+import { SetupChips, SetupComposer, askSetup, useFlow, useWelcome } from './setup'
 
 const color = (slot: string) => ({ '--c': `var(--${slot})` }) as CSSProperties
 
@@ -138,10 +139,23 @@ function Peek({ onOpen }: { onOpen: () => void }) {
 
 export function AgentBand() {
   const t = useT(M)
+  const td = useT(D)
   const { snap, expanded, setExpanded } = useApp()
   const open = expanded === 'agent'
-  // Devil mode : réglé dans les préférences ; les messages vont à l'autre modèle, la bande passe en orange.
+  // Devil mode : le diablotin, toujours là à droite du logo. Branché, un tap bascule (bande orange, réponses en vert,
+  // même fil) ; pas branché, un tap demande à weevboss de proposer le branchement, dans son fil.
   const devilOn = useDevil(!!snap.devil?.enabled)
+  const flow = useFlow()
+  useWelcome()
+  const tapDevil = (el: Element) => {
+    if (!snap.devil?.enabled) {
+      setExpanded('agent')
+      void askSetup('devil')
+      return
+    }
+    if (tapHint('devil', el)) return
+    setDevil(!devilOn)
+  }
   const body = useRef<HTMLDivElement>(null)
   const form = useRef<HTMLFormElement>(null)
   const swipe = useRef<{ y: number; top: number } | null>(null)
@@ -161,6 +175,15 @@ export function AgentBand() {
   }
   const attach = async (text: string, files: { name: string; type: string; data: string }[]) => {
     await api.mainAttach(text, files)
+  }
+  // Les puces de branchement d'un message de weevboss ([[setup:x]]) : en boutons dessous, sur le dernier message qui
+  // les porte seulement (les anciens restent lisibles, sans boutons qui doublonnent).
+  const lastWith = new Map<string, string>()
+  for (const m of snap.main) for (const c of m.chips ?? []) lastWith.set(c, m.id)
+  const chipsOf = (id: string) => {
+    const m = snap.main.find((x) => x.id === id)
+    const list = (m?.chips ?? []).filter((c) => lastWith.get(c) === id)
+    return list.length ? <SetupChips chips={list} /> : null
   }
 
   return (
@@ -182,6 +205,9 @@ export function AgentBand() {
             replyText={th.a.replyKey ? th.a.shown : mainReply?.text}
             working={snap.mainWorking || th.a.waiting}
           />
+          <button className={`devil-btn ${devilOn ? 'on' : ''}`} onClick={(e) => tapDevil(e.currentTarget)} aria-pressed={devilOn} aria-label={devilOn ? td.on : td.off}>
+            <FilledIcon name="devil" />
+          </button>
         </div>
         {/* L'aperçu et le fil restent rendus : ouvrir ou fermer ne fait que les montrer ou les cacher (immédiat). */}
         <div className="peek-wrap" hidden={open}>
@@ -198,19 +224,23 @@ export function AgentBand() {
             const s = swipe.current
             swipe.current = null
             // Tirer vers le bas depuis le haut du fil (déjà en haut) : réduit.
-            if (s && s.top <= 0 && e.changedTouches[0].clientY - s.y > 90) setExpanded(null)
+            if (s && s.top <= 0 && e.changedTouches[0].clientY - s.y > 90) {
+              markSeen('g-collapse')
+              setExpanded(null)
+            }
           }}
         >
           <div ref={th.ref} className="ask-thread">
-            <Messages messages={snap.main} author="weevboss" working={snap.mainWorking || !!snap.devil?.working} after={th.after} />
+            <Messages messages={snap.main} author="weevboss" working={snap.mainWorking || !!snap.devil?.working} after={(id) => <>{th.after(id)}{chipsOf(id)}</>} />
           </div>
           {snap.mainWorking && <Working author="weevboss" />}
           {snap.devil?.working && <Working author="devil" />}
         </motion.div>
       </div>
 
-      {/* Écrire ici n'ouvre pas la conversation : elle s'ouvre à l'envoi, pour lire la réponse. */}
-      <Composer placeholder={t.agentPlaceholder} label={t.agentLabel} onSend={send} onAttach={attach} anyFile voice draft={draft} formRef={form} prompt={snap.mainWorking ? <span className="spin fluo"><Icon name="star" /></span> : <Icon name="chevron" dir="right" />} />
+      {/* Écrire ici n'ouvre pas la conversation : elle s'ouvre à l'envoi, pour lire la réponse. Pendant un branchement,
+          le champ pose les questions du parcours, une à la fois (src/ui/setup.tsx). */}
+      {flow ? <SetupComposer /> : <Composer placeholder={t.agentPlaceholder} label={t.agentLabel} onSend={send} onAttach={attach} anyFile voice draft={draft} formRef={form} prompt={snap.mainWorking ? <span className="spin fluo"><Icon name="star" /></span> : <Icon name="chevron" dir="right" />} />}
     </section>
   )
 }
@@ -255,6 +285,7 @@ export function ProjectBand({ project }: { project: Project }) {
     saveCollapsed(project.id, v)
   }
   const toggle = () => {
+    markSeen('g-fold')
     // Une autre bande est ouverte (le fil de weevboss en grand, un autre projet) : un tap saute directement ici.
     if (mode === 'mini') {
       for (const r of project.repos) prefetchRepo(r, project.where[r] ?? snap.machines[0]?.id ?? '')
@@ -343,7 +374,10 @@ export function ProjectBand({ project }: { project: Project }) {
               </button>
             )}
             {project.kind === 'repo' || project.repos.length > 0 ? (
-              <button className="ch" aria-label={t.newSessionIn(project.name)} onClick={(e) => tapHint('newSession', e.currentTarget) || push({ kind: 'new', projectId: project.id })}>
+              <button className="ch" aria-label={t.newSessionIn(project.name)} onClick={(e) => {
+                if (snap.setup?.claude === false && tapHint('newSession', e.currentTarget, 'newSessionOff')) return void askSetup('claude')
+                if (!tapHint('newSession', e.currentTarget)) push({ kind: 'new', projectId: project.id })
+              }}>
                 <Icon name="plus" />
               </button>
             ) : null}

@@ -50,7 +50,7 @@ export async function quick(prompt: string, maxTokens = 260): Promise<string> {
 }
 
 /** edge-tts : celui du PATH, sinon ~/.local/bin/edge-tts (pipx install edge-tts). null : pas installé. */
-function edgeTts(): string | null {
+export function edgeTts(): string | null {
   const dirs = [...(process.env.PATH ?? '').split(path.delimiter).filter(Boolean), path.join(os.homedir(), '.local', 'bin')]
   for (const dir of dirs) {
     const bin = path.join(dir, 'edge-tts')

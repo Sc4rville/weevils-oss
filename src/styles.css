@@ -114,6 +114,47 @@
   --dl: -0.06;
 }
 
+/* Graphite : tout en gris (fonds, bandes, texte, icônes), un seul bleu vif pour ce qui bouge (étoile qui travaille,
+   chargements, enregistrement vocal, non lu, aperçu live, progression). Les bandes se distinguent par la nuance.
+   Contrastes vérifiés : texte ≥ 8:1 partout, bleu ≥ 3:1 sur toutes les bandes et sous-bandes de projet (≥ 6:1 sur les plus claires). */
+:root[data-theme='graphite'] {
+  color-scheme: light;
+  --ink: #141414;
+  --agent: oklch(0.82 0 0);
+  --devil: oklch(0.77 0 0);
+  --devil-reply: oklch(0.93 0 0);
+  --h24: oklch(0.88 0 0);
+  --calm: oklch(0.94 0 0);
+  --calm-soft: 0.03;
+  --fluo: #0040f0;
+  /* Les 16 emplacements des projets : du plus clair au plus foncé (deux emplacements à ≥ 2 d'écart se distinguent). */
+  --p0: oklch(0.97 0 0);
+  --p1: oklch(0.959 0 0);
+  --p2: oklch(0.948 0 0);
+  --p3: oklch(0.937 0 0);
+  --p4: oklch(0.926 0 0);
+  --p5: oklch(0.915 0 0);
+  --p6: oklch(0.904 0 0);
+  --p7: oklch(0.893 0 0);
+  --p8: oklch(0.882 0 0);
+  --p9: oklch(0.871 0 0);
+  --p10: oklch(0.86 0 0);
+  --p11: oklch(0.849 0 0);
+  --p12: oklch(0.838 0 0);
+  --p13: oklch(0.827 0 0);
+  --p14: oklch(0.816 0 0);
+  --p15: oklch(0.805 0 0);
+  /* Logo vocal : le même bleu pour enregistrer, attendre, prêt et la vague de réponse. */
+  --anim-rec: #0040f0;
+  --anim-wait: #0040f0;
+  --anim-ready: #0040f0;
+  --anim-1: #0040f0;
+  --anim-2: #0040f0;
+  --anim-3: #0040f0;
+  --mix: 10%;
+  --dl: -0.045;
+}
+
 * {
   box-sizing: border-box;
 }
@@ -1485,7 +1526,7 @@ button.copy.done {
   min-height: 0;
 }
 
-/* Le logo, tout en haut, posé sur la ligne de base. */
+/* Le logo et le diablotin, tout en haut, posés sur la même ligne de base. */
 .agent-top {
   width: 100%;
   max-width: 760px;
@@ -1680,8 +1721,104 @@ button.copy.done {
 
 /* ---------- Devil mode ---------- */
 
+/* Le diablotin, toujours là, à droite du logo, sur sa ligne de base ; pâle quand il dort. */
+.devil-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: end center;
+  opacity: 0.55;
+  flex: none;
+}
+
+.devil-btn .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.devil-btn.on {
+  opacity: 1;
+}
+
 .msg.devil {
   background: var(--devil-reply);
+}
+
+/* ---------- Branchements (src/ui/setup.tsx) : boutons sous les messages de weevboss ---------- */
+
+.setup-chips {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--pad) 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Un aplat de l'encre sur le fond de la bande, gras, angles vifs. */
+.setup-chip {
+  min-height: 40px;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--c, var(--agent));
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-chip .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.setup-chip.done {
+  opacity: 0.55;
+}
+
+.setup-chip:disabled {
+  opacity: 0.7;
+}
+
+.setup-note {
+  flex-basis: 100%;
+}
+
+/* Le QR de connexion : noir sur blanc quel que soit le thème (il doit se scanner), carré, sans arrondi. */
+.setup-qr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.setup-qr img {
+  width: 168px;
+  height: 168px;
+  background: #fff;
+  padding: 8px;
+  image-rendering: pixelated;
+}
+
+.setup-form .attach-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Une question à choix (l'hébergeur d'un VPS) : des boutons à la place du champ, qui passent à la ligne. */
+.setup-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-block: 8px 12px;
+}
+
+.setup-choices .tool-btn {
+  margin-left: auto;
 }
 
 /* ---------- Aperçu vivant du fil (bande réduite) ---------- */
@@ -1778,4 +1915,41 @@ button.copy.done {
   background: var(--status-c, var(--agent));
   z-index: 25;
   pointer-events: none;
+}
+
+/* ---------- Graphite : seul ce qui bouge est bleu ---------- */
+
+/* Chargements : toutes les étoiles qui tournent, même celles sans .fluo (envoi, connexion, import…). */
+[data-theme='graphite'] .spin {
+  color: var(--fluo);
+}
+
+/* Non lu : le point et le titre en bleu. */
+[data-theme='graphite'] .dot {
+  background: var(--fluo);
+}
+
+[data-theme='graphite'] .row.unread .title {
+  color: var(--fluo);
+}
+
+/* Aperçu live : un trait bleu sous la barre d'adresse du navigateur intégré. */
+[data-theme='graphite'] .preview-bar {
+  border-bottom: 3px solid var(--fluo);
+}
+
+/* Progression de l'accueil. */
+[data-theme='graphite'] .ob-bar-box span {
+  background: var(--fluo);
+}
+
+/* Un dépôt épinglé est un état, pas une activité : encre. */
+[data-theme='graphite'] .repo-pin.on {
+  color: var(--ink);
+}
+
+/* Agents externes : leur bulle reste grise, un cran plus claire que celle de weevboss. */
+[data-theme='graphite'] .msg.orch.ext,
+[data-theme='graphite'] .peek-item.orch.ext {
+  --who-c: oklch(0.86 0 0);
 }

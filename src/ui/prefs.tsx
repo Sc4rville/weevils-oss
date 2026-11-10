@@ -1,15 +1,11 @@
 import { useEffect } from 'react'
 import { LANGS, LANG_NAMES, langIsChosen, setLang, syncServer, useLang, useT } from '../i18n'
 import M from '../i18n/prefs'
-import D from '../i18n/devil'
-import { useApp } from './app-context'
 import { Line } from './bits'
-import { setDevil, useDevil } from './devil'
-import { FilledIcon } from './icons'
 import { OnboardingLine } from './onboarding'
 import { TipsLine } from './tips'
 
-/** App-wide preferences shown in the bottom band: language, intro, tips, devil mode. */
+/** App-wide preferences shown in the bottom band: language, intro, tips (devil mode: the devil next to the logo). */
 export function PrefLines() {
   const t = useT(M)
   const lang = useLang()
@@ -26,22 +22,6 @@ export function PrefLines() {
       </Line>
       <OnboardingLine />
       <TipsLine />
-      <DevilLine />
     </>
   )
 }
-
-/** Devil mode: only when the server has a model plugged in (DEVIL_API_URL). */
-function DevilLine() {
-  const t = useT(D)
-  const { snap } = useApp()
-  const enabled = !!snap.devil?.enabled
-  const on = useDevil(enabled)
-  if (!enabled) return null
-  return (
-    <Line ch={<FilledIcon name="devil" />} go={null} meta={t.lineMeta} onClick={() => setDevil(!on)}>
-      {on ? t.on : t.off}
-    </Line>
-  )
-}
-

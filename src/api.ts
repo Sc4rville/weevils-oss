@@ -1,6 +1,7 @@
 // Client de weevilsd : appels REST + flux temps réel (SSE). Aucune donnée fictive.
 
 import { useCallback, useEffect, useRef, useState } from 'react'
+import type { AskResult, Brick, Device } from '../shared/setup.ts'
 import { tr } from './i18n'
 import M from './i18n/app'
 import type { FsListing, InfraDetail, UsageInfo, UsageToday } from '../shared/infra.ts'
@@ -61,6 +62,11 @@ export const api = {
   pinRepo: (repo: string, pinned: boolean) => call<{ ok: true }>('POST', '/api/github/pin', { repo, pinned }),
   newRepo: (name: string, description: string) => call<{ name: string }>('POST', '/api/github/repos', { name, description }),
   devil: (text: string) => call<{ id: string }>('POST', '/api/devil', { text }),
+  setupWelcome: (device: Device) => call<{ ok: true }>('POST', '/api/setup/welcome', { device }),
+  setupAsk: (brick: Brick, device: Device) => call<AskResult>('POST', '/api/setup/ask', { brick, device }),
+  setupApply: (brick: Brick, values: Record<string, string>) => call<{ ok: true }>('POST', '/api/setup/apply', { brick, values }),
+  setupDone: (brick: Brick) => call<{ ok: true }>('POST', '/api/setup/done', { brick }),
+  setupLink: () => call<{ link: string }>('GET', '/api/setup/link'),
   voiceChunk: (id: string, seq: number, type: string, data: string) => call<{ ok: true }>('POST', '/api/voice/chunk', { id, seq, type, data }),
   voiceFinish: (id: string, lang: string) => call<{ text: string }>('POST', '/api/voice/finish', { id, lang }),
   shortcut: (fresh: boolean) => call<{ token: string; url: string }>(fresh ? 'POST' : 'GET', '/api/voice/shortcut', fresh ? {} : undefined),

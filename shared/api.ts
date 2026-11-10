@@ -13,6 +13,8 @@ export interface Message {
   at: number
   /** Échange du devil mode (autre modèle, même fil que weevboss). */
   devil?: boolean
+  /** Fil de weevboss : les puces de branchement de ce message ([[setup:x]], retirées du texte), montrées en boutons. */
+  chips?: string[]
 }
 
 /** Qui peut signer un message dans une session, à part l'utilisateur : weevboss et les agents externes (config du serveur). */
@@ -159,6 +161,8 @@ export interface Snapshot {
   mainQueued: number
   /** Devil mode : modèle branché (DEVIL_API_URL) et réponse en cours. */
   devil: { enabled: boolean; working: boolean }
+  /** Ce qui est branché (server/setup.ts) : les bulles renvoient vers weevboss quand un réglage manque. */
+  setup?: { claude: boolean; voice: boolean; dictation: boolean; github: boolean; welcomed: boolean }
   /** Repos épinglés au fil des projets (présents même sans session). */
   pinnedRepos: string[]
   /** Réglages de l'utilisateur utiles à l'app (fichier de config du serveur). */
