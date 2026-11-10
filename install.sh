@@ -1,7 +1,7 @@
 #!/usr/bin/env bash
 # weevils installer — one command on a fresh Linux machine or VPS. Idempotent: run it again to update.
 #
-#   git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
+#   git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
 #   curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 #   … | bash -s -- --secondary <ssh host of the main machine>      (a second machine, federated by the main one)
 #   ./install.sh --agent      run by an AI agent (see AGENTS.md): no questions, ends with a machine-readable summary

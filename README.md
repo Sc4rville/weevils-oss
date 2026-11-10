@@ -35,7 +35,7 @@ You need a Linux machine (a VPS, a home server, WSL2) with **Claude Code** insta
 (not root). Codex is optional.
 
 ```sh
-git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
 ```
 
 The installer asks for your first name, your language and a domain (optional, see below), then installs what

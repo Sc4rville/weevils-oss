@@ -4,7 +4,7 @@ One command on a Linux machine or VPS (Ubuntu/Debian tested; dnf and pacman supp
 macOS is not supported yet; on Windows, use WSL2 (see below).
 
 ```sh
-git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
 # once the repo is public:
 curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 ```
