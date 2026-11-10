@@ -374,8 +374,8 @@ describe('the digest', () => {
     model.mockResolvedValue(DIGEST)
     await c.tick(now)
     const prompt = model.mock.calls[0][0]
-    expect(prompt).toContain('- [mygame] Jump physics: The double jump is in, with its tests.')
-    expect(prompt).toContain('- [mygame] Menu: Which font for the menu?')
+    expect(prompt).toContain('The double jump is in, with its tests.')
+    expect(prompt).not.toContain('Which font for the menu?')
     expect(prompt).toContain('1 turn delivered')
     expect(prompt).toContain('wants to ship mygame this year')
     expect(prompt).toContain('Sam')
@@ -388,6 +388,42 @@ describe('the digest', () => {
     // The button goes to weevboss with its brief, like one of its own posts.
     await fy.act(item.id, 'a1')
     expect(host.sendMain).toHaveBeenCalledWith(expect.stringContaining('Show me the jump'), expect.stringContaining('ask the mygame session'))
+  })
+
+  it('only includes an exact unanswered question from the current conversation', async () => {
+    const c = makeCurator()
+    await deliver('s1', 'The menu is ready.')
+    snap.sessions.push(session({ id: 'q1', status: 'needs_user', attention: 'stale choice' }))
+    threads.q1 = [says('Which colour do you prefer?')]
+    looked()
+    model.mockResolvedValue(DIGEST)
+    await c.tick(now)
+    expect(model.mock.calls[0][0]).toContain('Which colour do you prefer?')
+    expect(model.mock.calls[0][0]).not.toContain('stale choice')
+  })
+
+  it('does not repeat a question already answered despite a stale waiting status', async () => {
+    const c = makeCurator()
+    await deliver('s1', 'The capture layout is already live.')
+    snap.sessions.push(session({ id: 'q1', status: 'needs_user', attention: 'Which rendering should I start?' }))
+    threads.q1 = [says('Which rendering should I start?'), { ...says('Start the approved production.'), role: 'user' }]
+    looked()
+    model.mockResolvedValue(DIGEST)
+    await c.tick(now)
+    expect(model.mock.calls[0][0]).not.toContain('Which rendering should I start?')
+    expect(model.mock.calls[0][0]).toContain('The capture layout is already live.')
+  })
+
+  it('drops a recap when the source changes while it is being written', async () => {
+    const c = makeCurator()
+    await deliver('s1', 'The menu is ready.')
+    looked()
+    model.mockImplementation(async () => {
+      snap.sessions = snap.sessions.map((s) => ({ ...s, status: 'working', lastActivityAt: now + 1000 }))
+      return DIGEST
+    })
+    await c.tick(now)
+    expect(kinds('boss')).toHaveLength(0)
   })
 
   it('at most one every three hours, and only when something happened since the last one', async () => {

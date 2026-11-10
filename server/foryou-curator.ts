@@ -26,6 +26,7 @@
 //
 // Every generated item carries the language it was written in (hidden while the app reads another one).
 
+import { asksUser } from '../shared/asks.ts'
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
@@ -653,7 +654,7 @@ export class Curator implements ForYouCurator {
     const project = (id?: string) => snap.projects.find((p) => p.id === id)?.name ?? id ?? '?'
     const mine = snap.sessions.filter((s) => this.fy.eligible(s))
     const results = this.fy.recent(['session'], 80).filter((i) => i.tone === 'result' && i.at > since)
-    const waiting = mine.filter((s) => s.status === 'needs_user' || s.status === 'interrupted')
+    let waiting = mine.filter((s) => s.status === 'needs_user' || s.status === 'interrupted')
     const boss = this.fy.recent(['boss'], 30)
     const posts = boss.filter((i) => i.at > since && i.who === 'weevboss' && !i.id.startsWith('d:'))
     const mails = this.fy.recent(['mail'], 30).filter((i) => i.at > since)
@@ -661,32 +662,48 @@ export class Curator implements ForYouCurator {
     const fresh = waiting.filter((s) => Math.max(s.lastActivityAt, s.interrupted?.at ?? 0) > since)
     // Nothing happened: nothing to say, and no call.
     if (!results.length && !fresh.length && !posts.length && !mails.length && !ended.length) return null
-    const t = tr(P)
-    const l = lang()
-    const short = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s)
-    const earlier = boss.filter((i) => i.id.startsWith('d:')).slice(0, 3).map((i) => i.text)
-    const prompt = t.digest({
-      user: user(),
-      memory: this.deps.memory?.()?.digest(10, 1200) ?? '',
-      done: results.slice(0, 12).map((i) => t.line(project(i.projectId), i.title ?? '', short(i.text.replace(/\s+/g, ' '), 220))).join('\n'),
-      waiting: waiting.slice(0, 6).map((s) => t.line(project(s.projectId), s.title.replace(/^\s*\[from:[a-z0-9_-]+\]\s*/i, ''), s.status === 'needs_user' ? short((s.attention ?? '').replace(/\s+/g, ' '), 160) : tr(CM).cutWhy(s.interrupted?.reason ?? 'died'))).join('\n'),
-      counts: t.counts({
-        delivered: results.length,
-        started: mine.filter((s) => (s.openedAt ?? 0) > since).length,
-        asking: waiting.filter((s) => s.status === 'needs_user').length,
-        cut: waiting.filter((s) => s.status === 'interrupted').length,
-        mails: mails.length,
-        autoDone: ended.filter((o) => o.state === 'done').length,
-        autoFailed: ended.filter((o) => o.state === 'failed').length,
-        posts: posts.length,
-      }),
-      earlier: earlier.map((x) => `- ${short(x.replace(/\s+/g, ' '), 300)}`).join('\n'),
-    })
     return async () => {
+      // A status label alone is not evidence of a question. Read the current exchange.
+      const verified = await Promise.all(waiting.map(async (s) => {
+        if (s.status !== 'needs_user') return null
+        const detail = await this.fy.w.detailAny(s.id).catch(() => undefined)
+        const last = detail?.messages.filter((m) => m.role === 'user' || m.role === 'assistant').at(-1)
+        const ask = last?.role === 'assistant' ? asksUser(last.text) : null
+        const current = this.fy.w.snapshot().sessions.find((x) => x.id === s.id)
+        return ask && current?.status === 'needs_user' && current.lastActivityAt === s.lastActivityAt ? { ...s, attention: ask.text } : null
+      }))
+      waiting = verified.flatMap((s) => s ? [s] : [])
+      if (!results.length && !waiting.length && !posts.length && !mails.length && !ended.length) return
+      const sourceIds = new Set([...results.map((i) => i.sessionId), ...waiting.map((s) => s.id)])
+      const signature = (sessions: Session[]) => JSON.stringify(sessions.filter((s) => sourceIds.has(s.id)).map((s) => [s.id, s.status, s.lastActivityAt, s.attention]).sort((a, b) => String(a[0]).localeCompare(String(b[0]))))
+      const before = signature(snap.sessions)
+      if (signature(this.fy.w.snapshot().sessions) !== before) return
+      const t = tr(P)
+      const l = lang()
+      const short = (s: string, n: number) => (s.length > n ? `${s.slice(0, n - 1).trimEnd()}…` : s)
+      const earlier = boss.filter((i) => i.id.startsWith('d:')).slice(0, 3).map((i) => i.text)
+      const prompt = t.digest({
+        user: user(),
+        memory: this.deps.memory?.()?.digest(10, 1200) ?? '',
+        done: results.slice(0, 12).map((i) => t.line(project(i.projectId), '', short((i.body || i.text).replace(/\s+/g, ' '), 1000))).join('\n'),
+        waiting: waiting.slice(0, 6).map((s) => t.line(project(s.projectId), '', s.status === 'needs_user' ? short((s.attention ?? '').replace(/\s+/g, ' '), 160) : tr(CM).cutWhy(s.interrupted?.reason ?? 'died'))).join('\n'),
+        counts: t.counts({
+          delivered: results.length,
+          started: mine.filter((s) => (s.openedAt ?? 0) > since).length,
+          asking: waiting.filter((s) => s.status === 'needs_user').length,
+          cut: waiting.filter((s) => s.status === 'interrupted').length,
+          mails: mails.length,
+          autoDone: ended.filter((o) => o.state === 'done').length,
+          autoFailed: ended.filter((o) => o.state === 'failed').length,
+          posts: posts.length,
+        }),
+        earlier: earlier.map((x) => `- ${short(x.replace(/\s+/g, ' '), 300)}`).join('\n'),
+      })
       if (!this.reserve()) return
       const d = parseDigest(this.json(await this.ask('smart', prompt, 120_000)), earlier)
       // Answered, kept or not: the next one after DIGEST_EVERY_MS.
       this.s.digestAt = now
+      if (signature(this.fy.w.snapshot().sessions) !== before) return
       if (!d) return void console.log('[foryou] curateur : point de weevboss écarté (vide ou déjà dit)')
       this.fy.add({ id: `d:${now.toString(36)}`, kind: 'boss', who: 'weevboss', text: d.thought ? `${d.text}\n\n${d.thought}` : d.text, actions: d.actions, lang: l })
     }
