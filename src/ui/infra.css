@@ -194,3 +194,8 @@
 button.kv {
   width: 100%;
 }
+
+/* The subscription marker belongs to the same quiet scale as machine metadata. */
+.usage-line .st { font-size: 1rem; font-weight: 500; }
+.usage-line .meta { font-size: .8125rem; line-height: 1.4; }
+.usage-line .meta .gauge { height: 3px; margin-top: 4px; }

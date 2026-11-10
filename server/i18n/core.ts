@@ -33,7 +33,7 @@ export default defineMessages({
     onlyInPane: 'réglable seulement pour une session ouverte depuis weevils',
     orchNotRunning: 'l’orchestrateur ne tourne pas : envoie-lui d’abord un message',
     orchNotHere: 'l’orchestrateur ne tourne pas sur cette machine',
-    noConfirmation: 'rien ne confirme la réception',
+    noConfirmation: 'message transmis au terminal, réception encore incertaine · vérifie le fil avant de renvoyer',
     notReceived: (why: string) => `message non reçu par la session · ${why}`,
     /** First message of the top band, before the user ever wrote to weevboss. */
     hello: 'Dis-moi quoi faire : je lis tes sessions, j’écris dedans, je te résume. Les détails sont dans les bandes en dessous si tu veux les suivre.',
@@ -87,7 +87,7 @@ export default defineMessages({
     onlyInPane: 'only adjustable for a session opened from weevils',
     orchNotRunning: 'the orchestrator isn’t running: send it a message first',
     orchNotHere: 'the orchestrator doesn’t run on this machine',
-    noConfirmation: 'nothing confirms it arrived',
+    noConfirmation: 'message submitted to the terminal, receipt still uncertain · check the conversation before resending',
     notReceived: (why: string) => `the session didn’t get the message · ${why}`,
     hello: 'Tell me what to do: I read your sessions, write in them, and sum things up for you. The details are in the bands below if you want to follow along.',
 

@@ -222,7 +222,7 @@ function SessionPage({ id }: { id: string }) {
   const send = async (text: string, files: Attachment[] = []) => {
     setErr(null)
     const shown = files.length ? `${text ? `${text} ` : ''}(${t.photos(files.length)})` : text
-    const tmp: Pending = { id: `pending-${Date.now()}`, role: 'user', text: shown, at: Date.now(), typed: text, after: detail?.messages.at(-1)?.id }
+    const tmp: Pending = { id: `pending-${Date.now()}`, role: 'user', text: shown, at: Date.now(), typed: text, after: detail?.messages.at(-1)?.id, known: (detail?.messages ?? []).filter((m) => m.role === 'user' || m.role === 'orchestrator').map((m) => m.id) }
     setPending((p) => [...p, tmp])
     toEnd()
     try {
@@ -241,6 +241,7 @@ function SessionPage({ id }: { id: string }) {
       slot={colors[s.projectId] ?? 'agent'}
       kicker={project?.name ?? s.projectId}
       title={s.title}
+      scrollHeading
       meta={
         <>
           {s.now && (

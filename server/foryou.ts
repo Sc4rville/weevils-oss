@@ -1130,7 +1130,17 @@ export class ForYou {
    * sent to weevboss), remembered so it never comes back. A button under a post: its brief goes to weevboss behind a
    * short visible message, and the item leaves. « resume » on a cut session: resumed, and the item leaves.
    */
+  private actionFlights = new Map<string, Promise<void>>()
   async act(id: string, action: string, card?: string, l?: unknown): Promise<void> {
+    const key = card ?? id
+    const previous = this.actionFlights.get(key)
+    if (previous) return previous
+    const next = this.actOnce(id, action, card, l)
+    this.actionFlights.set(key, next)
+    try { await next } finally { this.actionFlights.delete(key) }
+  }
+
+  private async actOnce(id: string, action: string, card?: string, l?: unknown): Promise<void> {
     const t = withLang(l, () => tr(M))
     if (id === 'proposals') {
       const snap = this.w.snapshot()

@@ -125,3 +125,39 @@ it('does not re-offer an explicitly pasted image when returning to the app after
   expect(read).toHaveBeenCalledOnce()
   expect(proposal()).toBeNull()
 })
+
+it('locks synchronous duplicate submits and preserves the draft until acknowledgement', async () => {
+  let acknowledge!: () => void
+  send.mockImplementation(() => new Promise<void>((resolve) => { acknowledge = resolve }))
+  render({ text: 'one message', n: 1 })
+  act(() => {
+    host.querySelector('form')!.requestSubmit()
+    host.querySelector('form')!.requestSubmit()
+  })
+  expect(send).toHaveBeenCalledTimes(1)
+  expect(host.querySelector('textarea')!.value).toBe('one message')
+  expect(sessionStorage.getItem('weevils-draft:message')).toBe('one message')
+  expect(host.querySelector('form')!.getAttribute('aria-busy')).toBe('true')
+  await act(async () => acknowledge())
+  expect(host.querySelector('textarea')!.value).toBe('')
+  expect(sessionStorage.getItem('weevils-draft:message')).toBeNull()
+})
+
+it('keeps the original draft on rejection and a new dictation arriving during acknowledgement', async () => {
+  let reject!: (e: Error) => void
+  send.mockImplementation(() => new Promise<void>((_, fail) => { reject = fail }))
+  render({ text: 'keep this', n: 1 })
+  act(() => host.querySelector('form')!.requestSubmit())
+  render({ text: 'and this too', n: 2 })
+  await act(async () => reject(new Error('offline')))
+  expect(host.querySelector('textarea')!.value).toBe('keep this and this too')
+  expect(sessionStorage.getItem('weevils-draft:message')).toBe('keep this and this too')
+  expect(host.querySelector('button.send')!.hasAttribute('disabled')).toBe(false)
+})
+
+it('sends the final IME value present in the field, even before React onChange', async () => {
+  render({ text: 'unfinished', n: 1 })
+  host.querySelector('textarea')!.value = 'final composition'
+  await act(async () => host.querySelector('form')!.requestSubmit())
+  expect(send).toHaveBeenCalledWith('final composition')
+})

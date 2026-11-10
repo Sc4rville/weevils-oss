@@ -1,11 +1,14 @@
 // Bulles « envoi en cours » d'une session : affichées sous le fil jusqu'à ce que le transcript montre le message.
 import type { Message } from '../../shared/api.ts'
+import { userText } from './format'
 
 export interface Pending extends Message {
   /** Le texte tapé, sans les pièces jointes : l'agent reçoit « texte (photo : /chemin) », la bulle montre « texte (photo) ». */
   typed: string
   /** Dernier message réel connu à l'envoi : seuls ceux d'après peuvent être ce message (pas d'horloge à comparer). */
   after?: string
+  /** User messages present before sending; stream updates may move the anchor after the new message. */
+  known?: string[]
   /** Premier message d'une session neuve (seedPending) : aucun message plus ancien ne peut s'y tromper, donc pas
    * d'horloge comparée, et le serveur peut l'avoir précédé d'un contexte (conversation reprise) : il suffit qu'il y figure. */
   seed?: boolean
@@ -17,27 +20,32 @@ const norm = (s: string) => s.replace(/\s+/g, ' ').trim()
  * les messages datés d'au plus 30 s avant l'envoi peuvent être celui-ci (marge pour l'horloge du téléphone). */
 const SLACK_MS = 30_000
 
-/**
- * Le fil, puis les bulles pas encore arrivées. Une bulle disparaît quand un message de l'utilisateur arrivé après
- * l'envoi commence par le texte tapé (retours à la ligne aplatis comme dans la pane) ; chaque message réel n'en
- * efface qu'une, et un message identique plus ancien (« ok » renvoyé) n'efface pas la nouvelle, même quand le dernier
- * message connu à l'envoi n'est plus dans le fil.
- */
+/** Merge provisional inputs with their transcript occurrences, including multiple queued inputs
+ * combined by Codex. Already-known user messages cannot acknowledge a new send, even if an
+ * assistant's timestamp moves the old anchor past that send while streaming. */
 export function mergePending(real: Message[], pending: Pending[]): Message[] {
-  const used = new Set<number>()
+  const used = new Map<number, { start: number; end: number }[]>()
   const left = pending.filter((p) => {
     const typed = norm(p.typed)
     const from = p.after ? real.findIndex((m) => m.id === p.after) + 1 : 0
-    for (let i = from; i < real.length; i++) {
+    for (let i = 0; i < real.length; i++) {
       const m = real[i]
-      if (used.has(i) || (m.role !== 'user' && m.role !== 'orchestrator')) continue
-      if (p.seed) {
-        if (m.role !== 'user' || !norm(m.text).includes(typed)) continue
-      } else {
-        if (from === 0 && m.at < p.at - SLACK_MS) continue // un « ok » plus ancien n'efface pas la bulle
-        if (!norm(m.text).startsWith(typed)) continue
+      if ((m.role !== 'user' && m.role !== 'orchestrator') || (p.seed && m.role !== 'user') || (!p.known && i < from)) continue
+      const body = norm(userText(m.text))
+      if (p.known ? p.known.includes(m.id) : !p.seed && from === 0 && m.at < p.at - SLACK_MS) continue
+      // Codex can combine several queued inputs into one transcript message.
+      // Match complete input starts, consuming each occurrence once, rather than the whole message.
+      const starts = [0]
+      let offset = 0
+      for (const line of userText(m.text).split(/\r?\n/).map(norm).filter(Boolean)) {
+        if (offset) starts.push(offset)
+        offset += line.length + 1
       }
-      used.add(i)
+      if (p.seed) starts.push(body.indexOf(typed))
+      const ranges = used.get(i) ?? []
+      const start = starts.find((at) => at >= 0 && body.startsWith(typed, at) && !ranges.some((r) => at < r.end && at + Math.max(1, typed.length) > r.start))
+      if (start === undefined) continue
+      used.set(i, [...ranges, { start, end: start + Math.max(1, typed.length) }])
       return false
     }
     return true

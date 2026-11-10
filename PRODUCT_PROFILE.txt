@@ -1,0 +1,9 @@
+weevils product profile v1
+
+The EN/FR orchestrator templates are the shipped behavioral baseline. The server writes the same selected template to the boss CLAUDE.md and AGENTS.md. Setup supplies detected capabilities on each context handoff. No personal global instructions, external memory, plugins or MCP tools are included in the friend package.
+
+Supported first run: open the login link, select Claude in setup, sign in with YOUR Claude account, return the authorization code through the setup form, then ask for a local notes app. GitHub, Codex, dictation, speech, external previews, GPU and extra machines are optional connections, not prerequisites or promises. The user must complete provider login; a real model result cannot be demonstrated before that without using someone else's account.
+
+The friend container is single-user, with a fresh persistent HOME volume. It mounts no host credentials, Docker socket, source repositories or agent data. Its own Claude account and weevils memory persist in that volume. The server is mapped to host loopback only; HTTPS must be provided by a reverse proxy forwarding client addresses. The login link grants control of agents in this container; share it only with the intended tester.
+
+Product rules do not guarantee identical model output. Provider accounts, quota, model version and user choices still affect behavior. Native installs deliberately reuse the installing user's CLI configuration; use the container for a clean profile.

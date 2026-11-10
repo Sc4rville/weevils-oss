@@ -336,7 +336,6 @@ export const TIPS: [id: string, what: string][] = [
   ['liveUi', `ask me to change this interface (colors, layout, a new button): I hand it to a session in the weevils clone (${CLONE}) and it updates live`],
   ['files', "explore any machine's files: bottom band, the machine, then /"],
   ['photo', 'the + in the composer: send me a photo, a screenshot or a file'],
-  ['ultracode', 'say “ultracode” for a big job: the session deploys several agents in parallel'],
   ['model', 'ask me “opus”, “max effort”, “fast” or “compact” for a session: I type the right slash command'],
   ['newRepo', 'tell me an idea that fits no repo: I create the repo and open a session in it'],
   ['settings', 'bottom band: language, theme, the intro again, tips'],
@@ -575,7 +574,7 @@ export class Setup {
 
   /** Ce que l'app doit savoir pour ses bulles (renvoyer vers weevboss quand un réglage manque). Rapide : pas de sous-processus. */
   flags() {
-    return { claude: claudeLogged(), voice: !!(cartesia() || edgeTts()), dictation: !!process.env.OPENAI_API_KEY?.trim(), github: ghCache?.v.logged ?? true, welcomed: !!this.p.welcomed }
+    return { claude: claudeLogged(), voice: !!(cartesia() || edgeTts()), dictation: !!process.env.OPENAI_API_KEY?.trim(), github: ghCache?.v.logged ?? false, welcomed: !!this.p.welcomed }
   }
 
   /** Les messages écrits au nom de weevboss (et les réponses des parcours), à mêler à son fil. */
@@ -1256,7 +1255,7 @@ export class Setup {
     this.p.bossSeenAt = Date.now()
     const memory = this.memoryNote()
     this.save()
-    const parts: string[] = []
+    const parts: string[] = (fresh.length || brief || memory) ? [`weevils product profile v1; capabilities now: Claude signed in ${claudeLogged() ? 'yes' : 'no'}; Codex installed ${which('codex') ? 'yes (sign-in must be checked)' : 'no'}; GitHub signed in ${ghCache?.v.logged ? 'yes' : 'not confirmed'}; voice ${cartesia() || edgeTts() ? 'available' : 'not connected'}; dictation ${process.env.OPENAI_API_KEY?.trim() ? 'connected' : 'not connected'}. Extra plugins, delegation, browser, GPU and preview hosting are not guaranteed: verify before promising them.`] : []
     if (fresh.length) {
       const lines = fresh.map((m) => `${m.role === 'user' ? 'user' : 'you'}: ${m.text.replace(/```[a-z]*\n?/g, '`').replace(/\s+/g, ' ').slice(0, 400)}`)
       parts.push(`shown in your thread since your last reply (written by weevils in your name, or the user's answers to a setup flow; secrets never shown): ${lines.join(' | ').slice(0, 2400)}`)

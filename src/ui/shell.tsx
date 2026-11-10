@@ -133,6 +133,7 @@ export function Shell({
   bodyRef,
   onSwipeLeft,
   actions,
+  scrollHeading = false,
 }: {
   slot: string
   kicker: string
@@ -152,6 +153,8 @@ export function Shell({
   onSwipeLeft?: () => void
   /** Icon buttons at the right of the back-button row (pause, run now…). */
   actions?: ReactNode
+  /** Keep only navigation fixed; long session context scrolls with its messages. */
+  scrollHeading?: boolean
 }) {
   const { back } = useApp()
   const t = useT(M)
@@ -162,6 +165,14 @@ export function Shell({
   }, [])
   usePageChrome(slot, page)
   const [split, unsplit] = useSplit(!!side)
+  const details = (
+    <>
+      <h1 ref={heading} tabIndex={-1} className="h2" style={{ margin: 0 }}>
+        {title}
+      </h1>
+      {meta && <div className="meta" style={{ marginTop: 4 }}>{meta}</div>}
+    </>
+  )
   return (
     <motion.div
       ref={page}
@@ -197,19 +208,13 @@ export function Shell({
           ) : (
             <BackButton kicker={kicker} onClick={back} label={t.back(kicker)} />
           )}
-          <h1 ref={heading} tabIndex={-1} className="h2" style={{ margin: 0 }}>
-            {title}
-          </h1>
-          {meta && (
-            <div className="meta" style={{ marginTop: 4 }}>
-              {meta}
-            </div>
-          )}
+          {!scrollHeading && details}
         </div>
       </div>
       <div className="page-cols">
         <div className={dock && !foot ? 'page-main no-foot' : 'page-main'}>
           <div ref={bodyRef} className="page-body" data-scroll>
+            {scrollHeading && <div className="in session-heading">{details}</div>}
             {children}
             <div className="fill" />
           </div>

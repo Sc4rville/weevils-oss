@@ -240,3 +240,13 @@ describe('throwaway tmux isolation', () => {
     } finally { vi.unstubAllEnvs() }
   })
 })
+
+it('recognizes settings menus as controls, never as user questions', () => {
+ for (const title of ['Select Reasoning Level for GPT-6-Astra','Select Model']) {
+  const screen = `${title}\n\n1. Low\n› 2. Medium (default)\n3. High\nenter select · esc back`
+  expect(mux.screenDialog(screen)?.kind).toBe('settings')
+  expect(mux.dialogOnScreen(screen)).toBeDefined()
+  expect(mux.attentionFromScreen(screen)).toBeUndefined()
+  expect(mux.codexDialogOnScreen(screen)).toBeUndefined()
+ }
+})

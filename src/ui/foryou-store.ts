@@ -23,8 +23,9 @@ export interface ForYouStore {
   fresh: number
   /** Brings the newcomers in and takes the server's order again. */
   showFresh(): void
-  /** Optimistic: the item (or its card) leaves at once; on failure it comes back and error(id) says why. Never rejects. */
+  /** The item leaves after acknowledgement; failures stay visible through error(id). Never rejects. */
   act(id: string, action: string, card?: string): Promise<void>
+  acting(id: string, card?: string): boolean
   dismiss(id: string): Promise<void>
   /** Rejects on failure (the caller puts the text back). */
   reply(id: string, text: string): Promise<void>
@@ -188,26 +189,33 @@ subscribeNotices(() => rebuild())
 
 const message = (e: unknown) => (e instanceof Error && e.message ? e.message : tr(M).failed)
 
+const actionFlights = new Set<string>()
+const acting = (id: string, card?: string) => actionFlights.has(card ?? id)
 async function act(id: string, action: string, card?: string) {
+  const key = card ?? id
+  if (actionFlights.has(key) || (card ? goneCards.has(card) : gone.has(id))) return
+  actionFlights.add(key)
   const event = feed?.items.find((i) => i.id === id)
   const eventId = event ? feedNoticeKey(event) : undefined
   const dir = action === 'refuse' ? -1 : 1
   const left: Left = action === 'refuse' ? 'dismissed' : action === 'accept' || action === 'resume' ? 'launched' : 'sent'
   errors.delete(id)
-  if (card) goneCards.add(card)
-  else { gone.add(id); if (eventId) dismissedEvents.set(id, eventId) }
-  dirs.set(id, dir)
-  lefts.set(id, left)
-  if (card) dirs.set(card, dir)
   rebuild()
   try {
     await api.foryouAct(id, action, card)
+    if (card) goneCards.add(card)
+    else { gone.add(id); if (eventId) dismissedEvents.set(id, eventId) }
+    dirs.set(id, dir)
+    lefts.set(id, left)
+    if (card) dirs.set(card, dir)
     if (card) dismissNotice(noticeKey('proposal-card', card))
     else if (eventId) { dismissedEvents.set(id, eventId); dismissNotice(eventId) }
   } catch (e) {
     if (card) goneCards.delete(card)
     else { gone.delete(id); dismissedEvents.delete(id) }
     errors.set(id, message(e))
+  } finally {
+    actionFlights.delete(key)
     rebuild()
   }
 }
@@ -234,6 +242,8 @@ async function reply(id: string, text: string) {
   const event = feed?.items.find((i) => i.id === id)
   await api.foryouReply(id, text)
   if (event && isRequestNotice(event)) {
+    dirs.set(id, 1)
+    lefts.set(id, 'sent')
     const eventId = feedNoticeKey(event)
     dismissNotice(eventId)
   }
@@ -312,11 +322,12 @@ export function useForYou(): ForYouStore {
   const appLang = useLang()
   useEffect(() => sync(mark, authors, appLang), [mark, mark?.rev, mark?.unseen, authors, snap.version, appLang])
   const v = useSyncExternalStore(subscribe, getView, getView)
-  return useMemo(() => ({ ...v, showFresh, act, dismiss, reply, markSeen, more, refresh, error, leaving, leftAs, setReading }), [v])
+  return useMemo(() => ({ ...v, showFresh, act, acting, dismiss, reply, markSeen, more, refresh, error, leaving, leftAs, setReading }), [v])
 }
 
 /** Tests only: a blank store. */
 export function resetForYou() {
+  actionFlights.clear()
   resetNotices()
   dismissedEvents.clear()
   feed = null

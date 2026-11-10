@@ -7,10 +7,11 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Snapshot } from '../../shared/api.ts'
 import type { ForYouFeed, ForYouItem } from '../../shared/foryou.ts'
 
-const srv = vi.hoisted(() => ({ feed: null as unknown, calls: [] as string[], fail: '' }))
+const srv = vi.hoisted(() => ({ feed: null as unknown, calls: [] as string[], fail: '', gate: null as Promise<void> | null }))
 vi.mock('../api', () => {
   const run = async (what: string) => {
     srv.calls.push(what)
+    if (srv.gate && /^(act|reply) /.test(what)) await srv.gate
     if (srv.fail && what.startsWith(srv.fail)) throw new Error('refused by the server')
     return { ok: true as const }
   }
@@ -113,7 +114,7 @@ function render(node: React.ReactNode, s = snap()) {
     push: (p: unknown) => pushed.push(p),
     replace: () => {},
     back: () => pushed.push('back'),
-    home: () => {},
+    home: () => pushed.push('home'),
     expanded: null,
     setExpanded: () => {},
     h24Open: false,
@@ -150,6 +151,8 @@ const submit = (form: HTMLFormElement) => act(async () => void form.requestSubmi
 beforeEach(() => {
   ;(globalThis as { IS_REACT_ACT_ENVIRONMENT?: boolean }).IS_REACT_ACT_ENVIRONMENT = true
   localStorage.clear()
+  sessionStorage.clear()
+  srv.gate = null
   resetForYou()
   resetVoice()
   setSettledNow(true)
@@ -288,7 +291,7 @@ describe('for you page', () => {
     expect(host.querySelector('[data-fy="al"]')).toBeNull()
   })
 
-  it('a reply goes to the reply route and says « sent » at once; each reply field has its own label', async () => {
+  it('a reply goes to the reply route and clears its draft after acknowledgement; each reply field has its own label', async () => {
     await open()
     const form = band('se').querySelector<HTMLFormElement>('form.fy-reply')!
     await type(form, 'keep it')
@@ -296,7 +299,7 @@ describe('for you page', () => {
     await flush()
     expect(srv.calls).toContain('reply se keep it')
     expect(form.querySelector('input')!.value).toBe('')
-    expect(form.querySelector('[role=status]')!.textContent).toContain(t().sent)
+    expect(sessionStorage.getItem('weevils-feed-draft:se')).toBeNull()
     const labels = [...host.querySelectorAll('form.fy-reply input')].map((i) => i.getAttribute('aria-label'))
     expect(new Set(labels).size).toBe(labels.length)
   })
@@ -456,6 +459,24 @@ describe('for you: voice messages', () => {
     vi.stubGlobal('Audio', FakeAudio)
   })
   afterEach(() => vi.unstubAllGlobals())
+
+  it('projects is an explicit exit; leaving and reopening the feed keeps its scroll and active audio', async () => {
+    await open(VOICED)
+    await click(listen('bo'))
+    await fire('onplaying')
+    const body = host.querySelector<HTMLElement>('.fy-body')!
+    body.scrollTop = 480
+    act(() => body.dispatchEvent(new Event('scroll', { bubbles: true })))
+    await click(labelled(t().backToProjects))
+    expect(pushed.at(-1)).toBe('home')
+    render(null)
+    expect(audio().paused).toBe(false)
+    render(<ForYouPage />)
+    await flush()
+    expect(host.querySelector('.fy-body')!.scrollTop).toBe(480)
+    expect(audio().paused).toBe(false)
+    expect(FakeAudio.made).toHaveLength(1)
+  })
 
   it('only an item with a voice carries the play glyph and its bars, still until it is played', async () => {
     await open(VOICED)
@@ -679,4 +700,32 @@ describe('spoken proposals', () => {
     await click(button)
     expect(pushed).toContainEqual({ kind: 'auto', id: 'real' })
   })
+})
+
+it('a pending feed reply keeps its draft, does not claim success, and ignores duplicate submits', async () => {
+  await open(ITEMS.map((i) => i.id === 'bo' ? { ...i, actions: undefined } : i))
+  let resolve!: () => void
+  srv.gate = new Promise<void>((done) => { resolve = done })
+  const form = band('bo').querySelector<HTMLFormElement>('form.fy-reply')!
+  await type(form, 'oui')
+  act(() => { form.requestSubmit(); form.requestSubmit() })
+  expect(srv.calls.filter((s) => s === 'reply bo oui')).toHaveLength(1)
+  expect(form.querySelector('input')!.value).toBe('oui')
+  expect(form.querySelector('[role=status]')!.textContent).toContain(t().sending)
+  expect(sessionStorage.getItem('weevils-feed-draft:bo')).toBe('oui')
+  await act(async () => resolve())
+  expect(form.querySelector('input')!.value).toBe('')
+  expect(form.querySelector('[role=status]')!.textContent).toContain(t().sent)
+})
+
+it('an action stays visible and disabled until acknowledged, despite repeated taps', async () => {
+  await open()
+  let resolve!: () => void
+  srv.gate = new Promise<void>((done) => { resolve = done })
+  const button = band('bo').querySelector<HTMLButtonElement>('.fy-btn')!
+  act(() => { button.click(); button.click(); button.click() })
+  expect(srv.calls.filter((s) => s === 'act bo go')).toHaveLength(1)
+  expect(button.disabled).toBe(true)
+  expect(button.textContent).toContain(t().sending)
+  await act(async () => resolve())
 })

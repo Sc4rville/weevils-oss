@@ -246,7 +246,7 @@ export function AgentBand() {
   // Garanti par bands.test.tsx (déjà régressé deux fois).
   // La bulle et le glissé partent au tap, pas au retour du serveur ; un échec retire la bulle (le champ rend le texte).
   const sending = async (text: string, shown: string, go: () => Promise<unknown>) => {
-    const tmp: Pending = { id: `pending-${Date.now()}`, role: 'user', text: shown, at: Date.now(), typed: text, after: snap.main.at(-1)?.id, ...(devilOn ? { devil: true } : {}) }
+    const tmp: Pending = { id: `pending-${Date.now()}`, role: 'user', text: shown, at: Date.now(), typed: text, after: snap.main.at(-1)?.id, known: snap.main.filter((m) => m.role === 'user' || m.role === 'orchestrator').map((m) => m.id), ...(devilOn ? { devil: true } : {}) }
     setPending((p) => [...p, tmp])
     setSent((n) => n + 1)
     // Le champ écrit toujours à weevboss : envoyé depuis « pour toi », l'aperçu revient sur son fil, où la bulle et la

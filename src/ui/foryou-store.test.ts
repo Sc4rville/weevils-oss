@@ -172,13 +172,13 @@ describe('for you store', () => {
     expect(fy.unseen).toBe(1)
   })
 
-  it('act: the item leaves at once; it comes back with the error when the server refuses', async () => {
+  it('act: the item stays until acknowledgement and exposes a refusal in place', async () => {
     await serve(1, [item({ id: 'a', actions: [{ id: 'go', label: 'go' }] }), item({ id: 'b' })])
     srv.fail = 'act'
     let done!: Promise<void>
     act(() => void (done = fy.act('a', 'go')))
-    expect(ids()).toEqual(['b'])
-    expect(fy.leaving('a')).toBe(1)
+    expect(ids()).toEqual(['a', 'b'])
+    expect(fy.acting('a')).toBe(true)
     await act(() => done)
     expect(srv.calls).toContain('act a go')
     expect(ids()).toEqual(['a', 'b'])

@@ -235,19 +235,21 @@ function Gauges({ list }: { list: ForYouGauge[] }) {
 
 /** The item's buttons: the server knows what each one does. The item leaves once tapped. */
 function Actions({ item, fy }: { item: ForYouItem; fy: ForYouStore }) {
+  const t = useT(M)
   if (!item.actions?.length) return null
   return (
-    <div className="in fy-acts">
+    <div className="in fy-acts" aria-busy={fy.acting(item.id)}>
       {item.actions.map((a) => (
         <button
           key={a.id}
           className="fy-btn"
+          disabled={fy.acting(item.id)}
           onClick={() => {
             buzz()
             void fy.act(item.id, a.id)
           }}
         >
-          {a.label}
+          {fy.acting(item.id) ? t.sending : a.label}
         </button>
       ))}
     </div>
@@ -257,39 +259,47 @@ function Actions({ item, fy }: { item: ForYouItem; fy: ForYouStore }) {
 /** A reply typed right under the item: « > », the field, the arrow. Said « sent » at once; the text comes back if it failed. */
 function ReplyLine({ item, who, fy }: { item: ForYouItem; who: string; fy: ForYouStore }) {
   const t = useT(M)
-  const [text, setText] = useState('')
+  const key = `weevils-feed-draft:${item.id}`
+  const [text, setText] = useState(() => { try { return sessionStorage.getItem(key) ?? '' } catch { return '' } })
+  useEffect(() => { try { if (text) sessionStorage.setItem(key, text); else sessionStorage.removeItem(key) } catch { /* private storage */ } }, [key, text])
+  const submitting = useRef(false)
   const [sent, setSent] = useState(false)
   const [busy, setBusy] = useState(false)
   const [err, setErr] = useState<string | null>(null)
   const form = useRef<HTMLFormElement>(null)
-  const timer = useRef<number | undefined>(undefined)
-  useEffect(() => () => clearTimeout(timer.current), [])
   // Who receives it, not who spoke: under an idea of weevils, the words go to weevboss.
   const to = item.reply === 'boss' ? 'weevboss' : who
   const submit = async (e: FormEvent) => {
     e.preventDefault()
-    const body = text.trim()
-    if (!body || busy) return
-    setText('')
+    const field = form.current?.querySelector('input')
+    const original = field?.value ?? text
+    const body = original.trim()
+    if (!body || busy || submitting.current) return
+    submitting.current = true
+    setText(original)
     setErr(null)
-    setSent(true)
+    setSent(false)
     setBusy(true)
     buzz()
     flash(form.current)
-    clearTimeout(timer.current)
     try {
       await fy.reply(item.id, body)
-      timer.current = window.setTimeout(() => setSent(false), 2600)
+      setSent(true)
+      if (field?.value === original) {
+        field.value = ''
+        try { sessionStorage.removeItem(key) } catch { /* private storage */ }
+      }
+      setText((current) => current === original ? '' : current)
     } catch (e) {
       setSent(false)
-      setText(body)
       setErr(e instanceof Error && e.message ? e.message : t.failed)
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }
   return (
-    <form ref={form} className="tone fy-reply" onSubmit={submit}>
+    <form ref={form} className="tone fy-reply" aria-busy={busy} data-draft={!!text} onSubmit={submit}>
       <div className="in fy-reply-in">
         <span className="fy-reply-gt" aria-hidden>
           <Icon name="chevron" dir="right" />
@@ -298,7 +308,8 @@ function ReplyLine({ item, who, fy }: { item: ForYouItem; who: string; fy: ForYo
           type="text"
           name={`fy-reply-${item.id}`}
           value={text}
-          onChange={(e) => setText(e.target.value)}
+          onChange={(e) => { setText(e.target.value); setSent(false) }}
+          onKeyDown={(e) => { if (e.key === 'Enter' && (e.nativeEvent.isComposing || e.keyCode === 229)) e.preventDefault() }}
           placeholder={t.replyTo(to)}
           aria-label={t.replyLabel(to, item.title ?? item.text.slice(0, 60))}
           enterKeyHint="send"
@@ -306,6 +317,7 @@ function ReplyLine({ item, who, fy }: { item: ForYouItem; who: string; fy: ForYo
           autoCapitalize="sentences"
         />
         <span className="fy-sent" role="status">
+          {busy && t.sending}
           {sent && (
             <>
               <Icon name="check" /> {t.sent}
@@ -1005,9 +1017,10 @@ function lookTime(at: number): string {
 }
 
 /** « Pour toi » in full screen. who: the participant isolated at opening (else the one chosen last time). */
+const feedScroll = new Map<string, number>()
 export function ForYouPage({ who }: { who?: string }) {
   const t = useT(M)
-  const { back } = useApp()
+  const { back, home } = useApp()
   const fy = useForYou()
   const page = useRef<HTMLDivElement>(null)
   const body = useRef<HTMLDivElement>(null)
@@ -1022,6 +1035,9 @@ export function ForYouPage({ who }: { who?: string }) {
     showFresh()
     heading.current?.focus({ preventScroll: true })
     write(LOOK_KEY, String(Date.now()))
+    const y = feedScroll.get(sel) ?? 0
+    if (body.current) body.current.scrollTop = y
+    setReading(y > 48)
     return () => setReading(false)
   }, [showFresh, setReading])
 
@@ -1056,10 +1072,11 @@ export function ForYouPage({ who }: { who?: string }) {
               {t.title}
             </h1>
           </div>
+          <button type="button" className="link fy-projects" onClick={home} aria-label={t.backToProjects}>{t.projects}</button>
         </div>
         <Participants list={people} sel={sel} onPick={pick} />
       </div>
-      <div ref={body} className="page-body fy-body" data-scroll onScroll={(e) => setReading(e.currentTarget.scrollTop > 48)}>
+      <div ref={body} className="page-body fy-body" data-scroll onScroll={(e) => { feedScroll.set(sel, e.currentTarget.scrollTop); setReading(e.currentTarget.scrollTop > 48) }}>
         <AnimatePresence initial={false}>
           {fy.fresh > 0 && (
             <Notice key="fresh-notice" eventId={noticeKey('fresh-items', fy.feed?.items.map(feedNoticeKey))}>

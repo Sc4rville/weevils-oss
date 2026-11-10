@@ -731,3 +731,10 @@ it.each(['claude', 'codex'] as const)('%s completion reports with confirmations 
   t.messages.push({ id: 'question', role: 'assistant', text: 'Quelle option préfères-tu ?', at: NOW })
   expect(one()).toMatchObject({ status: 'needs_user', attention: 'Quelle option préfères-tu ?' })
 })
+
+it('shows an existing app-server thread reached by the bridge without resuming it in another terminal', async () => {
+ add(transcript({tool:'codex',originator:'codex-tui',delegationSources:new Map([['brief','boss']])}))
+ expect(one()).toMatchObject({id:'s1',controllable:false,hasScreen:false})
+ await expect(w.send('s1','continue')).rejects.toThrow()
+ expect(mux.spawnWv).not.toHaveBeenCalled()
+})

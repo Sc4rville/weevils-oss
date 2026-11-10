@@ -141,8 +141,7 @@ export function SessionRow({ session }: { session: Session }) {
           <ToolIcon tool={session.tool} />
         </span>
         <span className="title wrap">
-          {unread && <span className="dot" aria-hidden />}
-          {text}
+          <span className="session-name">{unread && <span className="dot" aria-hidden />}{text}</span>
           {act && act !== text && <span className="session-activity meta">{act}</span>}
           {session.background > 0 && <span className="bg strong"> · {t.background(session.background)}</span>}
           {/* Session Codex ouverte en relais d'une session Claude arrêtée par sa limite d'usage. */}
@@ -377,6 +376,7 @@ export function Composer({
   }, [key, text])
   const field = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const [busy, setBusy] = useState(false)
+  const submitting = useRef(false)
   const [files, setFiles] = useState<Attachment[]>([])
   const [rec, setRec] = useState<'off' | 'on' | 'wait'>('off')
   const [err, setErr] = useState<string | null>(null)
@@ -393,32 +393,29 @@ export function Composer({
   const submit = async (e: FormEvent) => {
     e.preventDefault()
     const form = e.currentTarget
-    const typed = text.trim()
-    if ((!typed && !files.length) || busy) return
+    // Use the live value: mobile IME may commit its final characters on blur.
+    if (submitting.current || busy || disabled) return
+    ;(document.activeElement as HTMLElement | null)?.blur?.()
+    const original = field.current?.value ?? text
+    const typed = original.trim()
+    if (!typed && !files.length) return
+    submitting.current = true // synchronous: two submit events can precede a React render
     const sent = files
-    setFiles([])
+    setText(original)
     setBusy(true)
     setErr(null)
-    // Le clavier se range tout seul : les barres système d'iOS disparaissent avec lui.
-    ;(document.activeElement as HTMLElement | null)?.blur?.()
-    // Vidé après le blur : iOS peut renvoyer le texte en cours de composition au moment où le champ perd le focus.
-    const clear = () => {
-      setText('')
-      if (field.current) field.current.value = ''
-    }
-    clear()
-    const later = setTimeout(clear, 0)
     try {
       if (sent.length && onAttach) await onAttach(typed, sent)
       else await onSend(typed)
+      // Keep the draft (including sessionStorage) until the server acknowledges it.
+      // A new dictation arriving while we await the server must also survive.
+      setText((current) => current === original ? '' : current)
+      setFiles((current) => current === sent ? [] : current)
     } catch (e) {
-      clearTimeout(later) // un refus immédiat : le second vidage ne doit pas effacer le texte rendu
-      setText(typed) // on rend le texte en cas d'échec, rien n'est perdu
-      setFiles(sent)
-      // Et on dit pourquoi (diable occupé, serveur injoignable…), sur la ligne au-dessus du champ.
       if (sayErrors) setErr((e as Error).message || tr(M).sendFailed)
       flash(form)
     } finally {
+      submitting.current = false
       setBusy(false)
     }
   }
@@ -474,7 +471,7 @@ export function Composer({
   }
 
   return (
-    <form ref={formRef} className={`composer band ${className}`} onSubmit={submit}>
+    <form ref={formRef} className={`composer band ${className}`} aria-busy={busy} data-draft={!!text || !!files.length} onSubmit={submit}>
       {(files.length > 0 || err) && (
         <div className="in meta attach-line">
           {files.length > 0 && (

@@ -1131,3 +1131,16 @@ it('retires raw announcements hidden behind post/digest ids and refuses their re
   expect(useful.text).toBe('Le thème est en ligne.')
   expect(useful.voice).toBe('default')
 })
+
+it('coalesces concurrent actions on the same card before delivery is acknowledged', async () => {
+  const fy = make()
+  const { id } = fy.post('Prepare the sketches', [{ label: 'Prepare', brief: 'make three sketches' }])
+  let resolve!: () => void
+  host.sendMain.mockImplementationOnce(() => new Promise((done) => { resolve = () => done({ id: 'boss' }) }))
+  const first = fy.act(id, 'a1')
+  const second = fy.act(id, 'a1')
+  expect(host.sendMain).toHaveBeenCalledTimes(1)
+  resolve()
+  await Promise.all([first, second])
+  expect(fy.feed().items).toEqual([])
+})

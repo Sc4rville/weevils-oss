@@ -28,10 +28,12 @@ function swBuild(): Plugin {
       outDir = path.resolve(c.root, c.build.outDir)
     },
     generateBundle(_, bundle) {
-      try {
-        const commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
-        this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ commit, at: Date.now() }) })
-      } catch { /* A source archive can be built without Git. */ }
+      let commit = process.env.WEEVILS_BUILD_COMMIT?.trim() || ''
+      if (!commit) {
+        try { commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim() }
+        catch { commit = 'source-archive' }
+      }
+      this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ commit, profile: 'weevils-v1', at: Date.now() }) })
       for (const f of Object.values(bundle)) if (f.type === 'chunk' && f.isEntry) entry = path.basename(f.fileName)
     },
     closeBundle() {

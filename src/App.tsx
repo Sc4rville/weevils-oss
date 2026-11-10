@@ -79,6 +79,16 @@ export default function App() {
   const [theme, setThemeState] = useState<Theme>(initialTheme)
   const [now, setNow] = useState(() => Date.now())
   const [expanded, setExpanded] = useState<string | null>(null)
+  const expandedRef = useRef(expanded)
+  expandedRef.current = expanded
+  const agentEntry = useRef(false)
+  const bossOrigin = useRef<{ y: number; expanded: string | null } | null>(null)
+  const beginBoss = useCallback(() => {
+    if (agentEntry.current) return
+    bossOrigin.current = { y: window.scrollY, expanded: expandedRef.current }
+    agentEntry.current = true
+    history.pushState({ w: 0, agent: true }, '')
+  }, [])
   const [h24Open, setH24Open] = useState(false)
   const [h24Focus, setH24Focus] = useState<string | null>(null)
   const [stack, setStack] = useState<Page[]>([])
@@ -88,6 +98,7 @@ export default function App() {
   const lastTap = useRef<{ el: HTMLElement | null; at: number }>({ el: null, at: 0 })
   /** À faire une fois toutes les pages refermées (focusBoss depuis une page). */
   const afterPop = useRef<(() => void) | null>(null)
+  const returningHome = useRef(false)
 
   // Horloge commune à toutes les durées affichées.
   useEffect(() => {
@@ -178,13 +189,15 @@ export default function App() {
 
   const push = useCallback(
     (p: Page) => {
+      const current = stackRef.current.at(-1)
+      if (p.kind === 'foryou' && current?.kind === 'foryou' && p.who === current.who) return
       const a = document.activeElement
       const tap = Date.now() - lastTap.current.at < 1500 ? lastTap.current.el : null
       const el = tap ?? (a && a !== document.body ? (a as HTMLElement) : null)
       openers.current[stackRef.current.length] = { el, key: el?.closest<HTMLElement>('[data-project]')?.dataset.project, top: el?.getBoundingClientRect().top ?? 0 }
       const next = [...stackRef.current, p]
       setPages(next)
-      history.pushState({ w: next.length }, '')
+      history.pushState({ w: next.length, agent: agentEntry.current }, '')
     },
     [setPages],
   )
@@ -193,16 +206,20 @@ export default function App() {
     (p: Page) => {
       const next = [...stackRef.current.slice(0, -1), p]
       setPages(next)
-      history.replaceState({ w: next.length }, '')
+      history.replaceState({ w: next.length, agent: agentEntry.current }, '')
     },
     [setPages],
   )
 
   const back = useCallback(() => {
-    if (stackRef.current.length) history.back()
+    if (stackRef.current.length || agentEntry.current) history.back()
   }, [])
   const home = useCallback(() => {
-    if (stackRef.current.length) history.go(-stackRef.current.length)
+    returningHome.current = true
+    afterPop.current = null
+    const depth = stackRef.current.length + Number(agentEntry.current)
+    if (depth) history.go(-depth)
+    else setExpanded(null)
   }, [])
 
   useEffect(() => {
@@ -210,7 +227,17 @@ export default function App() {
     // Le navigateur ne remet pas le flux là où il croit : le retour (ci-dessous) et focusBoss s'en chargent.
     history.scrollRestoration = 'manual'
     const onPop = (e: PopStateEvent) => {
-      const w = (e.state as { w?: number } | null)?.w ?? 0
+      const state = e.state as { w?: number; agent?: boolean } | null
+      const w = state?.w ?? 0
+      const requestedHome = returningHome.current
+      returningHome.current = false
+      const closedBoss = agentEntry.current && !state?.agent
+      agentEntry.current = !!state?.agent
+      if (closedBoss) {
+        const origin = bossOrigin.current
+        flushSync(() => setExpanded(origin?.expanded ?? null))
+        requestAnimationFrame(() => window.scrollTo({ top: origin?.y ?? 0, behavior: 'instant' }))
+      } else if (state?.agent) setExpanded('agent')
       if (w >= stackRef.current.length) return
       const o = openers.current[w]
       // Rendu tout de suite : le flux est à jour avant que la page sortante le découvre.
@@ -226,8 +253,8 @@ export default function App() {
           then()
           if (boss && boss.flash !== false) flashBossMessage(boss.mid)
         })
-      if (boss) return void requestAnimationFrame(() => focusBoss(boss))
-      if (!o) return
+      if (boss && !closedBoss && !requestedHome) return void requestAnimationFrame(() => focusBoss(boss))
+      if (closedBoss || !o) return
       // Retour au flux : la ligne d'où l'on venait a pu bouger (sa bande remontée, les lignes réordonnées). Elle est remise
       // à la même place à l'écran pendant que la page la recouvre encore (rien de visible), puis amenée sous les yeux et
       // mise en avant si elle a bougé. Disparue : sa bande la remplace.
@@ -256,7 +283,7 @@ export default function App() {
   useEffect(() => {
     const onKey = (e: KeyboardEvent) => {
       if (e.key !== 'Escape') return
-      if (stackRef.current.length) back()
+      if (stackRef.current.length || agentEntry.current) back()
       else if (h24Open) setH24Open(false)
       else {
         // La bande ouverte se referme sans glisser sous les yeux (celles du dessus se redéplient).
@@ -272,8 +299,10 @@ export default function App() {
   // puis le fil s'ouvre en haut de l'écran (le chemin de focusBoss, sans mise en avant).
   const expand = useCallback((id: string | null) => {
     if (id === 'agent' && window.scrollY > 4 && !stackRef.current.length) focusBoss({ flash: false })
+    else if (id === 'agent') { beginBoss(); setExpanded(id) }
+    else if (agentEntry.current && !stackRef.current.length) history.back()
     else setExpanded(id)
-  }, [])
+  }, [beginBoss])
   const openH24 = useCallback((open: boolean, focus?: string) => {
     setH24Focus(open ? (focus ?? null) : null)
     setH24Open(open)
@@ -286,6 +315,7 @@ export default function App() {
     const on = (e: Event) => {
       const o = (e as CustomEvent<FocusBoss>).detail ?? {}
       const open = () => {
+        beginBoss()
         const go = () => {
           setExpanded('agent')
           if (o.flash !== false) flashBossMessage(o.mid)
@@ -303,7 +333,7 @@ export default function App() {
     }
     window.addEventListener(FOCUS_BOSS, on)
     return () => window.removeEventListener(FOCUS_BOSS, on)
-  }, [])
+  }, [beginBoss])
 
   // Notification touchée : « /#s=<id> » au lancement, ou message du service worker si l'app est déjà ouverte.
   const ready = !!live.snap

@@ -59,3 +59,24 @@ describe('mergePending', () => {
     expect(texts(mergePending([old, { ...msg('b', 'ok'), at: at + 2000 }], [{ ...pend('ok', 'gone'), at }]))).toEqual(['ok', 'ok'])
   })
 })
+
+it('reconciles an acknowledged prompt wrapped in injected metadata without a duplicate bubble', () => {
+  const real = [msg('new', '⟦weevils — what weevils remembers: context⟧\nhello')]
+  expect(mergePending(real, [pend('hello')])).toEqual(real)
+})
+
+it('acknowledges a new user message even when a streaming assistant anchor moves after it', () => {
+  const prior = msg('old-user', 'same question')
+  const answer = msg('streaming', 'answer', 'assistant')
+  const pending = { ...pend('same question', 'streaming'), known: ['old-user'], at: 100000 }
+  expect(mergePending([prior, answer], [pending])).toHaveLength(3)
+  const arrived = { ...msg('new-user', 'same question'), at: 100100 }
+  expect(mergePending([prior, arrived, answer], [pending])).toEqual([prior, arrived, answer])
+})
+
+it('reconciles multiple queued prompts combined in one transcript message, including repeated inputs', () => {
+  const real = [msg('combined', 'first\n⟦weevils context⟧\nyes\nyes')]
+  const pending = [pend('first'), pend('yes'), { ...pend('yes'), id: 'second-yes' }]
+  expect(mergePending(real, pending)).toEqual(real)
+  expect(mergePending([msg('combined', 'first\nyes')], pending)).toHaveLength(2)
+})

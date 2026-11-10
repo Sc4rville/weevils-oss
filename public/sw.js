@@ -27,12 +27,20 @@ function versionOf(client) {
   })
 }
 
+let retryUpdate
 async function reloadStale() {
   if (BUILD.startsWith('__')) return // serveur de dev : pas de version
   const list = await self.clients.matchAll({ type: 'window' })
   await Promise.all(
     list.map(async (c) => {
-      if ((await versionOf(c)) !== BUILD && 'navigate' in c) await c.navigate(c.url).catch(() => undefined)
+      const version = await versionOf(c)
+      // Never navigate away from an unacknowledged send, a draft or attached photos.
+      if ((version?.build ?? version) === BUILD) return
+      if (version?.editing) {
+        if (!retryUpdate) retryUpdate = setTimeout(() => { retryUpdate = null; void reloadStale() }, 5000)
+        return
+      }
+      if ('navigate' in c) await c.navigate(c.url).catch(() => undefined)
     }),
   )
 }

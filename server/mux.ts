@@ -167,7 +167,8 @@ export async function capture(name: string): Promise<string> {
  * des faux « à toi » dès qu'un fichier ou une réponse contenait ces mots.
  */
 export function attentionFromScreen(text: string): string | undefined {
-  return screenDialog(text)?.question
+  const dialog = screenDialog(text)
+  return dialog?.kind === 'settings' ? undefined : dialog?.question
 }
 
 /**
@@ -188,6 +189,8 @@ export function workingOnScreen(text: string): boolean {
 }
 
 export interface ScreenDialog {
+  kind?: 'settings'
+
   question: string
   options: { id: string; label: string }[]
   selected: number
@@ -232,7 +235,8 @@ export function screenDialog(text: string): ScreenDialog | undefined {
     if (/^no,? (?:and tell|cancel|deny)/i.test(clean) || /^no$/i.test(clean)) return tr(M).denyCommand
     return clean
   }
-  return { question: question.replace(/^Reason:\s*/i, ''), options: labels.map((label, i) => ({ id: `${token}:${i}`, label: display(label) })), selected: entries.findIndex((x) => x.line === cursor) }
+  const settings = lines.slice(Math.max(0, entries[0].line - 5), entries[0].line).some((line) => /^Select (?:Reasoning Level|Model)(?:\s|$)/i.test(line))
+  return { ...(settings ? { kind: 'settings' as const } : {}), question: question.replace(/^Reason:\s*/i, ''), options: labels.map((label, i) => ({ id: `${token}:${i}`, label: display(label) })), selected: entries.findIndex((x) => x.line === cursor) }
 }
 
-export const codexDialogOnScreen = (text: string) => screenDialog(text)?.question
+export const codexDialogOnScreen = (text: string) => attentionFromScreen(text)

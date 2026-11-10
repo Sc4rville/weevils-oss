@@ -2434,11 +2434,11 @@ button.copy.done {
 /* Le petit signe d'une session Codex qui a pris le relais d'une session Claude. */
 .relay-sign {
   display: inline-block;
-  margin-left: 8px;
-  padding: 0 7px;
-  border: 1.5px solid currentColor;
+  margin-left: 0;
+  padding: 0;
+  border: 0;
   font-size: 0.75rem;
-  font-weight: 700;
+  font-weight: 500;
   white-space: nowrap;
   vertical-align: 0.1em;
 }
@@ -2563,6 +2563,7 @@ html[data-keyboard] .agent:not(.open) .fyt-words {
   min-height: 48px;
 }
 .agent.open .agent-close {
+  z-index: 2; /* Above the full-width tab bar, including its padded hit area. */
   left: max(calc((100vw - 760px) / 2 + var(--pad) - 10px), calc(var(--pad) - 10px));
   top: var(--safe-t);
   transform: none;
@@ -2688,3 +2689,34 @@ html[data-keyboard] .agent:not(.open) .agent-nav .fyt-words {
 }
 
 .session-activity { display: block; font-size: .8125rem; font-weight: 400; line-height: 1.3; margin-top: 3px; }
+
+/* Clamp only the session name, never its activity or relay badge. */
+.session-item .row .line .title.wrap {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+.session-name {
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 2;
+  overflow: hidden;
+}
+.page-body { min-height: 0; }
+.session-heading { flex: none; padding-block: 12px; }
+
+.fy-top .in.fy-top-in { flex-wrap: wrap; }
+.fy-projects { flex: none; margin-left: auto; min-width: 44px; min-height: 44px; font-size: .875rem; }
+
+/* Session controls share the first title line, independent of secondary text height. */
+.session-item .row > .in.line { align-items: flex-start; }
+.session-item .row .st,
+.session-item .row .tool-ic,
+.session-item .row .act { margin-top: 6px; min-height: 22px; line-height: 22px; }
+.session-item .row .tool-ic { align-items: center; }
+.session-menu summary { top: 2px; }
+.session-name .dot { width: 7px; height: 7px; margin-right: 6px; }
+/* Touch focus must not draw a persistent frame around a whole project name. */
+@media (hover: none) and (pointer: coarse) {
+  .head-name:focus-visible { outline: none; }
+}

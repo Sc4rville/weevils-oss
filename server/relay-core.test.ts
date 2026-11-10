@@ -173,3 +173,21 @@ describe('sessions liées par le relais', () => {
     expect(host.resolve(id)).toBe(id)
   })
 })
+
+it('keeps agent coordination out of main while retaining briefs in their recipient session', () => {
+ w.orchestratorId = 'boss'
+ const boss = add(transcript({id:'boss',cwd:ORCH_DIR,messages:[
+  {id:'user',role:'user',text:'montre les directives',at:NOW-3000},
+  {id:'bridge-return',role:'orchestrator',author:'codex',text:'rapport interne',at:NOW-2000},
+  {id:'answer',role:'assistant',text:'voici le résultat utile',at:NOW-1000},
+ ]}))
+ const target = add(transcript({id:'target',tool:'codex',messages:[
+  {id:'brief',role:'orchestrator',author:'weevboss',text:'corrige les titres',at:NOW-2000},
+  {id:'response',role:'assistant',text:'je vérifie les titres',at:NOW-1000},
+ ]}))
+ expect(w.snapshot().main.map(m=>m.id)).toEqual(['user','answer'])
+ expect(target.messages.map(m=>[m.id,m.role,m.author])).toEqual([
+  ['brief','orchestrator','weevboss'],['response','assistant',undefined],
+ ])
+ expect(boss.messages.some(m=>m.id==='bridge-return')).toBe(true)
+})

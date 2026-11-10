@@ -117,8 +117,8 @@ describe('send : preuves de réception', () => {
     mux.capture.mockResolvedValue('› ok\n  ? for shortcuts')
     const r = await run(w.send('s1', 'ok'))
     expect(r).toBeInstanceOf(Error)
-    expect((r as Error).message).toBe(tr(CO).notReceived(tr(CO).noConfirmation))
-    expect(mux.sendText).toHaveBeenCalledTimes(2)
+    expect((r as Error).message).toBe(tr(CO).noConfirmation)
+    expect(mux.sendText).toHaveBeenCalledTimes(1)
   })
 
   it('D6 message long : seul son début (48 caractères) est cherché à l’écran', async () => {
@@ -163,23 +163,23 @@ describe('send : dialogues et échecs', () => {
     expect(mux.sendKey.mock.calls).toEqual([[PANE, 'enter']])
   })
 
-  it('D5 jamais confirmé : deux essais exactement, puis une erreur', async () => {
+  it('D5 jamais confirmé : un seul envoi, puis réception incertaine', async () => {
     const r = await run(w.send('s1', 'hello'))
     expect(r).toBeInstanceOf(Error)
     expect((r as Error).message).toContain(tr(CO).noConfirmation)
-    expect(mux.sendText).toHaveBeenCalledTimes(2)
+    expect(mux.sendText).toHaveBeenCalledTimes(1)
   })
 
-  it('D5b un dialogue apparu après le premier essai : fermé, nouvel essai, livré', async () => {
+  it('D5b un dialogue apparu après le premier essai : aucun renvoi aveugle', async () => {
     let n = 0
     mux.sendText.mockImplementation(async () => {
       if (++n === 2) setTimeout(() => w.hook({ session_id: 's1', hook_event_name: 'UserPromptSubmit' }), 100)
     })
     // Écrans : avant l'envoi (rien), pendant le premier essai (le menu), puis plus rien.
     mux.capture.mockImplementation(async () => (n === 1 && mux.sendKey.mock.calls.length === 0 ? compact : ''))
-    expect(await run(w.send('s1', 'hello'))).toEqual({ id: 's1' })
-    expect(mux.sendText).toHaveBeenCalledTimes(2)
-    expect(mux.sendKey.mock.calls).toEqual([[PANE, 'esc']])
+    expect(await run(w.send('s1', 'hello'))).toBeInstanceOf(Error)
+    expect(mux.sendText).toHaveBeenCalledTimes(1)
+    expect(mux.sendKey).not.toHaveBeenCalled()
   })
 })
 
@@ -269,4 +269,26 @@ describe('Codex queued delivery', () => {
     expect(mux.sendText).toHaveBeenCalledTimes(1)
     expect(mux.sendKey).not.toHaveBeenCalled()
   })
+})
+
+ it('confirms a short reply inside the Codex queue, not merely in the input', async () => {
+  setup('codex'); t.phase = 'working'
+  mux.capture.mockResolvedValue('Working (esc to interrupt)\n› ')
+  mux.sendText.mockImplementation(async () => { mux.capture.mockResolvedValue('Working (esc to interrupt)\nQueued follow-up inputs\n ↳ oui\n› ') })
+  expect(await run(w.send('s1', 'oui'))).toEqual({id:'s1'})
+  expect(mux.sendText).toHaveBeenCalledTimes(1)
+ })
+ it('finds a receipt older than six tool events', async () => {
+  setup('codex')
+  mux.sendText.mockImplementation(async () => {
+   t.messages.push({id:'receipt',role:'user',text:'oui',at:Date.now()})
+   for(let n=0;n<12;n++)t.messages.push({id:'tool'+n,role:'event',text:'exec',at:Date.now()})
+  })
+  expect(await run(w.send('s1','oui'))).toEqual({id:'s1'})
+ })
+
+it('never treats a short reply still in the input as received', async () => {
+ setup('codex');t.phase='working';mux.capture.mockResolvedValue('Working (esc to interrupt)\n› oui')
+ expect(await run(w.send('s1','oui'))).toBeInstanceOf(Error)
+ expect(mux.sendText).toHaveBeenCalledTimes(1)
 })

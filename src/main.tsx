@@ -9,7 +9,9 @@ import './styles.css'
 const BUILD = new URL(import.meta.url).pathname.split('/').pop()
 if ('serviceWorker' in navigator) {
   navigator.serviceWorker.addEventListener('message', (e) => {
-    if (e.data?.type === 'build?') e.ports[0]?.postMessage(BUILD)
+    if (e.data?.type === 'build?') e.ports[0]?.postMessage(
+      { build: BUILD, editing: !!document.querySelector('.composer[aria-busy="true"], .composer[data-draft="true"], .fy-reply[aria-busy="true"], .fy-reply[data-draft="true"], .fy-acts[aria-busy="true"]') },
+    )
   })
   const check = () =>
     void navigator.serviceWorker
