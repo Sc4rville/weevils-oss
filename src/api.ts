@@ -48,7 +48,7 @@ export interface FileContent {
 }
 
 export const api = {
-  me: () => call<{ authed: boolean }>('GET', '/api/me'),
+  me: () => call<{ authed: boolean; demoAvailable?: boolean }>('GET', '/api/me'),
   login: (secret: string) => call<{ ok: true }>('POST', '/api/login', { secret }),
   logout: () => call<{ ok: true }>('POST', '/api/logout', {}),
   snapshot: () => call<Snapshot>('GET', '/api/snapshot'),
@@ -181,9 +181,12 @@ export function useLive() {
     // Lien de connexion « #k=<code> » (QR code) : on se connecte puis on efface le code de l'adresse.
     const m = /#k=([\w-]+)/.exec(location.hash)
     const start = m
-      ? (history.replaceState(null, '', location.pathname), api.login(m[1]).then(() => ({ authed: true }), () => api.me()))
+      ? (history.replaceState(null, '', location.pathname), api.login(m[1]).then(() => api.me(), () => api.me()))
       : api.me()
-    start.then((r) => setAuthed(r.authed)).catch(() => setOffline(true))
+    start.then((r) => {
+      if (r.authed && r.demoAvailable && new URLSearchParams(location.search).get('real') !== '1') { location.replace('/api/demo'); return }
+      setAuthed(r.authed)
+    }).catch(() => setOffline(true))
     return () => {
       onUnauthorized = null
     }
@@ -236,5 +239,11 @@ export function useLive() {
   }, [authed])
 
   const refresh = useCallback(() => loader.current(), [])
-  return { authed, setAuthed, snap, offline, refresh }
+  return { authed, setAuthed: (value: boolean) => {
+    if (!value) return setAuthed(false)
+    void api.me().then((r) => {
+      if (r.authed && r.demoAvailable && new URLSearchParams(location.search).get('real') !== '1') location.replace('/api/demo')
+      else setAuthed(r.authed)
+    }).catch(() => setOffline(true))
+  }, snap, offline, refresh }
 }

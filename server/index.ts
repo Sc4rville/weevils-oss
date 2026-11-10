@@ -1,3 +1,4 @@
+import { demoPage } from './demo.ts'
 import { rawEngineeringNotice } from '../shared/feed-text.ts'
 import FY from './i18n/foryou.ts'
 // weevilsd : API + flux temps réel pour l'app, et récepteur local des hooks Claude Code.
@@ -365,7 +366,12 @@ const routes: [string, RegExp, Handler][] = [
     res.setHeader('set-cookie', `wv=${t}; Path=/; HttpOnly;${secure} SameSite=Lax; Max-Age=31536000`)
     json(res, 200, { ok: true })
   }],
-  ['GET', /^\/api\/me$/, (req, res) => json(res, 200, { authed: authed(req) })],
+  ['GET', /^\/api\/me$/, (req, res) => json(res, 200, { authed: authed(req), demoAvailable: process.env.WEEVILS_DEMO === '1' })],
+  ['GET', /^\/api\/demo$/, (req, res) => {
+    if (process.env.WEEVILS_DEMO !== '1') return json(res, 404, { error: tr(M).unknownRoute })
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'" })
+    res.end(demoPage(String(req.headers['accept-language'] ?? 'en')))
+  }],
   ['POST', /^\/api\/logout$/, (req, res) => {
     const t = cookieToken(req)
     if (t) {
