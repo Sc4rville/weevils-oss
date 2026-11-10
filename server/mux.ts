@@ -32,6 +32,8 @@ export interface WvSession {
 }
 
 const SEP = '\u001f'
+/** Le séparateur tel que tmux le rend : brut, ou échappé en octal par tmux 3.4. */
+const SEP_OUT = /\u001f|\\037/
 
 export async function listWv(): Promise<WvSession[]> {
   let out = ''
@@ -44,7 +46,8 @@ export async function listWv(): Promise<WvSession[]> {
     .split('\n')
     .filter((l) => l.startsWith('wv-'))
     .map((l) => {
-      const [name, tool, sessionId, title, cwd, current, created] = l.split(SEP)
+      // tmux 3.4 (Ubuntu 24.04) écrit les caractères de contrôle d'un format en octal : « \037 » au lieu du séparateur.
+      const [name, tool, sessionId, title, cwd, current, created] = l.split(SEP_OUT)
       return {
         name,
         tool: tool === 'codex' ? 'codex' : 'claude',

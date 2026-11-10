@@ -88,6 +88,11 @@ describe('listWv', () => {
     ])
   })
 
+  it('tmux 3.4 (Ubuntu 24.04) rend le séparateur en octal « \\037 » : lu pareil', async () => {
+    sh.out = ['wv-orchestrateur-64f403', 'claude', 'aa62', 'weevboss', '/home/u/.local/share/weevils/orchestrateur', '/home/u', '1794200000'].join('\\037') + '\n'
+    expect(await mux.listWv()).toEqual([{ name: 'wv-orchestrateur-64f403', tool: 'claude', sessionId: 'aa62', title: 'weevboss', cwd: '/home/u/.local/share/weevils/orchestrateur', createdAt: 1_794_200_000_000 }])
+  })
+
   it('un outil inconnu est claude', async () => {
     sh.out = line('wv-x-000000', 'bash', 'id', 't', '/d', '/d', '1') + '\n'
     expect((await mux.listWv())[0].tool).toBe('claude')
