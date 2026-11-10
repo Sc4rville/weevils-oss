@@ -7,7 +7,8 @@ const LOOPBACK_PEERS = new Set(['127.0.0.1', '::1', '::ffff:127.0.0.1'])
 const LOOPBACK_HOSTS = new Set(['127.0.0.1', 'localhost', '[::1]'])
 const LOOPBACK_HOST_RE = /^(?:127\.0\.0\.1|localhost|\[::1\])(?::\d{1,5})?$/i
 /** En-têtes qu'ajoute un proxy (Caddy, nginx, tunnel) : leur présence veut dire que la requête vient d'ailleurs. */
-const PROXY_HEADERS = ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host', 'forwarded', 'x-real-ip']
+// tailscale-user-* : tailscale serve, même s'il ne posait pas X-Forwarded-For.
+const PROXY_HEADERS = ['x-forwarded-for', 'x-forwarded-proto', 'x-forwarded-host', 'forwarded', 'x-real-ip', 'tailscale-user-login', 'tailscale-user-name']
 
 const header = (req: http.IncomingMessage, name: string) => {
   const v = req.headers[name]

@@ -3,6 +3,7 @@ import type { SessionDetail, Tool } from '../../shared/api.ts'
 import { api, type FileContent } from '../api'
 import { useApp, type Page } from './app-context'
 import { Collapse, Composer, Line, Messages, StatusChar, Working, type Attachment } from './bits'
+import { Background } from './subagents'
 import { ConversationPage, ConversationsPage, ImportPage } from './convs'
 import { Preview, guessPreviewUrl, urlsInMessages, usePreviewState } from './preview'
 import { Settings, effortLabel, shortModel } from './settings'
@@ -15,7 +16,7 @@ import { CodeFile } from './codeview'
 import { FsFilePage, FsPage, InfraPage, UsagePage } from './infra'
 import { listFiles } from './repofiles'
 import { useThreadAsk } from './askthread'
-import { ago, dur, durLong, status } from './format'
+import { ago, durLong, status } from './format'
 import { Icon } from './icons'
 import { useT } from '../i18n'
 import M from '../i18n/pages'
@@ -122,7 +123,6 @@ function SessionPage({ id }: { id: string }) {
   const [pending, setPending] = useState<Pending[]>([])
   const [screenText, setScreenText] = useState<string | null>(null)
   const [showScreen, setShowScreen] = useState<boolean | null>(null)
-  const [showSubs, setShowSubs] = useState(true)
   const [preview, setPreview] = usePreviewState(id)
   const [showSettings, setShowSettings] = useState(false)
 
@@ -178,7 +178,6 @@ function SessionPage({ id }: { id: string }) {
 
   const project = snap.projects.find((p) => p.id === s.projectId)
   const st = status[s.status]
-  const active = s.subagents.filter((a) => a.status === 'working').length
   const previewUrl = preview.url ?? guessPreviewUrl(messages, s, project, snap.config)
 
   const send = async (text: string, files: Attachment[] = []) => {
@@ -214,6 +213,7 @@ function SessionPage({ id }: { id: string }) {
             {[shortModel(s.settings?.model), effortLabel(s.settings?.effort)].filter(Boolean).join(' · ') || t.model}
           </button>
           {' '}· <StatusChar s={s.status} /> {st.label}
+          {s.background > 0 && <span className="strong"> · {t.background(s.background)}</span>}
           {s.queued > 0 && <span className="strong"> · {t.queued(s.queued)}</span>}
           {s.status === 'working' && s.workStartedAt != null ? <>{t.since(durLong(now - s.workStartedAt))}</> : <> · {ago(now - s.lastActivityAt)}</>}
           {' · '}
@@ -229,7 +229,7 @@ function SessionPage({ id }: { id: string }) {
         </>
       }
       dock={th.voice}
-      side={preview.open ? <Preview url={previewUrl} suggestions={suggestions} onUrl={(url) => setPreview({ url })} onClose={() => setPreview({ open: false })} /> : undefined}
+      side={preview.open ? <Preview url={previewUrl} suggestions={suggestions} onUrl={(url) => setPreview({ url })} onClose={() => setPreview({ open: false, full: false })} full={preview.full} onFull={(full) => setPreview({ full })} /> : undefined}
       foot={
         <Composer
           placeholder={s.controllable ? (s.live ? t.writeTo(s.tool) : t.resumeWith(s.tool)) : t.readOnly}
@@ -243,35 +243,11 @@ function SessionPage({ id }: { id: string }) {
     >
       {err && <ErrorBand text={err} />}
 
-      {s.subagents.length > 0 && (
-        <div className="band tone">
-          <Line ch="&" go={showSubs ? '−' : '+'} onClick={() => setShowSubs((v) => !v)} label={t.subagentsLabel(active)}>
-            <span className="strong">{t.subagents}</span> · {t.active(active)} · {t.finished(s.subagents.length - active)}
-          </Line>
-          <Collapse open={showSubs}>
-            {s.subagents.map((a) => (
-              <div key={a.id} className="in" style={{ display: 'flex', gap: 10, alignItems: 'flex-start', paddingBlock: 8 }}>
-                <span className="h2" style={{ width: 22, textAlign: 'center', lineHeight: 1.2 }} aria-hidden>
-                  {a.status === 'working' ? <span className="spin fluo"><Icon name="star" /></span> : <Icon name="check" />}
-                </span>
-                <div style={{ flex: 1, minWidth: 0 }}>
-                  <div className="ellipsis">
-                    <span className="strong">{a.activity}</span>
-                  </div>
-                  <div className="meta">
-                    {a.label} · {a.status === 'working' ? t.working : t.done} · {dur((a.endedAt ?? now) - a.startedAt)}
-                  </div>
-                </div>
-              </div>
-            ))}
-            <div style={{ height: 8 }} />
-          </Collapse>
-        </div>
-      )}
-
       <div ref={th.ref} className="ask-thread">
         <Messages messages={messages} author={s.tool} working={s.status === 'working'} after={th.after} />
       </div>
+
+      <Background session={s} />
 
       {s.status === 'needs_user' && (
         <div className="msg band tone ask">

@@ -79,6 +79,9 @@ name="wv-${dir:0:18}-$short"
 title=${1:-$m_title}
 
 # Rien ne doit interrompre la session (mise à jour, conseils, télémétrie) : mêmes variables que weevilsd.
+# L'agent part sans TMUX ni TMUX_PANE (comme dans weevilsd, server/mux.ts) : son « TMUX_TMPDIR=… tmux kill-server » de test
+# viserait sinon le serveur tmux de weevils et fermerait toutes les sessions.
+notmux=(env -u TMUX -u TMUX_PANE)
 quiet=(-e CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 -e DISABLE_AUTOUPDATER=1 -e DISABLE_BUG_COMMAND=1 -e DISABLE_ERROR_REPORTING=1 -e DISABLE_TELEMETRY=1 -e DISABLE_COST_WARNINGS=1 -e DISABLE_TIPS=1)
 # Pas de dialogue de confiance : le dossier courant est marqué sûr dans ~/.claude.json avant de lancer claude.
 if command -v jq >/dev/null && [ "$tool" = claude ]; then
@@ -87,10 +90,10 @@ if command -v jq >/dev/null && [ "$tool" = claude ]; then
 fi
 if [ "$tool" = claude ]; then
   id=$(cat /proc/sys/kernel/random/uuid)
-  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" claude "${claude_flags[@]}" --session-id "$id" "$@"
+  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" "${notmux[@]}" claude "${claude_flags[@]}" --session-id "$id" "$@"
   tmux set-option -t "=$name:" @wv_session_id "$id"
 else
-  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" codex "${codex_flags[@]}" "$@"
+  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" "${notmux[@]}" codex "${codex_flags[@]}" "$@"
 fi
 tmux set-option -t "=$name:" @wv_tool "$tool"
 tmux set-option -t "=$name:" @wv_title "${title:0:60}"

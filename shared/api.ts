@@ -1,3 +1,5 @@
+import type { Tour } from './tour.ts'
+
 // Contrat entre weevilsd (VPS) et l'app. Horodatages en millisecondes, compteurs toujours dérivés côté app.
 
 export type Tool = 'claude' | 'codex'
@@ -15,6 +17,8 @@ export interface Message {
   devil?: boolean
   /** Fil de weevboss : les puces de branchement de ce message ([[setup:x]], retirées du texte), montrées en boutons. */
   chips?: string[]
+  /** Premiers pas : message de démo (l'usage qu'il montre), marqué comme tel, retiré dès que la vraie brique est branchée. */
+  demo?: string
 }
 
 /** Qui peut signer un message dans une session, à part l'utilisateur : weevboss et les agents externes (config du serveur). */
@@ -25,13 +29,31 @@ export interface Author {
   color: string
 }
 
+/**
+ * Travail lancé par une session et qui tourne à côté d'elle : sous-agent (outil Agent/Task), étape d'un workflow
+ * (outil Workflow, un sous-agent par étape) ou commande lancée en arrière-plan (Bash run_in_background).
+ */
 export interface Subagent {
   id: string
+  /** agent : sous-agent Agent/Task ; step : étape d'un workflow ; shell : commande en arrière-plan. */
+  kind: 'agent' | 'step' | 'shell'
+  /** Son nom : description de l'agent, label de l'étape (« build:page »), description de la commande. */
   label: string
+  /** Ce qu'il fait en ce moment (dernier outil utilisé, dernière phrase) ; sa tâche quand il a fini. */
   activity: string
-  status: 'working' | 'done'
+  /** Étapes de workflow : nom du workflow et phase de l'étape. */
+  workflow?: string
+  phase?: string
+  /** working : tourne encore ; done : fini ; failed : fini en erreur ; stopped : coupé avant la fin (processus mort, arrêté). */
+  status: 'working' | 'done' | 'failed' | 'stopped'
   startedAt: number
   endedAt?: number
+}
+
+/** Détail d'un sous-agent, à la demande (GET /api/sessions/:id/subagents/:subId) : ses derniers pas, du plus ancien au plus récent. */
+export interface SubagentDetail {
+  subagent: Subagent
+  steps: { at: number; role: 'assistant' | 'tool' | 'result'; text: string }[]
 }
 
 /** Réglages d'une session tels que l'outil les écrit dans son transcript (inconnus quand absents). */
@@ -71,6 +93,12 @@ export interface Session {
   /** weevils voit son écran (pane zellij pilotée). */
   hasScreen: boolean
   subagents: Subagent[]
+  /** Nombre de sous-agents, étapes de workflow et commandes d'arrière-plan qui tournent encore (0 : rien). Tant qu'il est > 0 et
+   *  que le processus vit, la session est « working » : jamais « idle »/« done », jamais fermée par le ménage des panes. */
+  background: number
+  /** Le tour principal travaille, arrière-plan exclu (le pont e-mail attend la réponse, pas la fin des sous-agents).
+   *  Absent d'un weevilsd plus ancien : status fait foi. */
+  turnWorking?: boolean
   lastMessage?: string
   messageCount: number
   settings?: SessionSettings
@@ -117,6 +145,8 @@ export interface H24Activity {
   runStartedAt: number | null
   lastEvent: string
   canToggle: boolean
+  /** Job de démo des premiers pas (server/tour.ts) : marqué comme tel, jamais confondu avec un vrai. */
+  demo?: boolean
 }
 
 /** Conversation ChatGPT / Claude.ai importée (sans ses messages). */
@@ -163,10 +193,13 @@ export interface Snapshot {
   devil: { enabled: boolean; working: boolean }
   /** Ce qui est branché (server/setup.ts) : les bulles renvoient vers weevboss quand un réglage manque. */
   setup?: { claude: boolean; voice: boolean; dictation: boolean; github: boolean; welcomed: boolean }
+  /** Premiers pas (shared/tour.ts, server/tour.ts). */
+  tour?: Tour
   /** Repos épinglés au fil des projets (présents même sans session). */
   pinnedRepos: string[]
   /** Réglages de l'utilisateur utiles à l'app (fichier de config du serveur). */
-  config: { userName: string; exposeDomain: string; publicHost: string; authors?: Author[] }
+  /** siteKey : clé des pages statiques des repos (/api/site/<clé>/<repo>/), pour le navigateur intégré sans domaine de preview. */
+  config: { userName: string; exposeDomain: string; publicHost: string; authors?: Author[]; siteKey?: string }
 }
 
 export interface SessionDetail {

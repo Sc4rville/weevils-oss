@@ -18,6 +18,8 @@ export default defineMessages({
     /** One session of the prompt, as JSON (keys in the prompt's language). */
     item: (id: string, tool: string, where: string, start: string, recent: string[]) =>
       JSON.stringify({ id, outil: tool, ou: where, debut: start, derniers_echanges: recent }),
+    /** Without Codex (no output schema): the answer format, said in the prompt. */
+    jsonOnly: 'Réponds uniquement avec ce JSON, sans rien autour : {"items":[{"id":"…","title":"…","now":"…"}]}',
   },
   en: {
     prompt: (user: string, sessions: string) =>
@@ -34,5 +36,6 @@ export default defineMessages({
       ].join('\n'),
     item: (id: string, tool: string, where: string, start: string, recent: string[]) =>
       JSON.stringify({ id, tool, where, start, latest_exchanges: recent }),
+    jsonOnly: 'Answer with this JSON only, nothing around it: {"items":[{"id":"…","title":"…","now":"…"}]}',
   },
 })

@@ -7,7 +7,6 @@ import M from '../i18n/setup'
 import { useApp } from './app-context'
 import { copyText } from './copy'
 import { Icon } from './icons'
-import { WANT_MACHINE } from './onboarding'
 
 // Accueil et branchements, côté app (contrat : shared/setup.ts, serveur : server/setup.ts).
 // - useWelcome : au premier lancement (intro terminée), weevilsd écrit l'accueil de weevboss dans son fil, adapté à
@@ -69,9 +68,9 @@ export const askSetup = (brick: Brick) => void startSetup(brick).catch(() => und
 
 // ---------------------------------------------------------------- accueil
 
-/** Premier lancement : une fois l'intro fermée, l'accueil de weevboss s'écrit dans son fil, ouvert. */
+/** Premier lancement : une fois l'intro fermée, l'appareil est noté (l'accueil, ce sont les premiers pas). */
 export function useWelcome() {
-  const { snap, setExpanded } = useApp()
+  const { snap } = useApp()
   const pending = !!snap.setup && !snap.setup.welcomed
   const asked = useRef(false)
   useEffect(() => {
@@ -79,36 +78,18 @@ export function useWelcome() {
     const tick = () => {
       if (asked.current || read('weevils-onboarded') !== '1' || document.querySelector('.ob')) return
       asked.current = true
-      void api.setupWelcome(device()).then(() => setExpanded('agent'), () => (asked.current = false))
+      // Le fil ne s'ouvre pas : les premiers pas (src/ui/tour.tsx) suivent la première demande sous la bande de weevboss.
+      void api.setupWelcome(device()).catch(() => (asked.current = false))
     }
     tick()
     const id = window.setInterval(tick, 800)
     return () => window.clearInterval(id)
-  }, [pending, setExpanded])
-  // « En ajouter une autre » dans l'intro : une fois l'intro fermée et l'accueil écrit, le branchement d'une machine.
-  const welcomed = !!snap.setup?.welcomed
-  useEffect(() => {
-    if (!welcomed) return
-    const tick = () => {
-      if (read(WANT_MACHINE) !== '1' || read('weevils-onboarded') !== '1' || document.querySelector('.ob')) return
-      try {
-        localStorage.removeItem(WANT_MACHINE)
-      } catch {
-        /* stockage indisponible */
-      }
-      setExpanded('agent')
-      // Après les messages d'accueil (écrits à 900 ms d'écart), pas au milieu.
-      window.setTimeout(() => askSetup('machine'), 4000)
-    }
-    tick()
-    const id = window.setInterval(tick, 1000)
-    return () => window.clearInterval(id)
-  }, [welcomed, setExpanded])
+  }, [pending])
 }
 
 // ---------------------------------------------------------------- les boutons sous un message
 
-function PhoneLink() {
+export function PhoneLink() {
   const t = useT(M)
   const [link, setLink] = useState<string | null>(null)
   const [qr, setQr] = useState(true)
@@ -135,6 +116,26 @@ function PhoneLink() {
   )
 }
 
+/** Lance le branchement d'une brique, d'où qu'on le demande (puce sous un message, premiers pas) : les questions du
+ * champ du bas, une action sur place (notifications, adresse Siri), ou la marche à suivre postée par weevboss.
+ * Renvoie une note à montrer en cas d'échec. */
+export async function runBrick(brick: Brick): Promise<{ ok: boolean; note?: string }> {
+  try {
+    if (brick === 'push') {
+      if (!(await ensurePush({ ask: true, test: true }))) return { ok: false, note: tr(M).pushDenied }
+      await api.setupDone('push')
+    } else if (brick === 'shortcut') {
+      const r = await api.shortcut(true)
+      await copyText(`${location.origin}/api/voice/turn?k=${r.token}`)
+      await api.setupDone('shortcut')
+      if (r.url) location.href = r.url
+    } else await startSetup(brick)
+    return { ok: true }
+  } catch {
+    return { ok: false }
+  }
+}
+
 function Chip({ brick }: { brick: Brick }) {
   const t = useT(M)
   const [state, setState] = useState<'idle' | 'busy' | 'done' | 'error'>('idle')
@@ -143,24 +144,9 @@ function Chip({ brick }: { brick: Brick }) {
     if (state === 'busy') return
     setNote(null)
     setState('busy')
-    try {
-      if (brick === 'push') {
-        if (!(await ensurePush({ ask: true, test: true }))) {
-          setNote(tr(M).pushDenied)
-          setState('error')
-          return
-        }
-        await api.setupDone('push')
-      } else if (brick === 'shortcut') {
-        const r = await api.shortcut(true)
-        await copyText(`${location.origin}/api/voice/turn?k=${r.token}`)
-        await api.setupDone('shortcut')
-        if (r.url) location.href = r.url
-      } else await startSetup(brick)
-      setState('done')
-    } catch {
-      setState('error')
-    }
+    const r = await runBrick(brick)
+    setNote(r.note ?? null)
+    setState(r.ok ? 'done' : 'error')
   }
   return (
     <>

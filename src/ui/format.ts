@@ -166,6 +166,14 @@ export function step(text: string): string {
   return d ? `${verb} · ${d}` : verb
 }
 
+/** Activité d'un sous-agent : « Outil · détail » d'un outil connu passe par step() (verbe traduit, chemins en ~/) ;
+ *  une phrase reste telle quelle (step() la mettrait en minuscules). */
+export function activityText(text: string): string {
+  const i = text.indexOf(' · ')
+  const name = i < 0 ? text : text.slice(0, i)
+  return /^mcp__/.test(name) || Object.hasOwn(VERBS, name.toLowerCase()) ? step(text) : text
+}
+
 /** Ce que l'utilisateur a écrit, sans les balises techniques du collage ni les marqueurs d'images. */
 export function userText(text: string): string {
   return text

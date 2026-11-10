@@ -6,7 +6,7 @@ import { AgentBand, FootBand, ProjectBand } from './ui/bands'
 import { spring } from './ui/bits'
 import { H24Rail } from './ui/h24'
 import { Login } from './ui/login'
-import { Onboarding } from './ui/onboarding'
+import { TourBand, TourIntro } from './ui/tour'
 import { Tips } from './ui/tips'
 import { HintBubble, loadHints } from './ui/hints'
 import { GestureCoach } from './ui/coach'
@@ -15,7 +15,7 @@ import { usePinch } from './ui/calm'
 import { adoptUnknown } from './ui/seen'
 import { useDevil } from './ui/devil'
 import { ensurePush } from './push'
-import { useT } from './i18n'
+import { syncServer, useT } from './i18n'
 import M from './i18n/app'
 
 const THEME_KEY = 'weevils-theme'
@@ -55,6 +55,8 @@ export default function App() {
   useEffect(() => {
     if (live.authed) void ensurePush().catch(() => undefined)
     if (live.authed) void loadHints()
+    // Ce que weevilsd écrit lui-même (weevboss, démos, notifications) suit la langue de l'app dès l'ouverture.
+    if (live.authed) syncServer()
   }, [live.authed])
 
   const setTheme = useCallback((t: Theme) => {
@@ -246,6 +248,7 @@ export default function App() {
           }}
         >
           <AgentBand />
+          <TourBand />
           {ordered.map((p) => (
             <ProjectBand key={p.id} project={p} />
           ))}
@@ -260,7 +263,7 @@ export default function App() {
           ))}
         </AnimatePresence>
         <Tips paused={stack.length > 0} />
-        <Onboarding />
+        <TourIntro />
         <HintBubble />
         <GestureCoach />
       </MotionConfig>

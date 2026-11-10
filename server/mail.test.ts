@@ -25,7 +25,7 @@ const mail = (o: { from?: string; subject?: string; body?: string; headers?: str
       ...(o.headers ?? [`Authentication-Results: ${AR_OK}`]),
       `From: Gepetto <${o.from ?? 'gepetto@example.com'}>`,
       `To: ${o.to ?? 'Weevils <alex+weevils@gmail.com>'}`,
-      `Subject: ${o.subject ?? '[arcade] salut'}`,
+      `Subject: ${o.subject ?? '[mygame] salut'}`,
       `Message-ID: ${o.id ?? '<m1@example.com>'}`,
       'Content-Type: text/plain; charset=utf-8',
       '',
@@ -51,7 +51,7 @@ describe('auteurs', () => {
     expect(parseSigned('[weevils] fais ça')).toEqual({ author: 'weevboss', text: 'fais ça' })
     expect(parseSigned('un message normal')).toBeNull()
     // Le préfixe part par motif, pas par longueur : rien du message n'est mangé, quel que soit l'auteur.
-    const body = 'ultracode — Job de nuit, demandé par Alex'
+    const body = 'ultracode — Job de nuit, demandé par Yann'
     for (const id of ['weevboss', 'gepetto', 'a', 'weevils-content-agent']) expect(parseSigned(`[from:${id}] ${body}`)).toEqual({ author: id, text: body })
     expect(parseSigned(`[weevils] ${body}`)).toEqual({ author: 'weevboss', text: body })
     expect(parseSigned(`[from:weevboss]${body}`)?.text).toBe(body)
@@ -64,7 +64,7 @@ describe('mime', () => {
   it('décode objet, multipart, quoted-printable et base64', () => {
     const raw = [
       'From: =?UTF-8?B?R8OpcGV0dG8=?= <Gepetto@Example.com>',
-      'Subject: =?utf-8?Q?[arcade]_d=C3=A9j=C3=A0?=',
+      'Subject: =?utf-8?Q?[mygame]_d=C3=A9j=C3=A0?=',
       'Message-ID: <a@b>',
       'In-Reply-To: <x@y>',
       'References: <w@y> <x@y>',
@@ -86,7 +86,7 @@ describe('mime', () => {
     const m = parseMail(raw)
     expect(m.from).toBe('gepetto@example.com')
     expect(m.fromName).toBe('Gépetto')
-    expect(m.subject).toBe('[arcade] déjà')
+    expect(m.subject).toBe('[mygame] déjà')
     expect(m.text).toBe('café ok')
     expect(m.inReplyTo).toBe('<x@y>')
     expect(m.references).toEqual(['<w@y>', '<x@y>'])
@@ -97,9 +97,9 @@ describe('mime', () => {
     expect(stripQuoted('Go.\nOn Mon, Nov 9, 2026 at 10:00 AM weevils <x@y>\nwrote:\n> before')).toBe('Go.')
   })
   it('écrit un mail relisible (UTF-8, en-têtes du fil)', () => {
-    const data = buildMail({ from: 'a@b.c', to: 'd@e.f', subject: 'Re: [arcade] déjà', text: 'réponse', messageId: '<1@b.c>', inReplyTo: '<0@e.f>', references: ['<0@e.f>'], extraHeaders: { 'Auto-Submitted': 'auto-replied' } })
+    const data = buildMail({ from: 'a@b.c', to: 'd@e.f', subject: 'Re: [mygame] déjà', text: 'réponse', messageId: '<1@b.c>', inReplyTo: '<0@e.f>', references: ['<0@e.f>'], extraHeaders: { 'Auto-Submitted': 'auto-replied' } })
     const m = parseMail(data)
-    expect(m.subject).toBe('Re: [arcade] déjà')
+    expect(m.subject).toBe('Re: [mygame] déjà')
     expect(m.text).toBe('réponse')
     expect(m.inReplyTo).toBe('<0@e.f>')
     expect(m.get('auto-submitted')).toBe('auto-replied')
@@ -156,11 +156,11 @@ describe('sécurité du pont', () => {
   it('le secret partagé remplace SPF / DKIM ; un secret faux est refusé', () => {
     const noAuth = ['X-Nothing: 1']
     expect(screen(mail({ from: 'instinct@agents.example.org', headers: noAuth }), CFG, AUTHORS).ok).toBe(false)
-    expect(screen(mail({ from: 'instinct@agents.example.org', headers: noAuth, subject: '[arcade] [key:s3cret] go' }), CFG, AUTHORS)).toMatchObject({ ok: true, author: { id: 'instinct' }, how: 'secret' })
+    expect(screen(mail({ from: 'instinct@agents.example.org', headers: noAuth, subject: '[mygame] [key:s3cret] go' }), CFG, AUTHORS)).toMatchObject({ ok: true, author: { id: 'instinct' }, how: 'secret' })
     const inBody = mail({ from: 'instinct@agents.example.org', headers: noAuth, body: 'key: s3cret\nFais le menu.' })
     expect(screen(inBody, CFG, AUTHORS).ok).toBe(true)
     expect(messageText(inBody)).toBe('Fais le menu.')
-    expect(screen(mail({ from: 'instinct@agents.example.org', subject: '[arcade] [key:nope] go' }), CFG, AUTHORS)).toMatchObject({ ok: false })
+    expect(screen(mail({ from: 'instinct@agents.example.org', subject: '[mygame] [key:nope] go' }), CFG, AUTHORS)).toMatchObject({ ok: false })
   })
   it('limite le débit par auteur', () => {
     const r = new RateLimiter(2, 3)
@@ -174,7 +174,7 @@ describe('sécurité du pont', () => {
 
 describe('cibles', () => {
   it('lit la cible dans l’objet', () => {
-    expect(parseTarget('[arcade] le menu')).toEqual({ kind: 'project', id: 'arcade' })
+    expect(parseTarget('[mygame] le menu')).toEqual({ kind: 'project', id: 'mygame' })
     expect(parseTarget('Re: [session:2CBB0BBD] suite')).toEqual({ kind: 'session', id: '2cbb0bbd' })
     expect(parseTarget('[weevboss] question')).toEqual({ kind: 'boss' })
     expect(parseTarget('[new:replay] idée')).toEqual({ kind: 'new', project: 'replay', tool: 'claude' })
@@ -189,10 +189,10 @@ describe('le pont, de bout en bout (SMTP simulé)', () => {
   const deps = {
     snapshot: () =>
       ({
-        projects: [{ id: 'arcade', repos: ['arcade'] }],
+        projects: [{ id: 'mygame', repos: ['mygame'] }],
         sessions: [
-          { id: '2cbb0bbd-1111', projectId: 'arcade', controllable: true, status: 'working', lastActivityAt: 5 },
-          { id: 'aaaa0000-2222', projectId: 'arcade', controllable: true, status: 'idle', lastActivityAt: 3 },
+          { id: '2cbb0bbd-1111', projectId: 'mygame', controllable: true, status: 'working', lastActivityAt: 5 },
+          { id: 'aaaa0000-2222', projectId: 'mygame', controllable: true, status: 'idle', lastActivityAt: 3 },
         ],
       }) as any,
     send: async (id: string, text: string, from?: string) => (calls.push(`send ${id} ${from} ${text}`), { id }),
@@ -220,12 +220,12 @@ describe('le pont, de bout en bout (SMTP simulé)', () => {
     expect(r.get('to')).toBe('<gepetto@example.com>')
     expect(r.get('cc')).toBeUndefined()
     expect(r.inReplyTo).toBe('<m1@example.com>')
-    expect(r.subject).toBe('Re: [arcade] salut')
+    expect(r.subject).toBe('Re: [mygame] salut')
     expect(r.get('auto-submitted')).toBe('auto-replied')
     expect(r.get('x-weevils')).toContain('author=gepetto')
     expect(r.text).toContain('C’est fait.')
     // Réponse au mail du pont, objet hérité : même session, pas de nouvelle.
-    b.handle(mail({ id: '<m2@example.com>', subject: 'Re: [new:arcade] salut', headers: [`Authentication-Results: ${AR_OK}`, `In-Reply-To: ${r.messageId}`] }))
+    b.handle(mail({ id: '<m2@example.com>', subject: 'Re: [new:mygame] salut', headers: [`Authentication-Results: ${AR_OK}`, `In-Reply-To: ${r.messageId}`] }))
     await settle()
     expect(calls[1]).toBe('send aaaa0000-2222 gepetto Fais le menu.')
   })
@@ -233,13 +233,13 @@ describe('le pont, de bout en bout (SMTP simulé)', () => {
     const b = new MailBridge(cfg, deps, dir)
     b.handle(mail({ subject: '[weevboss] dis bonjour' }))
     expect(b.handle(mail({ subject: '[weevboss] dis bonjour' }))).toBe(false)
-    b.handle(mail({ id: '<n@x>', subject: '[new:arcade] idée' }))
+    b.handle(mail({ id: '<n@x>', subject: '[new:mygame] idée' }))
     b.handle(mail({ id: '<s@x>', subject: '[session:2cbb] suite' }))
     expect(b.handle(mail({ id: '<e@x>', from: 'intrus@evil.com' }))).toBe(false)
     await settle()
-    expect(calls).toEqual(['main [from:gepetto] Fais le menu.', 'new arcade gepetto Fais le menu.', 'send 2cbb0bbd-1111 gepetto Fais le menu.'])
+    expect(calls).toEqual(['main [from:gepetto] Fais le menu.', 'new mygame gepetto Fais le menu.', 'send 2cbb0bbd-1111 gepetto Fais le menu.'])
     expect(sent.map((s) => s.to)).toEqual(['gepetto@example.com', 'gepetto@example.com', 'gepetto@example.com'])
     // La déduplication survit au redémarrage.
-    expect(new MailBridge(cfg, deps, dir).handle(mail({ id: '<n@x>', subject: '[new:arcade] idée' }))).toBe(false)
+    expect(new MailBridge(cfg, deps, dir).handle(mail({ id: '<n@x>', subject: '[new:mygame] idée' }))).toBe(false)
   })
 })

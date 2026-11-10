@@ -3,9 +3,10 @@
 // tmux et notifications push aux changements d'état. tmux est simulé ; les minuteries sont factices.
 import { spawnSync } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
-import type { Session, Tool } from '../shared/api.ts'
+import type { Session, Subagent, Tool } from '../shared/api.ts'
 
 const mux = vi.hoisted(() => ({
   sendText: vi.fn(async (_name: string, _text: string) => {}),
@@ -333,5 +334,103 @@ describe('notifications', () => {
     w.hook({ session_id: 's1', hook_event_name: 'Stop' })
     await settle()
     expect(send).not.toHaveBeenCalled()
+  })
+})
+
+describe('arrière-plan (sous-agents, workflow, commandes)', () => {
+  const sub = (over: Partial<Subagent> = {}): Subagent => ({ id: 'a1', kind: 'step', label: 'build:page', activity: 'Bash · npm test', workflow: 'wf', phase: 'Build', status: 'working', startedAt: NOW - 40 * MIN, ...over })
+
+  it('L14 tour fini mais un sous-agent tourne : working, jamais terminée après 30 min ; workStartedAt = début de l’arrière-plan ; pas de file', () => {
+    add(transcript({ lastActivityAt: NOW - 45 * MIN, queued: [{ key: 'old', at: NOW - 46 * MIN }], subagents: [sub(), sub({ id: 'a2', status: 'done', endedAt: NOW - 30 * MIN })] }))
+    w.panes = [pane({ createdAt: NOW - 50 * MIN })]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - 45 * MIN, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'working', background: 1, workStartedAt: NOW - 40 * MIN, queued: 0, live: true })
+    // Fini : retour à la règle des 30 min.
+    w.store.get('s1')!.subagents = [sub({ status: 'done', endedAt: NOW - MIN })]
+    expect(one()).toMatchObject({ status: 'done', background: 0, workStartedAt: null })
+  })
+
+  it('L15 processus mort (pid mort, plus de pane) ou SessionEnd : tout passe « stopped », background 0, terminée', () => {
+    add(transcript({ lastActivityAt: NOW - 5 * MIN, subagents: [sub(), sub({ id: 'a2', status: 'done', endedAt: NOW - 30 * MIN })] }))
+    w.hooks.set('s1', { event: 'Stop', at: NOW - 5 * MIN, pid: DEAD })
+    const s = one()!
+    expect(s).toMatchObject({ status: 'done', background: 0, live: false })
+    expect(s.subagents.map((x) => [x.id, x.status])).toEqual([
+      ['a1', 'stopped'],
+      ['a2', 'done'],
+    ])
+    expect(s.subagents[0].endedAt).toBe(NOW - 5 * MIN)
+    w.panes = [pane()]
+    w.hooks.set('s1', { event: 'SessionEnd', at: NOW - MIN, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'done', background: 0 })
+  })
+
+  it('L16 une question à l’écran reste « à toi », même avec un arrière-plan', () => {
+    add(transcript({ subagents: [sub()] }))
+    w.panes = [pane({ screenAttention: 'Do you want to proceed?' })]
+    expect(one()).toMatchObject({ status: 'needs_user', background: 1 })
+  })
+
+  it('L17 ménage : une pane sans activité depuis 2 h mais avec un arrière-plan qui tourne n’est pas fermée', async () => {
+    const t = add(transcript({ lastActivityAt: NOW - 180 * MIN, subagents: [sub({ startedAt: NOW - 170 * MIN })] }))
+    w.panes = [pane({ createdAt: NOW - 200 * MIN })]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - 180 * MIN, pid: ALIVE })
+    await (w as any).reapPanes()
+    expect(mux.killWv).not.toHaveBeenCalled()
+    t.subagents = [sub({ status: 'done', endedAt: NOW - 150 * MIN })]
+    await (w as any).reapPanes()
+    expect(mux.killWv.mock.calls).toEqual([[PANE]])
+  })
+
+  it('L18 « a fini » n’arrive qu’à la fin de l’arrière-plan, pas à la fin du tour', async () => {
+    const send = vi.fn(async (_p: unknown) => {})
+    w.push = { enabled: true, send } as any
+    const t = add(transcript())
+    w.panes = [pane()]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - MIN, pid: ALIVE })
+    w.bump()
+    await vi.advanceTimersByTimeAsync(250)
+    w.hook({ session_id: 's1', hook_event_name: 'UserPromptSubmit' })
+    await vi.advanceTimersByTimeAsync(20_000)
+    t.subagents = [sub({ startedAt: Date.now() - 5000 })]
+    t.messages.push({ id: 'a1', role: 'assistant', text: 'Workflow launched.', at: Date.now() })
+    t.lastActivityAt = Date.now()
+    w.hook({ session_id: 's1', hook_event_name: 'Stop' })
+    await vi.advanceTimersByTimeAsync(250)
+    expect(one()?.status).toBe('working')
+    expect(send).not.toHaveBeenCalled()
+    t.subagents = [sub({ status: 'done', endedAt: Date.now() })]
+    w.bump()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ title: tr(P).doneTitle('demo') }))
+  })
+
+  it('L20 pont e-mail : la réponse part dès la fin du tour principal, sans attendre l’arrière-plan qu’il a lancé', async () => {
+    const t = add(transcript({ lastActivityAt: NOW - 2000, subagents: [sub({ startedAt: NOW - 3000 })] }))
+    t.messages.push({ id: 'a1', role: 'assistant', text: 'Workflow lancé.', at: NOW - 2000 })
+    w.panes = [pane()]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - 1000, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'working', background: 1, turnWorking: false })
+    const reply = w.waitReply('s1', NOW - 5000, 60 * MIN)
+    await vi.advanceTimersByTimeAsync(6000)
+    await expect(reply).resolves.toMatchObject({ done: true, text: 'Workflow lancé.' })
+  })
+
+  it('L19 détail d’un sous-agent : ses derniers pas ; inconnu → rien', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wv-life-'))
+    try {
+      const file = path.join(dir, 's1.jsonl')
+      const agent = path.join(dir, 's1', 'subagents', 'workflows', 'wf_1', 'agent-a1.jsonl')
+      fs.mkdirSync(path.dirname(agent), { recursive: true })
+      fs.writeFileSync(agent, JSON.stringify({ type: 'assistant', timestamp: new Date(NOW - MIN).toISOString(), message: { content: [{ type: 'tool_use', name: 'Bash', input: { description: 'Run the tests' } }] } }) + '\n')
+      add(transcript({ file, subagents: [sub()] }))
+      w.panes = [pane()]
+      expect(await w.subagentAny('s1', 'a1')).toEqual({ subagent: expect.objectContaining({ id: 'a1', status: 'working' }), steps: [{ at: NOW - MIN, role: 'tool', text: 'Bash · Run the tests' }] })
+      expect(await w.subagentAny('s1', 'nope')).toBeUndefined()
+      expect(await w.subagentAny('zz', 'a1')).toBeUndefined()
+    } finally {
+      fs.rmSync(dir, { recursive: true, force: true })
+    }
   })
 })

@@ -5,6 +5,10 @@ export default defineMessages({
   fr: {
     subagent: 'sous-agent',
     task: 'tâche',
+    /** Background command (Bash run_in_background) without a description. */
+    command: 'commande',
+    /** Workflow whose name is unknown. */
+    workflow: 'workflow',
     /** Codex tool call without a name, in the session's event lines. */
     tool: 'outil',
     newSession: 'nouvelle session',
@@ -14,6 +18,8 @@ export default defineMessages({
   en: {
     subagent: 'subagent',
     task: 'task',
+    command: 'command',
+    workflow: 'workflow',
     tool: 'tool',
     newSession: 'new session',
     userLabel: 'user',

@@ -106,7 +106,8 @@ EOF
 # ---------------------------------------------------------------- systemd --user (survives logout and reboot thanks to linger)
 if [ -d /run/systemd/system ] && command -v loginctl >/dev/null; then
   if [ "$(loginctl show-user "$USER" -p Linger --value 2>/dev/null)" != yes ]; then
-    loginctl enable-linger "$USER" 2>/dev/null || { [ "$(id -u)" = 0 ] || sudo -n loginctl enable-linger "$USER" 2>/dev/null || sudo loginctl enable-linger "$USER"; } || true
+    # WEEVILS_NO_PROMPT=1 (run by an agent): never a password prompt, it would hang.
+    loginctl enable-linger "$USER" 2>/dev/null || { [ "$(id -u)" = 0 ] || sudo -n loginctl enable-linger "$USER" 2>/dev/null || { [ "${WEEVILS_NO_PROMPT:-0}" != 1 ] && sudo loginctl enable-linger "$USER"; }; } || true
   fi
   # The user manager starts with linger: wait for its bus (first run, or a session opened without login).
   for _ in $(seq 1 20); do [ -S "/run/user/$(id -u)/bus" ] && break; sleep 0.5; done

@@ -3,9 +3,11 @@
 
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import { tr, user } from './i18n.ts'
 import M from './i18n/titles.ts'
+import { haiku } from './fast.ts'
 
 export interface TitleInput {
   id: string
@@ -59,6 +61,17 @@ export const shortNow = (s: string, max = 40) => {
   return (sp > max / 2 ? cut.slice(0, sp) : t.slice(0, max)).replace(/[\s,;:·–-]+$/, '')
 }
 
+/** Codex installé (dans le PATH du service, ou là où npm -g --prefix ~/.local le pose). */
+const hasCodex = () =>
+  [...(process.env.PATH ?? '').split(path.delimiter), path.join(os.homedir(), '.local', 'bin')].some((d) => {
+    try {
+      fs.accessSync(path.join(d, 'codex'), fs.constants.X_OK)
+      return true
+    } catch {
+      return false
+    }
+  })
+
 export async function llmTitles(items: TitleInput[], workdir: string): Promise<{ id: string; title: string; now: string }[]> {
   fs.mkdirSync(workdir, { recursive: true })
   const schemaFile = path.join(workdir, 'schema.json')
@@ -66,6 +79,13 @@ export async function llmTitles(items: TitleInput[], workdir: string): Promise<{
   fs.writeFileSync(schemaFile, JSON.stringify(SCHEMA))
   const t = tr(M)
   const prompt = t.prompt(user(), `[${items.map((i) => t.item(i.id, i.tool, i.where, i.debut, i.recents)).join(',')}]`)
+  // Sans Codex (la plupart des nouveaux venus n'ont que Claude Code) : haiku, sur l'abonnement Claude.
+  if (!hasCodex()) {
+    const out = await haiku(`${prompt}\n\n${t.jsonOnly}`, 90_000)
+    const raw = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1)) as { items?: { id: string; title: string; now: string }[] }
+    fs.rmSync(schemaFile, { force: true })
+    return (raw.items ?? []).filter((x) => x.title?.trim()).map((x) => ({ id: x.id, title: clean(x.title, 42), now: shortNow(x.now ?? '') }))
+  }
   await new Promise<void>((resolve, reject) => {
     const child = execFile(
       'codex',

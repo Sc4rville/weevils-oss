@@ -1,12 +1,13 @@
 #!/usr/bin/env bash
 # weevils installer — one command on a fresh Linux machine or VPS. Idempotent: run it again to update.
 #
-#   git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
+#   git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
 #   curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 #   … | bash -s -- --secondary <ssh host of the main machine>      (a second machine, federated by the main one)
+#   ./install.sh --agent      run by an AI agent (see AGENTS.md): no questions, ends with a machine-readable summary
 #
-# Options: --yes  --name <first name>  --lang en|fr  --domain <host>  --lan  --port <n>  --dir <path>
-#          --secondary <ssh-host>  --machine <id>  --no-update  --uninstall [--purge]  --help
+# Options: --yes  --agent  --name <first name>  --lang en|fr  --domain <host> | --url <https://…> | --lan  --port <n>
+#          --dir <path>  --secondary <ssh-host>  --machine <id>  --no-update  --uninstall [--purge]  --help
 set -euo pipefail
 
 # Where this script lives when it runs from a clone (empty when piped from curl). Read here: inside a function,
@@ -39,8 +40,8 @@ ORIG_PATH=$PATH
 declare -A EN FR
 EN[title]="weevils installer"
 FR[title]="installation de weevils"
-EN[usage]="usage: install.sh [--yes] [--name <first name>] [--lang en|fr] [--domain <host> | --lan] [--port <n>] [--dir <path>] [--secondary <ssh-host>] [--machine <id>] [--no-update] | --uninstall [--purge]"
-FR[usage]="usage : install.sh [--yes] [--name <prénom>] [--lang en|fr] [--domain <hôte> | --lan] [--port <n>] [--dir <dossier>] [--secondary <hôte-ssh>] [--machine <id>] [--no-update] | --uninstall [--purge]"
+EN[usage]="usage: install.sh [--yes | --agent] [--name <first name>] [--lang en|fr] [--domain <host> | --url <https://…> | --lan] [--port <n>] [--dir <path>] [--secondary <ssh-host>] [--machine <id>] [--no-update] | --uninstall [--purge]"
+FR[usage]="usage : install.sh [--yes | --agent] [--name <prénom>] [--lang en|fr] [--domain <hôte> | --url <https://…> | --lan] [--port <n>] [--dir <dossier>] [--secondary <hôte-ssh>] [--machine <id>] [--no-update] | --uninstall [--purge]"
 EN[s_system]="checking the system"
 FR[s_system]="vérification du système"
 EN[no_tty]="no terminal to ask questions: default answers, and no to anything that installs (run with --yes or from a terminal)"
@@ -53,6 +54,12 @@ EN[wsl]="WSL detected: your phone can't reach WSL as is. Use Tailscale (on Windo
 FR[wsl]="WSL détecté : ton téléphone ne peut pas joindre WSL tel quel. Passe par Tailscale (sous Windows ou dans WSL), ou networkingMode=mirrored dans %UserProfile%\\.wslconfig ; ajoute aussi vmIdleTimeout=-1, sinon WSL s'arrête (et weevilsd avec) quand aucun terminal n'est ouvert."
 EN[no_sudo]="installing packages needs root: run as root, or install sudo."
 FR[no_sudo]="installer des paquets demande root : lance en root, ou installe sudo."
+EN[sudo_pw]="this step needs root and sudo asks for a password, which can't be typed here. Run the same command once in a terminal (it asks for the password), or install these first:"
+FR[sudo_pw]="cette étape demande root et sudo veut un mot de passe, impossible à taper ici. Lance la même commande une fois dans un terminal (elle demandera le mot de passe), ou installe d'abord :"
+EN[agent_next]="for the agent: now read AGENTS.md in this folder, steps 6 and 7, and end with the short message it describes, in the user's language (no commands, no technical notes):"
+FR[agent_next]="pour l'agent : lis maintenant AGENTS.md dans ce dossier, étapes 6 et 7, et termine par le court message qu'il décrit, dans la langue de l'utilisateur (pas de commandes, pas de notes techniques) :"
+EN[agent_mode]="run by an agent: no questions, no colours, a summary at the end"
+FR[agent_mode]="lancé par un agent : pas de questions, pas de couleurs, un résumé à la fin"
 EN[no_pm]="no supported package manager (apt, dnf, pacman). Install these by hand, then run me again:"
 FR[no_pm]="pas de gestionnaire de paquets connu (apt, dnf, pacman). Installe-les à la main, puis relance-moi :"
 EN[missing]="missing:"
@@ -181,6 +188,21 @@ EN[laptop]="this is a laptop: your agents stop when it sleeps. weevboss will sug
 FR[next]="ensuite, sur ton téléphone : scanne le QR code (ou ouvre le lien), puis iPhone : Partager → Sur l'écran d'accueil ; Android : ⋮ → Installer l'application. weevboss t'y accueille et te guide pour la suite."
 FR[next_local]="ensuite, sur ton téléphone : donne-lui d'abord un chemin (un des quatre ci-dessus), puis ouvre le lien et ajoute-le à l'écran d'accueil (iPhone : Partager → Sur l'écran d'accueil ; Android : ⋮ → Installer l'application). weevboss te guide pour la suite."
 FR[laptop]="c'est un portable : tes agents s'arrêtent quand il se met en veille. weevboss te proposera un petit VPS pour qu'ils bossent la nuit."
+# The last lines of the end screen: what is already in the app, and the first thing to try ({n}: a number).
+EN[have_projects]="already in the app: your {n} Claude Code projects of the last few days, with their sessions"
+FR[have_projects]="déjà dans l'app : tes {n} projets Claude Code de ces derniers jours, avec leurs sessions"
+EN[have_project1]="already in the app: your Claude Code project of the last few days, with its sessions"
+FR[have_project1]="déjà dans l'app : ton projet Claude Code de ces derniers jours, avec ses sessions"
+EN[have_repos]="your {n} repos in ~/projects are ready: weevboss can start a session in any of them"
+FR[have_repos]="tes {n} repos de ~/projects sont prêts : weevboss peut lancer une session dans n'importe lequel"
+EN[try_write]='first thing to try: open the app and write to weevboss, in the field at the top ("tell me what to do"):'
+FR[try_write]="à essayer en premier : ouvre l'app et écris à weevboss, dans le champ du haut (« dis-moi quoi faire ») :"
+EN[try_voice]="first thing to try: open the app, tap the weevboss logo at the top and say:"
+FR[try_voice]="à essayer en premier : ouvre l'app, touche le logo de weevboss en haut et dis :"
+EN[try_projects]='"what are my projects up to?"'
+FR[try_projects]="« où en sont mes projets ? »"
+EN[try_new]='"make me a small notes app"'
+FR[try_new]="« fais-moi une petite app de notes »"
 EN[secondary_ok]="this machine reports to"
 FR[secondary_ok]="cette machine remonte vers"
 EN[secondary_next]="its sessions show up in the app of the main machine. Start one here with: wv"
@@ -224,11 +246,13 @@ FR[aborted]="rien n'a changé."
 
 # ---------------------------------------------------------------- options
 
-YES=0 NAME='' LANG_OPT='' DOMAIN='' PORT='' DIR='' SECONDARY='' MACHINE='' NO_UPDATE=${WEEVILS_NO_UPDATE:-0}
-LAN=0 UNINSTALL=0 PURGE=0
+YES=0 NAME='' LANG_OPT='' DOMAIN='' URL_OPT='' PORT='' DIR='' SECONDARY='' MACHINE='' NO_UPDATE=${WEEVILS_NO_UPDATE:-0}
+LAN=0 UNINSTALL=0 PURGE=0 AGENT=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -y | --yes) YES=1 ;;
+    --agent) AGENT=1 YES=1 ;;
+    --url) URL_OPT=${2:?--url}; shift ;;
     --name) NAME=${2:?--name}; shift ;;
     --lang) LANG_OPT=${2:?--lang}; shift ;;
     --domain) DOMAIN=${2:?--domain}; shift ;;
@@ -254,6 +278,21 @@ case "$PORT" in '') ;; *[!0-9]*) BAD_VAL="--port $PORT" ;; *) [ "$PORT" -ge 1 ] 
 [[ "$SECONDARY" != -* ]] || BAD_VAL="--secondary $SECONDARY"
 [ "$PURGE" = 0 ] || [ "$UNINSTALL" = 1 ] || BAD_VAL="--purge (only with --uninstall)"
 [ "$LAN" = 0 ] || [ -z "$DOMAIN" ] || BAD_VAL="--lan with --domain (pick one)"
+# --url: the address the phone opens when something else already serves HTTPS in front of this machine (tailscale
+# serve, a reverse proxy of your own). weevilsd stays on 127.0.0.1; only WEEVILS_PUBLIC_URL is set.
+URL_OPT=${URL_OPT%/}
+[ -z "$URL_OPT" ] || [[ "$URL_OPT" =~ ^https?://[A-Za-z0-9.:-]+(/[^[:space:]]*)?$ ]] || BAD_VAL="--url $URL_OPT (http(s)://host)"
+[ -z "$URL_OPT" ] || { [ -z "$DOMAIN" ] && [ "$LAN" = 0 ]; } || BAD_VAL="--url with --domain or --lan (pick one)"
+
+# Run by an AI agent (Claude Code sets CLAUDECODE=1, Codex its CODEX_* variables; CODEX_HOME is a user setting, not a
+# sign) with no terminal on stdin and stdout: same as --agent. The user asked their agent to install weevils, so that
+# request is the consent --yes stands for: without it every "install?" would be a silent no and the install would
+# fail. It stays safe: sudo is only used when it needs no password (sudo -n, see check_system), never a prompt that
+# would hang; otherwise the script stops and says what needs root. A human in a terminal is never affected (tty).
+AGENT_NAME=''
+if [ "${CLAUDECODE:-}" = 1 ]; then AGENT_NAME=claude
+else for v in $(compgen -e); do case "$v" in CODEX_HOME) ;; CODEX_*) AGENT_NAME=codex ;; esac; done; fi
+if [ "$AGENT" = 0 ] && [ -n "$AGENT_NAME" ] && [ ! -t 0 ] && [ ! -t 1 ]; then AGENT=1 YES=1; fi
 
 # Language: --lang, else the one already in your settings (a re-run speaks like the first run), else the locale.
 # Always ~/.config/weevils (not XDG_CONFIG_HOME): the server and the systemd unit read it there.
@@ -269,13 +308,29 @@ t() { if [ "$L" = fr ]; then printf '%s' "${FR[$1]}"; else printf '%s' "${EN[$1]
 
 # ---------------------------------------------------------------- output
 
-if [ -t 1 ]; then B=$'\e[1m' D=$'\e[2m' R=$'\e[0m' Y=$'\e[30;43m' G=$'\e[32m' O=$'\e[33m' E=$'\e[31m' M=$'\e[35m'
+if [ -t 1 ] && [ "$AGENT" = 0 ]; then B=$'\e[1m' D=$'\e[2m' R=$'\e[0m' Y=$'\e[30;43m' G=$'\e[32m' O=$'\e[33m' E=$'\e[31m' M=$'\e[35m'
 else B='' D='' R='' Y='' G='' O='' E='' M=''; fi
 step() { printf '\n%s %s %s\n' "$Y$B" "$1" "$R"; }
 ok() { printf '  %s✓%s %s\n' "$G" "$R" "$*"; }
 info() { printf '  %s·%s %s\n' "$D" "$R" "$*"; }
 warn() { printf '  %s!%s %s\n' "$O$B" "$R" "$*"; }
-die() { printf '  %s✗ %s%s\n' "$E$B" "$*" "$R" >&2; exit 1; }
+die() { printf '  %s✗ %s%s\n' "$E$B" "$*" "$R" >&2; summary failed "$*"; exit 1; }
+star() { printf '  %s★ %s%s\n' "$M$B" "$*" "$R"; }
+# tn key n — a message with its {n} replaced by a number.
+tn() { local m; m=$(t "$1"); printf '%s' "${m//\{n\}/$2}"; }
+
+# The summary an agent parses (--agent only): key=value lines between two fixed markers, printed once, last.
+# kv key value adds a line; summary status [error] prints the block (status: ok, failed, needs_sudo).
+SUMMARY_BODY=''
+SUMMARY_DONE=0
+kv() { SUMMARY_BODY+="$1=$(printf '%s' "$2" | tr '\n' ' ')"$'\n'; }
+summary() {
+  [ "$AGENT" = 1 ] && [ "$SUMMARY_DONE" = 0 ] || return 0
+  SUMMARY_DONE=1
+  printf '\n--- weevils summary ---\nstatus=%s\n' "$1"
+  [ -z "${2:-}" ] || printf 'error=%s\n' "$(printf '%s' "$2" | tr '\n' ' ')"
+  printf '%slang=%s\nagent=%s\n--- end ---\n' "$SUMMARY_BODY" "$L" "$AGENT_NAME"
+}
 
 # Questions go through the terminal even when the script comes from curl | bash.
 TTY=0
@@ -295,6 +350,7 @@ ask() { # ask "question" default → answer on stdout
 # ---------------------------------------------------------------- system
 
 SUDO=''
+SUDO_PW=0
 PM=''
 IS_WSL=0
 APT_UPDATED=0
@@ -324,16 +380,41 @@ node_ok() {
   [ "$maj" -gt 22 ] || { [ "$maj" = 22 ] && [ "$min" -ge 18 ]; }
 }
 
+# Something needs root and there is no way to get it here. As an agent whose sudo wants a password: say so, and the
+# summary gives the same install to run once from a terminal (it asks for the password there). Otherwise: refused.
+no_root() { # no_root [what needs it]
+  if [ "$SUDO_PW" = 1 ]; then
+    printf '  ✗ %s %s\n' "$(t sudo_pw)" "${1:-}" >&2
+    kv needs "${1:-}"
+    kv retry "$(retry_cmd)"
+    summary needs_sudo "$(t sudo_pw) ${1:-}"
+    exit 3
+  fi
+  die "$(t no_sudo)"
+}
+# The same install for a human in a terminal: this clone's install.sh (or the curl one), same options, no --agent.
+retry_cmd() {
+  local a out
+  if [ -n "$SELF" ] && [ -f "$SELF" ]; then out="cd $(printf '%q' "$(cd "$(dirname "$SELF")" && pwd)") && ./install.sh"
+  else out="curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s --"; fi
+  for a in ${ARGS[@]+"${ARGS[@]}"}; do [ "$a" = --agent ] || out+=" $(printf '%q' "$a")"; done
+  printf '%s' "$out"
+}
+
 check_system() {
   step "$(t s_system)"
   [ "$TTY" = 1 ] || [ "$YES" = 1 ] || info "$(t no_tty)"
+  [ "$AGENT" = 0 ] || info "$(t agent_mode)"
   # WSL: its network is not reachable from the phone as is, and the VM stops when idle (said again on the end screen).
   if grep -qi microsoft /proc/version 2>/dev/null; then IS_WSL=1; info "$(t wsl)"; fi
   if [ "$(id -u)" = 0 ]; then warn "$(t root_warn)"
-  elif command -v sudo >/dev/null; then SUDO=sudo
+  elif command -v sudo >/dev/null; then
+    SUDO=sudo
+    # An agent can't type a password, and a prompt would hang: sudo only when it needs none.
+    if [ "$AGENT" = 1 ]; then if sudo -n true 2>/dev/null; then SUDO='sudo -n'; else SUDO=none SUDO_PW=1; fi; fi
   else SUDO=none; fi
   # --domain sets up Caddy in /etc: without sudo, stop here, before anything is written.
-  [ -z "$DOMAIN" ] || [ -n "$SECONDARY" ] || [ "$SUDO" != none ] || die "$(t no_sudo)"
+  [ -z "$DOMAIN" ] || [ -n "$SECONDARY" ] || [ "$SUDO" != none ] || no_root caddy
   if command -v apt-get >/dev/null; then PM=apt
   elif command -v dnf >/dev/null; then PM=dnf
   elif command -v pacman >/dev/null; then PM=pacman; fi
@@ -362,11 +443,11 @@ check_system() {
   if [ ${#missing[@]} -gt 0 ]; then
     warn "$(t missing) ${missing[*]}"
     [ -n "$PM" ] || die "$(t no_pm) ${missing[*]}"
-    [ "$SUDO" != none ] || die "$(t no_sudo)"
+    [ "$SUDO" != none ] || no_root "${missing[*]}"
     confirm "$(t ask_pkgs)" || die "$(t refused)"
   fi
   if [ ${#pkgs[@]} -gt 0 ] || [ ${#extra[@]} -gt 0 ]; then
-    [ "$SUDO" != none ] || { [ ${#pkgs[@]} -eq 0 ] || die "$(t no_sudo)"; }
+    [ "$SUDO" != none ] || { [ ${#pkgs[@]} -eq 0 ] || no_root "${missing[*]}"; }
     [ "$SUDO" = none ] || pkg_install ${pkgs[@]+"${pkgs[@]}"} ${extra[@]+"${extra[@]}"}
   fi
   for c in "${need[@]}"; do command -v "$c" >/dev/null || die "$(t missing) $c"; done
@@ -380,7 +461,7 @@ check_system() {
   if ! node_ok; then
     warn "$(t node_old) $(node -v 2>/dev/null || echo —))"
     if [ "$PM" = apt ] || [ "$PM" = dnf ] || [ "$PM" = pacman ]; then
-      [ "$SUDO" != none ] || die "$(t no_sudo)"
+      [ "$SUDO" != none ] || no_root "node 22"
       confirm "$(t ask_node)" || die "$(t node_hint)"
       # The setup script goes through a private temp file (a fixed name in /tmp could be planted by another user).
       local ns; ns=$(mktemp)
@@ -405,6 +486,7 @@ check_system() {
   fi
   # Debian/Ubuntu's own nodejs comes without npm.
   if ! command -v npm >/dev/null; then
+    [ "$SUDO_PW" = 0 ] || no_root npm
     [ "$PM" = apt ] && [ "$SUDO" != none ] || die "$(t npm_nosudo)"
     pkg_install npm
     command -v npm >/dev/null || die "npm: $(t node_hint)"
@@ -508,12 +590,17 @@ configure() {
   [ -z "$DOMAIN" ] || [ "$(cfg get WEEVILS_HOST)" != 0.0.0.0 ] || cfg set WEEVILS_HOST 127.0.0.1
   # Claude Code refuses --dangerously-skip-permissions as root: agents keep their permission prompts there.
   [ "$(id -u)" != 0 ] || cfg default WEEVILS_SAFE 1
+  # --url: HTTPS is served by something else in front (tailscale serve…): weevilsd back on 127.0.0.1, behind it.
+  if [ -n "$URL_OPT" ]; then
+    cfg set WEEVILS_PUBLIC_URL "$URL_OPT"
+    [ "$(cfg get WEEVILS_HOST)" != 0.0.0.0 ] || cfg set WEEVILS_HOST 127.0.0.1
+  fi
   if [ -z "$SECONDARY" ] && [ -z "$DOMAIN" ] && [ "$LAN" = 0 ] && [ -z "$(cfg get WEEVILS_PUBLIC_URL)" ] && ! site_mine; then
     DOMAIN=$(ask "$(t ask_domain)" ""); DOMAIN=${DOMAIN#http://}; DOMAIN=${DOMAIN#https://}; DOMAIN=${DOMAIN%%/*}
     [ -z "$DOMAIN" ] || [[ "$DOMAIN" =~ ^[A-Za-z0-9]([A-Za-z0-9.-]*[A-Za-z0-9])?$ ]] || { warn "$(t bad_opt) $DOMAIN"; DOMAIN=''; }
   fi
   # The HTTPS site needs sudo: refused before the public URL is written.
-  [ -z "$DOMAIN" ] || [ -n "$SECONDARY" ] || [ "$SUDO" != none ] || die "$(t no_sudo)"
+  [ -z "$DOMAIN" ] || [ -n "$SECONDARY" ] || [ "$SUDO" != none ] || no_root caddy
   PREV_PUBLIC_URL=$(cfg get WEEVILS_PUBLIC_URL)
   [ -z "$DOMAIN" ] || cfg set WEEVILS_PUBLIC_URL "https://$DOMAIN"
   # The machine id: only on a new config (an older one keeps the id it already had), or when --machine is given.
@@ -564,9 +651,9 @@ service() {
       info "ssh-keygen -t ed25519 && ssh-copy-id $SECONDARY"
       exit 1
     }
-    bash "$DIR/server/install.sh" secondary "$SECONDARY" | sed 's/^/  · /'
+    WEEVILS_NO_PROMPT=$AGENT bash "$DIR/server/install.sh" secondary "$SECONDARY" | sed 's/^/  · /'
   else
-    bash "$DIR/server/install.sh" main | sed 's/^/  · /'
+    WEEVILS_NO_PROMPT=$AGENT bash "$DIR/server/install.sh" main | sed 's/^/  · /'
   fi
   if [ "$("$DIR/server/weevils-service" mode)" != systemd ]; then
     warn "$(t bg_mode)"
@@ -610,7 +697,7 @@ https() {
   fi
   [ -n "$DOMAIN" ] || return 0
   step "$(t s_https)"
-  [ "$SUDO" != none ] || die "$(t no_sudo)"
+  [ "$SUDO" != none ] || no_root caddy
   if ! command -v caddy >/dev/null; then
     case "$PM" in
       apt) caddy_apt || true ;;
@@ -713,20 +800,98 @@ agent_notes() {
   esac
 }
 
+# ---------------------------------------------------------------- what is already here
+
+# Claude Code logged in: its credentials, or a key in the environment or in the settings.
+claude_logged() {
+  local svc="$DIR/server/weevils-service"
+  [ -s "$HOME/.claude/.credentials.json" ] || [ -n "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}" ] ||
+    [ -n "$("$svc" config get ANTHROPIC_API_KEY)$("$svc" config get CLAUDE_CODE_OAUTH_TOKEN)" ]
+}
+yn() { if "$@" >/dev/null 2>&1; then echo yes; else echo no; fi; }
+
+# What the app will find at once, so nobody redoes or re-proposes it: agents and their logins, GitHub, projects
+# (folders of ~/.claude/projects with a session in the last 3 days, what the app lists; weevboss's own folders and
+# the session running this install left out), repos in the project folders, Tailscale, a laptop.
+detect() {
+  local svc="$DIR/server/weevils-service" d sid=${CLAUDE_CODE_SESSION_ID:-none} roots root r
+  HAVE_CLAUDE=$(yn command -v claude) CLAUDE_OK=no
+  [ "$HAVE_CLAUDE" = no ] || CLAUDE_OK=$(yn claude_logged)
+  HAVE_CODEX=$(yn command -v codex) CODEX_OK=no
+  [ "$HAVE_CODEX" = no ] || [ ! -s "${CODEX_HOME:-$HOME/.codex}/auth.json" ] || CODEX_OK=yes
+  HAVE_GH=$(yn command -v gh) GH_OK=no GH_LOGIN=''
+  [ "$HAVE_GH" = no ] || GH_LOGIN=$(timeout 8 gh api user -q .login 2>/dev/null || true)
+  [ -z "$GH_LOGIN" ] || GH_OK=yes
+  N_PROJECTS=0 N_PROJECTS_ALL=0
+  for d in "$HOME"/.claude/projects/*/; do
+    case "$d" in *-local-share-weevils*) continue ;; esac
+    [ -n "$(find "$d" -maxdepth 1 -name '*.jsonl' ! -name "$sid.jsonl" -print -quit 2>/dev/null)" ] || continue
+    N_PROJECTS_ALL=$((N_PROJECTS_ALL + 1))
+    [ -z "$(find "$d" -maxdepth 1 -name '*.jsonl' ! -name "$sid.jsonl" -mmin -4320 -print -quit 2>/dev/null)" ] || N_PROJECTS=$((N_PROJECTS + 1))
+  done
+  N_REPOS=0
+  roots=$("$svc" config get WEEVILS_PROJECTS)
+  IFS=: read -ra roots <<<"${roots:-$HOME/projects}"
+  for root in ${roots[@]+"${roots[@]}"}; do
+    for r in "$root"/*/.git; do [ ! -e "$r" ] || N_REPOS=$((N_REPOS + 1)); done
+  done
+  HAVE_TS=$(yn command -v tailscale) TS_NAME=''
+  [ "$HAVE_TS" = no ] || TS_NAME=$(timeout 5 tailscale status --json 2>/dev/null | jq -r 'select(.BackendState == "Running") | .Self.DNSName // empty' 2>/dev/null | sed 's/\.$//' || true)
+  LAPTOP=no
+  if ls /sys/class/power_supply/BAT* >/dev/null 2>&1; then LAPTOP=yes; fi
+}
+
+# The hand-off file read by the app (its first-run tour starts where the install stopped): written on every successful
+# install of a main machine, atomically (temp file in the same folder, then mv). Shape, version 1:
+#   { "v": 1, "at": <ms>, "by": "agent"|"terminal"|"script", "agent": "claude"|"codex"|"", "url": <no code>,
+#     "mode": "public"|"lan"|"local", "phoneLink": bool, "lang": "fr"|"en",
+#     "ready": { "claude": bool, "codex": bool, "gh": bool }, "projects": <n>, "repos": <n> }
+# by: agent (--agent or detected), terminal (a human saw the end screen), script (--yes without a terminal).
+# phoneLink: the end screen printed a link a phone can open (public or lan; the agent then hands it over).
+HANDOFF=$HOME/.local/share/weevils/install.json
+write_handoff() { # write_handoff url mode
+  local by=script agent='' at tmp phone=false
+  if [ "$AGENT" = 1 ]; then by=agent agent=$AGENT_NAME; elif [ "$TTY" = 1 ] || [ -t 1 ]; then by=terminal; fi
+  [ "$2" = local ] || phone=true
+  at=$(date +%s%3N); [[ "$at" =~ ^[0-9]+$ ]] || at=$(($(date +%s) * 1000))
+  mkdir -p "$(dirname "$HANDOFF")"
+  tmp=$(mktemp "$HANDOFF.XXXXXX")
+  jq -n --argjson at "$at" --arg by "$by" --arg agent "$agent" --arg url "$1" --arg mode "$2" --argjson phone "$phone" \
+    --arg lang "$L" --argjson claude "$([ "$CLAUDE_OK" = yes ] && echo true || echo false)" \
+    --argjson codex "$([ "$CODEX_OK" = yes ] && echo true || echo false)" --argjson gh "$([ "$GH_OK" = yes ] && echo true || echo false)" \
+    --argjson projects "$N_PROJECTS" --argjson repos "$N_REPOS" \
+    '{v: 1, at: $at, by: $by, agent: $agent, url: $url, mode: $mode, phoneLink: $phone, lang: $lang,
+      ready: {claude: $claude, codex: $codex, gh: $gh}, projects: $projects, repos: $repos}' >"$tmp"
+  chmod 600 "$tmp"
+  mv -f "$tmp" "$HANDOFF"
+}
+
+# The summary lines every successful install shares (see summary).
+sum_found() {
+  kv claude_installed "$HAVE_CLAUDE"; kv claude_logged "$CLAUDE_OK"
+  kv codex_installed "$HAVE_CODEX"; kv codex_logged "$CODEX_OK"
+  kv gh_installed "$HAVE_GH"; kv gh_logged "$GH_OK"; kv gh_login "$GH_LOGIN"
+  kv projects "$N_PROJECTS"; kv projects_all "$N_PROJECTS_ALL"; kv repos "$N_REPOS"
+  kv tailscale "$HAVE_TS"; kv tailscale_name "$TS_NAME"
+  kv laptop "$LAPTOP"; kv wsl "$([ "$IS_WSL" = 1 ] && echo yes || echo no)"
+  kv sudo "$(if [ -z "$SUDO" ] || [ "$SUDO" = 'sudo -n' ]; then echo yes; elif [ "$SUDO_PW" = 1 ]; then echo password; else echo no; fi)"
+  kv name "$("$DIR/server/weevils-service" config get WEEVILS_USER_NAME)"
+  kv dir "$DIR"
+}
+
 finish() {
-  local svc="$DIR/server/weevils-service" port code url host_cfg mode=local title=ready ip=''
+  local svc="$DIR/server/weevils-service" port code url host_cfg mode=local title=ready ip='' try=try_write it=try_new
   port=$("$svc" config get WEEVILS_PORT); port=${port:-4179}
-  # Claude Code installed and logged in (a key in the environment or in the settings counts too)?
   if ! command -v claude >/dev/null; then title=almost_install
-  elif [ ! -s "$HOME/.claude/.credentials.json" ] &&
-    [ -z "${ANTHROPIC_API_KEY:-}${CLAUDE_CODE_OAUTH_TOKEN:-}$("$svc" config get ANTHROPIC_API_KEY)$("$svc" config get CLAUDE_CODE_OAUTH_TOKEN)" ]; then
-    title=almost_login
-  fi
+  elif ! claude_logged; then title=almost_login; fi
+  detect
   if [ -n "$SECONDARY" ]; then
     step "$(t "$title")"
     ok "$(t secondary_ok) $SECONDARY"
     info "$(t secondary_next)"
     agent_notes
+    kv role secondary; kv main_host "$SECONDARY"; sum_found
+    summary ok
     return 0
   fi
   step "$(t waiting)"
@@ -743,6 +908,7 @@ finish() {
     ip=$(lan_ip); url=http://${ip:-127.0.0.1}:$port mode=lan
   else url=http://localhost:$port; fi
   url=${url%/}
+  write_handoff "$url" "$mode"
 
   step "$(t "$title")"
   printf '\n  %s : %s%s%s\n' "$(t address)" "$B" "$url" "$R"
@@ -753,10 +919,11 @@ finish() {
     ip=$(lan_ip)
     info "$(t unreachable)"
     info "  1. $(t via_domain) $DIR/install.sh --domain <host>"
-    info "  2. $(t via_tailscale) sudo tailscale serve --bg $port"
+    info "  2. $(t via_tailscale) sudo tailscale serve --bg $port && $DIR/install.sh --url https://${TS_NAME:-<machine>.<tailnet>.ts.net}"
     info "  3. $(t via_lan) $DIR/install.sh --lan"
     info "  4. $(t via_tunnel) ssh -L $port:127.0.0.1:$port ${USER:-$(id -un)}@${ip:-<this-machine>}"
-  else
+  elif [ "$AGENT" = 0 ]; then
+    # (An agent shows the QR code itself, from the link: see AGENTS.md.)
     if command -v qrencode >/dev/null; then qrencode -t ANSIUTF8 -m 2 "$url/#k=$code" | sed 's/^/  /'; echo
     else info "$(t no_qr)"; fi
   fi
@@ -766,9 +933,27 @@ finish() {
   fi
   [ "$IS_WSL" = 0 ] || warn "$(t wsl)"
   agent_notes
-  if ls /sys/class/power_supply/BAT* >/dev/null 2>&1 || { [ "$(uname -s)" = Darwin ] && sysctl -n hw.model 2>/dev/null | grep -qi book; }; then info "$(t laptop)"; fi
+  [ "$LAPTOP" = no ] || info "$(t laptop)"
   if [ "$mode" = local ]; then info "$(t next_local)"; else info "$(t next)"; fi
+  # The end: what is already there, and the first thing to try. Voice needs HTTPS (the phone's mic) and a
+  # transcription key in the settings; writing works everywhere.
   echo
+  if [ "$N_PROJECTS" -gt 1 ]; then star "$(tn have_projects "$N_PROJECTS")"
+  elif [ "$N_PROJECTS" = 1 ]; then star "$(t have_project1)"
+  elif [ "$N_REPOS" -gt 0 ]; then star "$(tn have_repos "$N_REPOS")"; fi
+  [ "$N_PROJECTS" = 0 ] || it=try_projects
+  [ "${url#https://}" = "$url" ] || [ -z "$("$svc" config get OPENAI_API_KEY)" ] || try=try_voice
+  star "$(t "$try") $(t "$it")"
+  echo
+  [ "$AGENT" = 0 ] || info "$(t agent_next) $DIR/AGENTS.md"
+
+  kv role main; kv url "$url"; kv code "$code"; kv link "$url/#k=$code"; kv mode "$mode"
+  kv https "$([ "${url#https://}" != "$url" ] && echo yes || echo no)"; kv port "$port"
+  kv ready "$([ "$title" = ready ] && echo yes || echo no)"
+  sum_found
+  kv qrencode "$(yn command -v qrencode)"; kv handoff "$HANDOFF"
+  kv next "read $DIR/AGENTS.md steps 6 and 7, then write the final message"
+  summary ok
 }
 
 # ---------------------------------------------------------------- uninstall
@@ -844,9 +1029,11 @@ uninstall() {
 main() {
   [ -z "${HELP:-}" ] || { echo "$(t usage)"; exit 0; }
   [ -z "$BAD_VAL" ] || { echo "$(t bad_opt) $BAD_VAL" >&2; BAD=1; }
-  [ -z "${BAD:-}" ] || { echo "$(t usage)" >&2; exit 2; }
+  [ -z "${BAD:-}" ] || { echo "$(t usage)" >&2; summary failed "$(t usage)"; exit 2; }
   printf '%s weevils %s %s\n' "$Y$B" "$R" "$(t title)"
   if [ "$UNINSTALL" = 1 ]; then uninstall; exit 0; fi
+  # An agent always gets its summary, even when a command fails on the way (set -e).
+  trap 'rc=$?; [ "$rc" = 0 ] || summary failed "stopped (exit code $rc): see the lines above"' EXIT
   check_system
   get_source
   configure

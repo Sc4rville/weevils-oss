@@ -17,10 +17,13 @@ COPY --chown=me:me weevils /home/me/weevils
 USER me
 WORKDIR /home/me
 # The real installer, no question asked. It starts weevilsd once (background mode, no systemd here): what that first
-# run wrote is thrown away, so the container's first start is the server's very first start.
+# run wrote is thrown away, so the container's first start is the server's very first start. Only the installer's
+# hand-off (install.json) stays: the app picks up where the install stopped, as on a real machine.
 RUN cd weevils && ./install.sh --yes --no-update \
  && (~/.local/bin/weevils-service stop || true) \
+ && (mv ~/.local/share/weevils/install.json /tmp/install.json 2>/dev/null || true) \
  && rm -rf ~/.local/share/weevils ~/.config/weevils/secret \
+ && mkdir -p ~/.local/share/weevils && (mv /tmp/install.json ~/.local/share/weevils/ 2>/dev/null || true) \
  && sed -i '/^WEEVILS_MACHINE/d' ~/.config/weevils/env
 EXPOSE 4179
 CMD ["/home/me/weevils/scripts/fresh/entrypoint.sh"]

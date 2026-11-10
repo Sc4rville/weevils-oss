@@ -30,8 +30,8 @@ cfg_set() {
   mkdir -p "$(dirname "$CONFIG_FILE")"
   [ -f "$CONFIG_FILE" ] || { : >"$CONFIG_FILE"; chmod 600 "$CONFIG_FILE"; }
   if [ "$mode" = default ] && [ -n "$(cfg_get "$k")" ]; then return 0; fi
-  local re="^[[:space:]]*$k[[:space:]]*="
-  grep -qE "$re" "$CONFIG_FILE" || re="^[[:space:]]*#[[:space:]]*$k[[:space:]]*="
+  local re="^[[:space:]]*${k}[[:space:]]*="
+  grep -qE "$re" "$CONFIG_FILE" || re="^[[:space:]]*#[[:space:]]*${k}[[:space:]]*="
   if grep -qE "$re" "$CONFIG_FILE"; then
     local tmp; tmp=$(mktemp)
     K=$k V=$v RE=$re awk 'BEGIN { done = 0 } !done && $0 ~ ENVIRON["RE"] { print ENVIRON["K"] "=" ENVIRON["V"]; done = 1; next } { print }' "$CONFIG_FILE" >"$tmp"

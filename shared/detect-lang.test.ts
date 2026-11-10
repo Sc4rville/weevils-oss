@@ -6,7 +6,7 @@ describe('detectLang : la voix parle la langue du message', () => {
     for (const t of [
       'remonte le weevil et le diable comme ça',
       "J'ai envoyé ta demande à la session weevils.",
-      'Tout tourne, deux sessions travaillent sur arcade.',
+      'Tout tourne, deux sessions travaillent sur mygame.',
       'ok fais le point',
       "c'est bon, lance le build",
     ])

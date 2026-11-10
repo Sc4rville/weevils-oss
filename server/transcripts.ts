@@ -7,6 +7,7 @@ import type { Message, Subagent, Tool } from '../shared/api.ts'
 import { tr } from './i18n.ts'
 import M from './i18n/transcripts.ts'
 import { authorName, parseSigned } from './authors.ts'
+import { backgroundOf, bgLine, emptyBg, procInfo as procInfoOf, type BgState, type ProcInfo } from './background.ts'
 
 export interface Transcript {
   id: string
@@ -26,7 +27,10 @@ export interface Transcript {
   /** Dernier état lu dans le fil. */
   phase: 'working' | 'idle'
   messages: Message[]
+  /** Sous-agents, étapes de workflow et commandes d'arrière-plan (server/background.ts), récents et finis compris. */
   subagents: Subagent[]
+  /** claude : ce que le fil dit du travail d'arrière-plan (lancements, fins annoncées, bilans de fin de tour). */
+  bg?: BgState
   /** Interne : offset de lecture et ligne incomplète. */
   offset: number
   partial: string
@@ -42,6 +46,15 @@ export interface Transcript {
 }
 
 const MAX_MESSAGES = 400
+const pidAlive = (pid: number | undefined): boolean => {
+  if (!pid) return false
+  try {
+    process.kill(pid, 0)
+    return true
+  } catch (e) {
+    return (e as NodeJS.ErrnoException).code === 'EPERM'
+  }
+}
 /** Un texte dicté ou collé arrive enveloppé dans <pasted_content id="…">…</pasted_content> : on garde le dedans. */
 export const unwrapPasted = (text: string) => text.replace(/<pasted_content\b[^>]*>/g, '').replace(/<\/pasted_content>/g, '').trim()
 const userMsg = (id: string, raw: string, at: number): Message => {
@@ -56,6 +69,15 @@ const oneLine = (s: string) => s.replace(/\s+/g, ' ').trim()
 const isNoise = (text: string) => {
   const t = unwrapPasted(text)
   return !t || /^</.test(t) || /^\[Request interrupted by user/.test(t) || t.startsWith('Caveat:') || /^#?\s*AGENTS\.md instructions/i.test(t) || t.includes('<INSTRUCTIONS>')
+}
+
+/** Ligne qui remet une <task-notification> à l'agent : mise en file, ou message « user » qui la porte. */
+const notifies = (o: any): boolean => {
+  if (o.type === 'queue-operation') return o.operation === 'enqueue' && typeof o.content === 'string' && o.content.includes('<task-notification>')
+  if (o.type !== 'user') return false
+  const c = o.message?.content
+  if (typeof c === 'string') return c.includes('<task-notification>')
+  return Array.isArray(c) && c.some((p: any) => p?.type === 'text' && typeof p.text === 'string' && p.text.includes('<task-notification>'))
 }
 
 const queueKey = (text: string) => unwrapPasted(text).replace(/\s+/g, ' ').slice(0, 200)
@@ -91,11 +113,21 @@ function touch(t: Transcript, at: number) {
 
 function claudeLine(t: Transcript, o: any) {
   const at = o.timestamp ? Date.parse(o.timestamp) : 0
+  bgLine((t.bg ??= emptyBg()), o, at)
   if (o.cwd) t.cwd = o.cwd
   if (o.gitBranch && o.gitBranch !== 'HEAD') t.branch = o.gitBranch
   if (o.type === 'ai-title' && o.aiTitle) t.title = o.aiTitle
   if (o.type === 'custom-title' && o.customTitle) t.customTitle = o.customTitle
   if (o.isSidechain) return
+
+  // Fin d'un travail d'arrière-plan annoncée (<task-notification>, ligne « bruit » ignorée plus bas) : Claude Code la
+  // traite aussitôt dans un nouveau tour. Sans ça, la session repasserait « idle » quelques secondes (et pousserait un
+  // « a fini » trop tôt) entre la fin du dernier sous-agent et la première réponse.
+  if (t.phase === 'idle' && notifies(o)) {
+    touch(t, at)
+    t.phase = 'working'
+    t.workStartedAt = at
+  }
 
   // Message envoyé pendant que l'agent travaillait : Claude Code ne l'écrit pas comme « user » mais comme pièce jointe absorbée.
   if (o.type === 'attachment' && o.attachment?.type === 'queued_command' && typeof o.attachment.prompt === 'string') {
@@ -161,54 +193,6 @@ function claudeLine(t: Transcript, o: any) {
     t.phase = msg.stop_reason === 'end_turn' ? 'idle' : 'working'
     if (t.phase === 'idle') t.workStartedAt = null
   }
-}
-
-/** Sous-agents : <session>/subagents/agent-<id>.jsonl + .meta.json (description). */
-function claudeSubagents(t: Transcript, now: number): Subagent[] {
-  const dir = path.join(t.file.slice(0, -'.jsonl'.length), 'subagents')
-  let names: string[]
-  try {
-    names = fs.readdirSync(dir).filter((n) => n.endsWith('.jsonl'))
-  } catch {
-    return []
-  }
-  const out: Subagent[] = []
-  for (const name of names) {
-    const file = path.join(dir, name)
-    try {
-      const st = fs.statSync(file)
-      const id = name.replace(/^agent-/, '').replace(/\.jsonl$/, '')
-      let meta: any = {}
-      try {
-        meta = JSON.parse(fs.readFileSync(file.replace(/\.jsonl$/, '.meta.json'), 'utf8'))
-      } catch {
-        /* pas de méta */
-      }
-      const fd = fs.openSync(file, 'r')
-      const buf = Buffer.alloc(Math.min(4096, st.size))
-      fs.readSync(fd, buf, 0, buf.length, 0)
-      fs.closeSync(fd)
-      let startedAt = st.birthtimeMs || st.mtimeMs
-      try {
-        const first = JSON.parse(buf.toString('utf8').split('\n')[0])
-        if (first.timestamp) startedAt = Date.parse(first.timestamp)
-      } catch {
-        /* première ligne tronquée */
-      }
-      const working = now - st.mtimeMs < 90_000
-      out.push({
-        id,
-        label: meta.agentType && meta.agentType !== 'fork' ? meta.agentType : tr(M).subagent,
-        activity: meta.description ?? tr(M).task,
-        status: working ? 'working' : 'done',
-        startedAt,
-        endedAt: working ? undefined : st.mtimeMs,
-      })
-    } catch {
-      /* fichier disparu */
-    }
-  }
-  return out.sort((a, b) => a.startedAt - b.startedAt).slice(-12)
 }
 
 // ---------------------------------------------------------------------------
@@ -280,7 +264,7 @@ function codexLine(t: Transcript, o: any) {
 function emptyTranscript(file: string, tool: Tool): Transcript {
   const base = path.basename(file, '.jsonl')
   const id = tool === 'claude' ? base : (base.match(/[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}$/)?.[0] ?? base)
-  return { id, tool, file, cwd: '', openedAt: 0, lastActivityAt: 0, workStartedAt: null, phase: 'idle', messages: [], subagents: [], offset: 0, partial: '', queued: [] }
+  return { id, tool, file, cwd: '', openedAt: 0, lastActivityAt: 0, workStartedAt: null, phase: 'idle', messages: [], subagents: [], bg: tool === 'claude' ? emptyBg() : undefined, offset: 0, partial: '', queued: [] }
 }
 
 /** Lit la suite du fichier ; renvoie true si quelque chose a changé. */
@@ -354,6 +338,8 @@ export class TranscriptStore {
   claudeDir: string
   codexDir: string
   recentMs: number
+  /** Pid du processus claude d'une session (pane tmux, sinon hook), pour les preuves de vie de son arrière-plan. */
+  pidOf?: (id: string) => number | undefined
 
   constructor(claudeDir: string, codexDir: string, recentMs: number) {
     this.claudeDir = claudeDir
@@ -381,13 +367,19 @@ export class TranscriptStore {
         t = emptyTranscript(file, tool)
         this.byFile.set(file, t)
       }
+      let grew = false
       try {
-        if (readMore(t, st.size)) changed = true
+        grew = readMore(t, st.size)
+        if (grew) changed = true
       } catch {
         /* lecture ratée : on réessaiera */
       }
-      if (tool === 'claude' && now - t.lastActivityAt < 3600_000) {
-        const subs = claudeSubagents(t, now)
+      // Un arrière-plan qui tourne se relit même quand le fil principal se tait depuis longtemps (workflow de plusieurs heures) ;
+      // un fil qui vient d'être lu (premier passage après un redémarrage, fin annoncée) aussi, et toute session dont le
+      // processus claude vit : un élément coupé par la borne de sûreté qui se remet à écrire doit repasser « working ».
+      if (tool === 'claude' && (grew || now - t.lastActivityAt < 3600_000 || t.subagents.some((s) => s.status === 'working') || (t.subagents.length > 0 && pidAlive(this.pidOf?.(t.id))))) {
+        let proc: ProcInfo | null | undefined
+        const subs = backgroundOf(t.file, (t.bg ??= emptyBg()), now, () => (proc === undefined ? (proc = procInfoOf(this.pidOf?.(t.id))) : proc))
         if (JSON.stringify(subs) !== JSON.stringify(t.subagents)) {
           t.subagents = subs
           changed = true

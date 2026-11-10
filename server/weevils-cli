@@ -5,6 +5,7 @@
 #   weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
 #   weevils new <projet> "message" [codex]   weevils projects
 #   weevils setup [install | ask <brique> | mark <id>]      weevils config set <CLÉ> <valeur>
+#   weevils tour open|close                                 rouvre ou ferme les premiers pas dans l'app
 set -euo pipefail
 base="http://127.0.0.1:${WEEVILS_PORT:-4179}"
 from=${WEEVILS_FROM:-weevils}
@@ -25,20 +26,22 @@ if [ "$(wv_lang)" = fr ]; then
   # i18n-ignore : messages français, l'anglais est juste en dessous (même chose dans la branche else)
   usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
 weevils new <projet> "message" [codex]   weevils projects
-weevils setup [install | ask <brique> | mark <id>]   weevils config set <CLÉ> <valeur>' # i18n-ignore
+weevils setup [install | ask <brique> | mark <id>]   weevils config set <CLÉ> <valeur>
+weevils tour open|close' # i18n-ignore
   a_id='id de session' a_msg='message' a_project='projet' a_first='premier message' # i18n-ignore
   export WVM_NOT_FOUND='session introuvable : ' WVM_AMBIGUOUS='plusieurs sessions commencent par {} : {}' # i18n-ignore
   export WVM_NO_SESSIONS='aucune session ouverte' WVM_NO_MESSAGES='(aucun message)' WVM_USER='utilisateur' # i18n-ignore
-  export WVM_ERROR='erreur' WVM_NEW='nouvelle session ' # i18n-ignore
+  export WVM_ERROR='erreur' WVM_NEW='nouvelle session ' WVM_BACKGROUND='en arrière-plan' # i18n-ignore
   m_sent='reçu par %s' m_not_sent='NON reçu par %s : %s' # i18n-ignore
 else
   usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
 weevils new <project> "message" [codex]  weevils projects
-weevils setup [install | ask <brick> | mark <id>]   weevils config set <KEY> <value>'
+weevils setup [install | ask <brick> | mark <id>]   weevils config set <KEY> <value>
+weevils tour open|close'
   a_id='session id' a_msg='message' a_project='project' a_first='first message'
   export WVM_NOT_FOUND='no such session: ' WVM_AMBIGUOUS='several sessions start with {}: {}'
   export WVM_NO_SESSIONS='no open sessions' WVM_NO_MESSAGES='(no messages)' WVM_USER='user'
-  export WVM_ERROR='error' WVM_NEW='new session '
+  export WVM_ERROR='error' WVM_NEW='new session ' WVM_BACKGROUND='in background'
   m_sent='received by %s' m_not_sent='NOT received by %s: %s'
 fi
 
@@ -61,11 +64,13 @@ case "${1:-}" in
   sessions)
     curl -sf -m 8 "$base/api/snapshot" | json "
 names={p['id']:p['name'] for p in d['projects']}
-rows=[s for s in d['sessions'] if s['status']!='done']
+# Une session dont des sous-agents, un workflow ou des commandes tournent encore est « working » : elle reste listée.
+rows=[s for s in d['sessions'] if s['status']!='done' or s.get('background')]
 if not rows: print(E['WVM_NO_SESSIONS'])
 for s in rows:
     now=(' · '+s['now']) if s.get('now') else ''
-    print(f\"{s['id'][:8]}  {names.get(s['projectId'],s['projectId']):<14} {s['tool']:<6} @{s['machineId']:<4} {s['status']:<10} {s['title']}{now}\")
+    bg=(f\" · {s['background']} {E['WVM_BACKGROUND']}\") if s.get('background') else ''
+    print(f\"{s['id'][:8]}  {names.get(s['projectId'],s['projectId']):<14} {s['tool']:<6} @{s['machineId']:<4} {s['status']:<10} {s['title']}{now}{bg}\")
 " ;;
   projects)
     curl -sf -m 8 "$base/api/snapshot" | json "
@@ -77,7 +82,7 @@ for p in d['projects']:
     id=$(resolve "${2:?$a_id}")
     n=${3:-12}
     curl -sf -m 8 "$base/api/sessions/$id" | json "
-s=d['session']; print(f\"# {s['title']} · {s['tool']} · {s['status']}\" + (' · '+s['now'] if s.get('now') else ''))
+s=d['session']; print(f\"# {s['title']} · {s['tool']} · {s['status']}\" + (' · '+s['now'] if s.get('now') else '') + (f\" · {s['background']} {E['WVM_BACKGROUND']}\" if s.get('background') else ''))
 n=max(1,int(sys.argv[1])) if len(sys.argv)>1 else 12
 msgs=d.get('messages') or []
 if not msgs: print(E['WVM_NO_MESSAGES'])
@@ -110,6 +115,14 @@ for m in msgs[-n:]:
         key=brick; [ "$2" = mark ] && key=id
         "$py" -c 'import json,sys; print(json.dumps({sys.argv[1]:sys.argv[2]}))' "$key" "${3:?}" \
           | curl -sf -m 30 -H 'content-type: application/json' --data-binary @- "$base/api/setup/$2" >/dev/null && echo ok ;;
+      *) echo "$usage"; exit 1 ;;
+    esac ;;
+  tour)
+    # Premiers pas : les rouvrir dans l'app (« reprends le tour »), ou les fermer.
+    case "${2:-}" in
+      open|close)
+        "$py" -c 'import json,sys; print(json.dumps({"action":sys.argv[1]}))' "$2" \
+          | curl -sf -m 30 -H 'content-type: application/json' --data-binary @- "$base/api/tour" >/dev/null && echo ok ;;
       *) echo "$usage"; exit 1 ;;
     esac ;;
   config)

@@ -37,7 +37,7 @@ const fakeRes = () => {
 describe('voix : la langue suit le message', () => {
   it('réponse française de weevboss, réglage en anglais : résumé demandé en français, Cartesia en français', async () => {
     const reply =
-      "J'ai relancé le build de arcade dans la session weevils-3f2a, puis j'ai vérifié server/core.ts : les deux sessions tournent et rien n'est bloqué pour l'instant, je te préviens dès que c'est fini."
+      "J'ai relancé le build de mygame dans la session weevils-3f2a, puis j'ai vérifié server/core.ts : les deux sessions tournent et rien n'est bloqué pour l'instant, je te préviens dès que c'est fini."
     await speakStream(fakeRes(), reply, false)
     const summary = calls.find((c) => c.url.includes('openai.com'))!
     expect(summary.body.messages[0].content).toMatch(/en français/)

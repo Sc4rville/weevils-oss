@@ -3,6 +3,9 @@
 **Watch and drive your Claude Code and Codex sessions from your phone**, on your own machine, with the subscriptions
 you already have.
 
+*An AI agent installing this for someone? Clone it and follow [AGENTS.md](AGENTS.md): it installs everything
+without asking them anything first.*
+
 <img src="docs/first-run.gif" width="280" alt="weevils on a fresh install: the 3-card intro, the empty home, the first hint">
 
 - **Every session, sorted by project**: what each agent is doing right now, and the full thread.
@@ -13,13 +16,26 @@ you already have.
 
 No API cost: weevils drives the official `claude` and `codex` commands you are already logged in to.
 
+## Install it with your AI agent
+
+Paste this into Claude Code or Codex, on the machine that will run weevils:
+
+```text
+install https://github.com/Sc4rville/weevils-oss
+```
+
+It clones the repo, runs the installer without asking you anything first, sets up how your phone reaches the machine
+and hands you the link. The steps it follows are in [AGENTS.md](AGENTS.md).
+
 ## Install
+
+**AI agents: don't use this section and don't ask the user for these answers: follow [AGENTS.md](AGENTS.md).**
 
 You need a Linux machine (a VPS, a home server, WSL2) with **Claude Code** installed and logged in as a regular user
 (not root). Codex is optional.
 
 ```sh
-git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
 ```
 
 The installer asks for your first name, your language and a domain (optional, see below), then installs what
@@ -32,9 +48,10 @@ How the phone reaches the machine:
 |---|---|
 | `--domain weevils.example.com` | **recommended**: HTTPS with an automatic certificate (the domain must point to the machine, ports 80/443 open). Needed for the installed app, notifications and the mic. |
 | `--lan` | same Wi-Fi, plain http: fine to try at home, never on a VPS |
-| neither | the app stays on 127.0.0.1: use an SSH tunnel from a computer, or [Tailscale](https://tailscale.com) (`tailscale serve`) |
+| neither | the app stays on 127.0.0.1: use an SSH tunnel from a computer, or [Tailscale](https://tailscale.com) (`tailscale serve --bg 4179`, then `./install.sh --url https://<machine>.<tailnet>.ts.net`) |
 
-Other options: `--yes` (no questions), `--name`, `--lang en|fr`, `--port`, `--secondary <ssh host>` (add a second
+Other options: `--yes` (no questions), `--agent` (for an AI agent: no questions, a machine-readable summary at the
+end), `--url <https://…>` (HTTPS already served by something else, like `tailscale serve`), `--name`, `--lang en|fr`, `--port`, `--secondary <ssh host>` (add a second
 machine), `--uninstall` (`--purge` also deletes settings and data). Everything the script does:
 [docs/install.md](docs/install.md).
 

@@ -111,7 +111,7 @@ export function SessionRow({ session }: { session: Session }) {
     <button
       className={`row ${waiting ? 'tone' : ''} ${session.status === 'working' ? 'live' : ''} ${unread ? 'unread' : ''}`}
       onClick={() => push({ kind: 'session', id: session.id })}
-      aria-label={t.rowAria(session.tool, session.title, st.label, act, when)}
+      aria-label={t.rowAria(session.tool, session.title, st.label, act, session.background > 0 ? `${when}, ${t.background(session.background)}` : when)}
       title={act ? session.title : undefined}
     >
       <span className="in line" aria-hidden>
@@ -124,6 +124,7 @@ export function SessionRow({ session }: { session: Session }) {
         <span className="title wrap">
           {unread && <span className="dot" aria-hidden />}
           {text}
+          {session.background > 0 && <span className="bg strong"> · {t.background(session.background)}</span>}
         </span>
         <span className="act">{when}</span>
       </span>
@@ -618,7 +619,9 @@ export function useAuthors() {
   const list = snap.config.authors
   return useMemo(() => {
     const byId = new Map((list ?? []).map((a) => [a.id, a]))
-    return (id?: string): Author => byId.get(id ?? 'weevboss') ?? { id: id ?? 'weevboss', name: id ?? 'weevboss', color: '' }
+    // Un auteur inconnu de la config (agent externe retiré, démo du pont e-mail) : une couleur stable de la palette.
+    const tint = (id: string) => `var(--p${[...id].reduce((h, c) => (h * 31 + c.charCodeAt(0)) >>> 0, 7) % 16})`
+    return (id?: string): Author => byId.get(id ?? 'weevboss') ?? { id: id ?? 'weevboss', name: id ?? 'weevboss', color: id && id !== 'weevboss' ? tint(id) : '' }
   }, [list])
 }
 
@@ -649,9 +652,9 @@ export function Messages({ messages, author, working = false, after }: { message
         ) : (
           <Appear key={g.m.id}>
             <Bubble
-              className={`msg band ${g.m.role === 'user' ? 'tone' : g.m.role === 'orchestrator' ? authorTone(authorOf(g.m.author)).className : ''} ${g.m.devil && g.m.role === 'assistant' ? 'devil' : ''}`}
+              className={`msg band ${g.m.role === 'user' ? 'tone' : g.m.role === 'orchestrator' ? authorTone(authorOf(g.m.author)).className : ''} ${g.m.devil && g.m.role === 'assistant' ? 'devil' : ''} ${g.m.demo ? 'demo' : ''}`}
               style={g.m.role === 'orchestrator' ? authorTone(authorOf(g.m.author)).style : undefined}
-              who={g.m.role === 'user' ? t.you : g.m.role === 'orchestrator' ? authorOf(g.m.author).name : g.m.devil ? td.devil : author}
+              who={`${g.m.role === 'user' ? t.you : g.m.role === 'orchestrator' ? authorOf(g.m.author).name : g.m.devil ? td.devil : author}${g.m.demo ? ` · ${t.demo}` : ''}`}
               copy={g.m.role === 'user' ? userText(g.m.text) : g.m.text}
               mid={g.m.id}
             >

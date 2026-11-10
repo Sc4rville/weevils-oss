@@ -4,12 +4,15 @@ One command on a Linux machine or VPS (Ubuntu/Debian tested; dnf and pacman supp
 macOS is not supported yet; on Windows, use WSL2 (see below).
 
 ```sh
-git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
 # once the repo is public:
 curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 ```
 
 Run it again any time: it updates (git pull, npm ci and build only when something changed) and keeps your settings.
+
+Or ask your AI agent: paste `install https://github.com/Sc4rville/weevils-oss` into Claude Code or Codex. It follows
+[AGENTS.md](../AGENTS.md) (see [With an AI agent](#with-an-ai-agent) below).
 
 ## What it does
 
@@ -43,7 +46,11 @@ Run it again any time: it updates (git pull, npm ci and build only when somethin
    `https://<domain>` answers, and says what to look at (DNS, ports, Caddy logs) when it doesn't. A re-run keeps
    the site and points it to the current port.
 9. Prints the address, the access code and the login link (`…/#k=<code>`), with its QR code when a phone can open
-   it (`--domain`, `--lan`, or a `WEEVILS_PUBLIC_URL`). Without any of them, it lists the ways in instead (below).
+   it (`--domain`, `--url`, `--lan`, or a `WEEVILS_PUBLIC_URL`). Without any of them, it lists the ways in instead
+   (below). It ends on what is already there (your Claude Code projects of the last 3 days, or your repos in
+   `~/projects`) and the first thing to try in the app.
+10. Writes the hand-off file `~/.local/share/weevils/install.json` (see below), read by the app to start its tour
+    where the install stopped.
 
 ### Permissions
 
@@ -57,9 +64,11 @@ Claude Code refuses to skip them as root, so a root install sets `WEEVILS_SAFE=1
 | option | |
 |---|---|
 | `--yes` | no questions, defaults everywhere |
+| `--agent` | for an AI agent: `--yes`, no colours, sudo only without a password, a summary at the end (below) |
 | `--name <first name>` | how the agents call you |
 | `--lang en\|fr` | language of the installer and of the server (default: the one in your settings, else your locale) |
 | `--domain <host>` | HTTPS through Caddy; the domain must point to the machine, ports 80/443 open |
+| `--url <https://…>` | the address the phone opens when something else serves HTTPS in front (`tailscale serve`, your own proxy to 127.0.0.1:4179); sets `WEEVILS_PUBLIC_URL` |
 | `--lan` | listen on every interface (`WEEVILS_HOST=0.0.0.0`) for a phone on the same home network, plain http |
 | `--port <n>` | port of weevilsd on 127.0.0.1 (default 4179); a re-run moves the Caddy site too |
 | `--dir <path>` | install directory when piped from curl (default `~/weevils`) |
@@ -80,9 +89,9 @@ Without `--domain`, weevilsd listens on 127.0.0.1 only, and the end screen shows
 a phone is the phone itself). The ways in:
 
 - **A domain** pointing to the machine: `./install.sh --domain <host>` (HTTPS, recommended).
-- **Tailscale**, with the phone and the machine on the same tailnet: `sudo tailscale serve --bg 4179`, then open the
-  `https://<machine>.<tailnet>.ts.net` address it prints (set it as `WEEVILS_PUBLIC_URL` for the login link and
-  notifications).
+- **Tailscale**, with the phone and the machine on the same tailnet: `sudo tailscale serve --bg 4179`, then
+  `./install.sh --url https://<machine>.<tailnet>.ts.net` (the address it prints): the end screen then shows that
+  link with its QR code, and notifications use it.
 - **The same home network**: `./install.sh --lan` (`WEEVILS_HOST=0.0.0.0`). The end screen shows the machine's
   address and a QR code. It is plain http: never on a VPS (the access code would travel in clear; the installer
   warns when the address is not a private one), and the phone allows neither the microphone nor notifications
@@ -92,6 +101,68 @@ a phone is the phone itself). The ways in:
 **WSL2**: the phone can't reach WSL as is. Use Tailscale (on Windows or in WSL), or `networkingMode=mirrored` in
 `%UserProfile%\.wslconfig` (then `--lan`), and add `vmIdleTimeout=-1` there too, or WSL stops, and weevilsd with
 it, when no terminal is open.
+
+## With an AI agent
+
+[AGENTS.md](../AGENTS.md) is written for an agent asked to install weevils: check the machine, clone, run
+`./install.sh --agent`, sort out the phone's way in, and end with one message in the user's language (link, QR
+code, home screen, first thing to try). The installer also acts as `--agent` by itself when it sees it is run by
+Claude Code (`CLAUDECODE=1`) or Codex (a `CODEX_*` variable other than `CODEX_HOME`) with no terminal: the user asked
+their agent to install it, which is the consent `--yes` stands for. Even then sudo is only used with `-n`; when it
+wants a password, the script stops with `status=needs_sudo` and the command to run once from a terminal.
+
+The output ends with a block to parse, `key=value` per line (an agent gets it even when the install fails):
+
+```text
+--- weevils summary ---
+status=ok                      # ok | needs_sudo | failed (then error=…)
+role=main
+url=http://localhost:4179      # what the phone opens, without the code
+code=…
+link=http://localhost:4179/#k=…
+mode=local                     # public | lan | local
+https=no
+port=4179
+ready=yes                      # Claude Code installed and logged in
+claude_installed=yes
+claude_logged=yes
+codex_installed=no
+codex_logged=no
+gh_installed=no
+gh_logged=no
+gh_login=
+projects=0                     # ~/.claude/projects folders with a session in the last 3 days
+projects_all=0
+repos=0                        # git repos in ~/projects (WEEVILS_PROJECTS)
+tailscale=no
+tailscale_name=
+laptop=no
+wsl=no
+sudo=yes                       # yes | password | no
+name=Ana
+dir=/home/ana/weevils
+qrencode=yes
+handoff=/home/ana/.local/share/weevils/install.json
+next=read /home/ana/weevils/AGENTS.md steps 6 and 7, then write the final message
+lang=en
+agent=claude                   # claude | codex | (empty)
+--- end ---
+```
+
+With `status=needs_sudo`, `needs=` says what needs root and `retry=` gives the same install for a terminal.
+
+### The hand-off file
+
+Every successful install of a main machine writes `~/.local/share/weevils/install.json` (atomically, mode 600):
+
+```json
+{ "v": 1, "at": 1762743000000, "by": "agent", "agent": "claude", "url": "http://localhost:4179", "mode": "local",
+  "phoneLink": false, "lang": "en", "ready": { "claude": true, "codex": false, "gh": false }, "projects": 0, "repos": 0 }
+```
+
+`by`: `agent` (`--agent` or detected), `terminal` (a person saw the end screen), `script` (`--yes` without a
+terminal). `phoneLink`: the end screen printed a link a phone can open (`mode` public or lan). `projects` and
+`repos` count like the summary.
 
 ## Uninstalling
 

@@ -1,6 +1,6 @@
 # Vision — overrides the kit
 
-Spoken clarifications from November 8, 2026. If anything here conflicts with the original
+Spoken clarifications from November 8, 2026. If anything here conflicts with `harness-interface-kit/` (the original
 French design brief), this file wins.
 
 ## Look

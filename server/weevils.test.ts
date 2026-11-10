@@ -11,14 +11,14 @@ import CO from './i18n/core.ts'
 const chatgpt = [
   {
     id: 'c1',
-    title: 'Idée pour shop',
+    title: 'Idée pour lws',
     create_time: 1_700_000_000.5,
     update_time: 1_700_000_100.5,
     current_node: 'n3',
     mapping: {
       root: { id: 'root', message: null, parent: null, children: ['n1'] },
       n1: { id: 'n1', parent: 'root', message: { id: 'm1', author: { role: 'system' }, content: { content_type: 'text', parts: [''] } } },
-      n2: { id: 'n2', parent: 'n1', message: { id: 'm2', author: { role: 'user' }, content: { content_type: 'text', parts: ['On simplifie shop-demo ?'] }, create_time: 1_700_000_001 } },
+      n2: { id: 'n2', parent: 'n1', message: { id: 'm2', author: { role: 'user' }, content: { content_type: 'text', parts: ['On simplifie lws-demo ?'] }, create_time: 1_700_000_001 } },
       n2b: { id: 'n2b', parent: 'n1', message: { id: 'm2b', author: { role: 'user' }, content: { content_type: 'text', parts: ['branche abandonnée'] } } },
       n3: { id: 'n3', parent: 'n2', message: { id: 'm3', author: { role: 'assistant' }, content: { content_type: 'text', parts: ['Oui, en trois étapes.'] }, create_time: 1_700_000_002 } },
     },
@@ -42,7 +42,7 @@ describe('import des exports', () => {
     const [c] = parseExport(chatgpt)
     expect(c.id).toBe('gpt-c1')
     expect(c.messages.map((m) => [m.role, m.text])).toEqual([
-      ['user', 'On simplifie shop-demo ?'],
+      ['user', 'On simplifie lws-demo ?'],
       ['assistant', 'Oui, en trois étapes.'],
     ])
     expect(c.updatedAt).toBe(1_700_000_100_500)
@@ -57,12 +57,12 @@ describe('import des exports', () => {
 
 describe('classement', () => {
   const catalog = [
-    { id: 'shop', name: 'shop', repos: ['shop-demo', 'shop-oss'] },
-    { id: 'arcade', name: 'arcade', repos: ['arcade', 'arcade-trailer'] },
+    { id: 'lws', name: 'lws', repos: ['lws-demo', 'lws-oss'] },
+    { id: 'mygame', name: 'mygame', repos: ['mygame', 'mygame-trailer'] },
   ]
   it('un nom de repo dans l’échange suffit, le plus précis gagne', () => {
-    expect(ruleMatch('On simplifie shop-demo ?', catalog)?.id).toBe('shop')
-    expect(ruleMatch('le trailer de arcade-trailer', catalog)?.id).toBe('arcade')
+    expect(ruleMatch('On simplifie lws-demo ?', catalog)?.id).toBe('lws')
+    expect(ruleMatch('le trailer de mygame-trailer', catalog)?.id).toBe('mygame')
   })
   it('pas de faux positif sur un mot courant', () => {
     expect(ruleMatch('Une recette rapide ?', catalog)).toBeNull()
@@ -71,9 +71,9 @@ describe('classement', () => {
 
 describe('rangement des sessions', () => {
   it('dossier → repo → famille', () => {
-    expect(familyOf('shop-audit-breaker-r0')).toBe('shop')
-    expect(place('/home/me/projects/shop-demo/src', ['/home/me/projects']).projectId).toBe('shop')
-    expect(place('/home/me/projects/.night/shop', ['/home/me/projects']).repo).toBe('shop')
+    expect(familyOf('lws-audit-breaker-r0')).toBe('lws')
+    expect(place('/home/me/projects/lws-demo/src', ['/home/me/projects']).projectId).toBe('lws')
+    expect(place('/home/me/projects/.night/lws', ['/home/me/projects']).repo).toBe('lws')
     expect(place('/tmp', ['/home/me/projects']).projectId).toBe('divers')
     expect(place('/home/me/Documents/projects/jarvis', ['/home/me/projects', '/home/me/Documents/projects']).projectId).toBe('jarvis')
   })
@@ -191,8 +191,8 @@ describe('catégories inventées supprimées', async () => {
     const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wv-db-'))
     const s = new ConversationStore(dir)
     s.import([
-      { id: 'a', source: 'chatgpt', title: 'Budget du jeu', createdAt: 1, updatedAt: 2, messages: [{ role: 'user', text: 'Combien coûte un trailer pour arcade ?', at: 1 }, { role: 'assistant', text: 'Environ…', at: 2 }] },
-      { id: 'b', source: 'claude', title: 'Site vitrine', createdAt: 1, updatedAt: 3, messages: [{ role: 'user', text: 'Refais la home de shop-demo', at: 1 }] },
+      { id: 'a', source: 'chatgpt', title: 'Budget du jeu', createdAt: 1, updatedAt: 2, messages: [{ role: 'user', text: 'Combien coûte un trailer pour mygame ?', at: 1 }, { role: 'assistant', text: 'Environ…', at: 2 }] },
+      { id: 'b', source: 'claude', title: 'Site vitrine', createdAt: 1, updatedAt: 3, messages: [{ role: 'user', text: 'Refais la home de lws-demo', at: 1 }] },
     ] as any)
     const cash = s.ensureCategory('cash')
     s.setClassification('a', { projectId: cash, status: 'auto', reason: 'x', confidence: 0.9 })
@@ -203,7 +203,7 @@ describe('catégories inventées supprimées', async () => {
     expect(s.corrections()).toEqual([])
     expect(s.unclassified(10).map((c) => c.id).sort()).toEqual(['a', 'b'])
     const t = tr(CM)
-    expect(s.excerpt('a').startsWith(t.said(t.me, 'Combien coûte un trailer pour arcade'))).toBe(true)
+    expect(s.excerpt('a').startsWith(t.said(t.me, 'Combien coûte un trailer pour mygame'))).toBe(true)
     s.db.close()
     fs.rmSync(dir, { recursive: true })
   })

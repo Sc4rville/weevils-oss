@@ -242,14 +242,14 @@ describe('codex', () => {
 })
 
 describe('claude : sous-agents', () => {
-  it('lit <session>/subagents/agent-*.jsonl et leur description', () => {
+  it('lit <session>/subagents/agent-*.jsonl : sa description pour nom, son dernier pas pour activité (détail : background.test.ts)', () => {
     const now = Date.now()
     const f = claudeFile()
     write(f, [user('go', now - 2000)])
     const dir = path.join(f.slice(0, -'.jsonl'.length), 'subagents')
-    write(path.join(dir, 'agent-x.jsonl'), [{ type: 'user', timestamp: iso(now - 1500) }])
+    write(path.join(dir, 'agent-x.jsonl'), [{ type: 'user', timestamp: iso(now - 1500) }, assistant([{ type: 'tool_use', name: 'Grep', input: { pattern: 'TODO' } }], now - 1000)])
     fs.writeFileSync(path.join(dir, 'agent-x.meta.json'), JSON.stringify({ agentType: 'Explore', description: 'scan' }))
     store.scan(now)
-    expect(one().subagents).toEqual([{ id: 'x', label: 'Explore', activity: 'scan', status: 'working', startedAt: now - 1500, endedAt: undefined }])
+    expect(one().subagents).toEqual([{ id: 'x', kind: 'agent', label: 'scan', activity: 'Grep · TODO', status: 'working', startedAt: now - 1500, endedAt: undefined }])
   })
 })

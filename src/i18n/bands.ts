@@ -13,7 +13,7 @@ export default defineMessages({
     agentBand: 'weevboss, l’orchestrateur',
     collapseChat: 'réduire la conversation',
     openChat: 'ouvrir la conversation avec weevboss',
-    agentPlaceholder: 'dis à weevboss quoi faire',
+    agentPlaceholder: 'dis-moi quoi faire',
     agentLabel: 'message à weevboss',
 
     // Bande projet
@@ -64,7 +64,7 @@ export default defineMessages({
     agentBand: 'weevboss, the orchestrator',
     collapseChat: 'collapse the conversation',
     openChat: 'open the conversation with weevboss',
-    agentPlaceholder: 'tell weevboss what to do',
+    agentPlaceholder: 'tell me what to do',
     agentLabel: 'message to weevboss',
 
     projectBand: (name: string) => `project ${name}`,

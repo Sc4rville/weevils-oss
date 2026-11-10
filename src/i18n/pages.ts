@@ -25,9 +25,15 @@ export default defineMessages({
     subagentsLabel: (n: number) => `sous-agents : ${n} ${n > 1 ? 'actifs' : 'actif'}`,
     subagents: 'sous-agents',
     active: (n: number) => `${n} ${n > 1 ? 'actifs' : 'actif'}`,
-    finished: (n: number) => `${n} ${n > 1 ? 'terminés' : 'terminé'}`,
+    finished: (n: number) => `${n} ${n > 1 ? 'finis' : 'fini'}`,
     working: 'travaille',
-    done: 'terminé',
+    done: 'fini',
+    /** État d'un sous-agent, d'une étape de workflow ou d'une commande d'arrière-plan. */
+    subStatus: (s: 'working' | 'done' | 'failed' | 'stopped') => ({ working: 'travaille', done: 'fini', failed: 'échoué', stopped: 'coupé' })[s],
+    /** Méta de la session : ce qui tourne encore à côté d'elle. */
+    background: (n: number) => `${n} en arrière-plan`,
+    /** Lecteur d'écran, ligne de sous-agent : nom, état, durée, déplié ou non. */
+    subAria: (label: string, state: string, d: string, open: boolean) => `${label}, ${state}, ${d}, ${open ? 'replier' : 'déplier'}`,
     asks: (tool: string) => `${tool} te demande`,
     waitingForYou: 'la session attend ta réponse',
     showScreen: 'voir l’écran du terminal',
@@ -80,6 +86,9 @@ export default defineMessages({
     finished: (n: number) => `${n} done`,
     working: 'working',
     done: 'done',
+    subStatus: (s: 'working' | 'done' | 'failed' | 'stopped') => ({ working: 'working', done: 'done', failed: 'failed', stopped: 'stopped' })[s],
+    background: (n: number) => `${n} in background`,
+    subAria: (label: string, state: string, d: string, open: boolean) => `${label}, ${state}, ${d}, ${open ? 'collapse' : 'expand'}`,
     asks: (tool: string) => `${tool} is asking`,
     waitingForYou: 'the session is waiting for your answer',
     showScreen: 'show the terminal screen',

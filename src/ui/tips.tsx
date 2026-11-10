@@ -8,8 +8,8 @@ import M from '../i18n/tips'
 import { useApp } from './app-context'
 import { Line } from './bits'
 import { Icon, type Dir, type IconName } from './icons'
-import { replayOnboarding } from './onboarding'
 import { askSetup } from './setup'
+import { openTour } from './tour'
 import { CHECK_MS, EMPTY_RETRY_MS, SHOW_MS, markShown, parseState, pick, ready, type TipsState } from './tips-schedule'
 import './tips.css'
 
@@ -92,7 +92,8 @@ const useTipsOff = () => useSyncExternalStore(subscribe, () => loadState().off, 
 const standalone = () => matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true
 const typing = (el: Element | null) => !!el && (el instanceof HTMLInputElement || el instanceof HTMLTextAreaElement || el instanceof HTMLSelectElement || (el as HTMLElement).isContentEditable)
 /** The first-launch intro is open, or not finished yet. */
-const introActive = () => !!document.querySelector('.ob') || read('weevils-onboarded') !== '1'
+// Pendant l'intro et tant que la bande des premiers pas est là, pas de carte d'astuce : une chose à la fois.
+const introActive = () => !!document.querySelector('.ob, .tr-band') || read('weevils-onboarded') !== '1'
 
 const getJson = async <T,>(method: string, url: string, body?: unknown): Promise<T> => {
   const res = await fetch(url, { method, credentials: 'same-origin', headers: body ? { 'content-type': 'application/json' } : undefined, body: body ? JSON.stringify(body) : undefined })
@@ -230,7 +231,7 @@ export function Tips({ paused }: { paused: boolean }) {
     }
     if (a.kind === 'intro') {
       hide()
-      return replayOnboarding()
+      return openTour()
     }
     if (a.kind === 'setup') {
       hide()

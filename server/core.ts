@@ -4,7 +4,7 @@ import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { ConversationDetail, ConversationSummary, H24Activity, Message, Project, Session, SessionDetail, Snapshot, Tool } from '../shared/api.ts'
+import type { ConversationDetail, ConversationSummary, H24Activity, Message, Project, Session, SessionDetail, Snapshot, SubagentDetail, Tool } from '../shared/api.ts'
 import { CLAUDE_DIR, CODEX_DIR, DATA_DIR, EXPOSE_DOMAIN, PUBLIC_URL, USER_NAME, DONE_AFTER_MS, HOME, KILL_AFTER_MS, INBOX_DIR, LOGS_DIR, MACHINE, ORCHESTRATOR, ORCH_DIR, PROJECT_ROOTS, PROJECTS_DIR, RECENT_MS, REMOTES, STALE_MS } from './config.ts'
 import { Remote, parseRemotes } from './remotes.ts'
 import { ConversationStore, parseExport, readExportFile } from './conversations.ts'
@@ -21,8 +21,11 @@ import { detectLang } from '../shared/detect-lang.ts'
 import { devilConfig, devilMessages, devilSend, devilWorking } from './devil.ts'
 import { claudeLogged, withoutContext, type Setup } from './setup.ts'
 import { splitChips } from '../shared/setup.ts'
+import { isDemoJob, type TourKeeper } from './tour.ts'
+import TM from './i18n/tour.ts'
 import { createRepo, describeRepos, listRepos, loadBlurbs, remoteFile, remoteFiles } from './github.ts'
 import { TranscriptStore, digestOf, lastMessageOf, titleOf } from './transcripts.ts'
+import { emptyBg, subagentSteps } from './background.ts'
 import { llmTitles, needsTitle, shortNow } from './titles.ts'
 import type { Titled } from './titles.ts'
 import type { Transcript } from './transcripts.ts'
@@ -176,6 +179,10 @@ export class Weevils {
   pinnedRepos: string[] = []
   /** Accueil et branchements (server/setup.ts), posé par index.ts : ses messages se mêlent au fil de weevboss. */
   setup: Setup | null = null
+  /** Premiers pas (server/tour.ts), posé par index.ts. */
+  tour: TourKeeper | null = null
+  /** Clé des pages statiques des repos (index.ts, dérivée du code d'accès). */
+  siteKey = ''
   private githubCache: Map<string, number> = new Map()
 
   // ---------------------------------------------------------------- repos GitHub
@@ -239,7 +246,8 @@ export class Weevils {
       real = d.session.id
       replies = d.messages.filter((m) => m.role === 'assistant' && m.at >= since - 500)
       attention = d.session.status === 'needs_user' ? (d.session.attention ?? '') : undefined
-      calm = replies.length && d.session.status !== 'working' ? calm + 1 : 0
+      // Le tour principal, pas l'arrière-plan : une session qui a lancé un workflow et répondu « lancé » a répondu.
+      calm = replies.length && !(d.session.turnWorking ?? d.session.status === 'working') ? calm + 1 : 0
       if (calm >= 3) return { id: real, text: replies.map((m) => m.text).join('\n\n'), done: true, attention }
     }
     return { id: real, text: replies.map((m) => m.text).join('\n\n'), done: false, attention }
@@ -298,6 +306,8 @@ export class Weevils {
   private retitleSoon: NodeJS.Timeout | undefined
 
   constructor() {
+    // Preuves de vie de l'arrière-plan d'une session : le processus claude de sa pane, sinon celui que ses hooks ont donné.
+    this.store.pidOf = (id) => this.paneFor(id)?.pid ?? this.hooks.get(id)?.pid
     this.migrateCategories()
     if (ORCHESTRATOR) {
       this.prepareOrchestrator()
@@ -499,6 +509,8 @@ export class Weevils {
       const last = Math.max(t?.lastActivityAt ?? 0, this.hooks.get(p.sessionId ?? '')?.at ?? 0, p.createdAt)
       if (now - last < KILL_AFTER_MS) continue
       if (t?.phase === 'working' && now - t.lastActivityAt < 10 * 60_000) continue
+      // Des sous-agents, un workflow ou une commande tournent encore : fermer la pane les tuerait.
+      if (t && this.toSession(t, now).background > 0) continue
       try {
         await killWv(p.name)
         console.log(`[sessions] ${p.name} fermée après ${Math.round((now - last) / 60_000)} min sans activité`)
@@ -560,6 +572,16 @@ export class Weevils {
     else if (t.phase === 'working' && now - t.lastActivityAt < 10 * 60_000) status = 'working'
     // Une pane weevils qui n'a rien fait depuis 30 min rejoint les sessions terminées (lui écrire la réveille, son contexte est là).
     if (status === 'idle' && pane && !this.isOrchestratorPane(pane) && now - t.lastActivityAt > DONE_AFTER_MS) status = 'done'
+    // Le tour principal, sans l'arrière-plan : la file d'attente de Claude Code ne vit que pendant un tour.
+    const turnWorking = status === 'working'
+
+    // Arrière-plan (sous-agents, étapes de workflow, commandes) : il meurt avec le processus claude, jamais de « working » fantôme.
+    const alive = live && hook?.event !== 'SessionEnd'
+    const lastSeen = Math.max(t.lastActivityAt, hook?.at ?? 0)
+    const subagents = alive ? t.subagents : t.subagents.map((s) => (s.status === 'working' ? { ...s, status: 'stopped' as const, endedAt: Math.max(s.startedAt, lastSeen) } : s))
+    const running = subagents.filter((s) => s.status === 'working')
+    // Tant qu'il tourne, la session travaille : ni « idle », ni « done » après 30 min, ni « a fini » (notifyTransitions).
+    if (running.length && status !== 'needs_user') status = 'working'
 
     // Ouverte dans un terminal que weevils ne pilote pas : on ne peut ni lui écrire ni la reprendre sans risque.
     const unmanagedLive = live && !pane
@@ -579,17 +601,19 @@ export class Weevils {
       branch: t.branch,
       openedAt: t.openedAt,
       lastActivityAt: t.lastActivityAt,
-      workStartedAt: status === 'working' ? (t.workStartedAt ?? t.lastActivityAt) : null,
+      workStartedAt: status === 'working' ? (t.workStartedAt ?? (running.length ? Math.min(...running.map((s) => s.startedAt)) : t.lastActivityAt)) : null,
       origin: pane ? 'weevils' : t.originator === 'codex_exec' ? 'headless' : 'terminal',
       controllable: !unmanagedLive,
       live,
       hasScreen: !!pane,
-      subagents: t.subagents,
+      subagents,
+      background: running.length,
+      turnWorking,
       lastMessage: lastMessageOf(t),
       messageCount: t.messages.length,
       settings: t.model || t.approval || t.effort ? { model: t.model, approval: t.approval, effort: t.effort } : undefined,
       // Une file ne survit pas à la fin du tour : si la session ne travaille plus, tout a été traité.
-      queued: status === 'working' ? t.queued.length : 0,
+      queued: turnWorking ? t.queued.length : 0,
     }
   }
 
@@ -614,6 +638,7 @@ export class Weevils {
       live: true,
       hasScreen: true,
       subagents: [],
+      background: 0,
       messageCount: 0,
       queued: 0,
       lastMessage: now - p.createdAt < 60_000 ? tr(M).starting : undefined,
@@ -701,8 +726,9 @@ export class Weevils {
       mainQueued: this.orchestratorQueued(now),
       devil: { enabled: !!devilConfig(), working: devilWorking() },
       setup: this.setup?.flags(),
+      tour: this.tour?.current() ?? undefined,
       pinnedRepos: this.pinnedRepos,
-      config: { userName: USER_NAME, exposeDomain: EXPOSE_DOMAIN, publicHost: PUBLIC_URL ? new URL(PUBLIC_URL).host : '', authors: publicAuthors() },
+      config: { userName: USER_NAME, exposeDomain: EXPOSE_DOMAIN, publicHost: PUBLIC_URL ? new URL(PUBLIC_URL).host : '', authors: publicAuthors(), siteKey: this.siteKey },
     }
     return this.snap
   }
@@ -940,6 +966,22 @@ export class Weevils {
     if (!session) return undefined
     const t = this.store.get(real)
     return { session, messages: t?.messages ?? [] }
+  }
+
+  /** Détail d'un sous-agent, d'une étape de workflow ou d'une commande d'arrière-plan : ses derniers pas (lus par la fin). */
+  async subagentAny(id: string, subId: string): Promise<SubagentDetail | undefined> {
+    const local = this.subagent(id, subId)
+    if (local) return local
+    const r = this.remoteFor(id)
+    return r ? r.call<SubagentDetail>('GET', `/api/sessions/${encodeURIComponent(id)}/subagents/${encodeURIComponent(subId)}`) : undefined
+  }
+
+  subagent(id: string, subId: string): SubagentDetail | undefined {
+    const d = this.detail(id)
+    const t = d && this.store.get(d.session.id)
+    const sub = d?.session.subagents.find((s) => s.id === subId)
+    if (!t || !sub) return undefined
+    return { subagent: sub, steps: subagentSteps(t.file, t.bg ?? emptyBg(), sub) }
   }
 
   // ---------------------------------------------------------------- actions
@@ -1291,7 +1333,7 @@ export class Weevils {
         const name = f.replace(/\.log$/, '')
         out.push({
           id: `job:${name}`,
-          title: name,
+          title: isDemoJob(name) ? tr(TM).jobTitle : name,
           kind: 'job',
           projectId: familyOf(name),
           schedule: tr(M).manualJob,
@@ -1300,6 +1342,7 @@ export class Weevils {
           runStartedAt: running ? st.birthtimeMs || null : st.mtimeMs,
           lastEvent: last.slice(0, 160) || '—',
           canToggle: false,
+          ...(isDemoJob(name) ? { demo: true } : {}),
         })
       }
     } catch {

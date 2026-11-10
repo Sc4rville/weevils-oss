@@ -93,6 +93,14 @@ describe('listWv', () => {
     expect(await mux.listWv()).toEqual([{ name: 'wv-orchestrateur-64f403', tool: 'claude', sessionId: 'aa62', title: 'weevboss', cwd: '/home/u/.local/share/weevils/orchestrateur', createdAt: 1_794_200_000_000 }])
   })
 
+  it('pid de la pane (l’agent lui-même) quand tmux le donne', async () => {
+    sh.out = line('wv-x-000000', 'claude', 'id', 't', '/d', '/d', '1', '4242') + '\n'
+    expect((await mux.listWv())[0].pid).toBe(4242)
+    sh.out = line('wv-x-000000', 'claude', 'id', 't', '/d', '/d', '1', '') + '\n'
+    expect((await mux.listWv())[0].pid).toBeUndefined()
+    expect(sh.calls[0][2]).toContain('#{pane_pid}')
+  })
+
   it('un outil inconnu est claude', async () => {
     sh.out = line('wv-x-000000', 'bash', 'id', 't', '/d', '/d', '1') + '\n'
     expect((await mux.listWv())[0].tool).toBe('claude')
@@ -114,7 +122,8 @@ describe('spawnWv', () => {
       expect(i, k).toBeGreaterThan(0)
       expect(first[i - 1]).toBe('-e')
     }
-    expect(first.slice(-4)).toEqual(['claude', '--session-id', 'u', 'hi'])
+    // L'agent part sans TMUX ni TMUX_PANE : son tmux de test ne peut pas viser le serveur de weevils.
+    expect(first.slice(-9)).toEqual(['env', '-u', 'TMUX', '-u', 'TMUX_PANE', 'claude', '--session-id', 'u', 'hi'])
     expect(opts).toEqual([
       ['set-option', '-t', '=wv-x:', '@wv_tool', 'claude'],
       ['set-option', '-t', '=wv-x:', '@wv_title', 't'],
@@ -127,6 +136,12 @@ describe('spawnWv', () => {
     await mux.spawnWv('wv-x', '/d', 'codex', 't', ['codex', 'hi'])
     expect(sh.calls.map((c) => c[3])).not.toContain('@wv_session_id')
     expect(sh.calls).toHaveLength(4)
+  })
+
+  it('argv exact : env -u TMUX -u TMUX_PANE juste avant la commande, après l’environnement calme (pas de shell)', async () => {
+    await mux.spawnWv('wv-x', '/d', 'codex', 't', ['codex', 'resume', 'id', 'go'])
+    const quiet = Object.entries(mux.QUIET_ENV).flatMap(([k, v]) => ['-e', `${k}=${v}`])
+    expect(sh.calls[0]).toEqual(['new-session', '-d', '-s', 'wv-x', '-x', '120', '-y', '40', '-c', '/d', ...quiet, 'env', '-u', 'TMUX', '-u', 'TMUX_PANE', 'codex', 'resume', 'id', 'go'])
   })
 
   it('un texte avec des caractères de shell reste un seul argument', async () => {

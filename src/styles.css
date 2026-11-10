@@ -687,6 +687,19 @@ button:disabled {
   min-height: 45%;
 }
 
+/* Page vue en grand (téléphone) : le fil de la session se cache, l'en-tête reste pour revenir. */
+@media (max-width: 899px) {
+  .page.split:has(.preview.full) .page-main {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .preview-full {
+    display: none;
+  }
+}
+
 .code {
   white-space: pre-wrap;
   overflow-wrap: anywhere;
@@ -1952,4 +1965,86 @@ button.copy.done {
 [data-theme='graphite'] .msg.orch.ext,
 [data-theme='graphite'] .peek-item.orch.ext {
   --who-c: oklch(0.86 0 0);
+}
+
+/* ---------- Travail d'arrière-plan dans le fil : une ligne par sous-agent, étape de workflow ou commande ---------- */
+
+/* Ligne de session : le compte d'arrière-plan à la suite du texte, la colonne de la durée reste étroite (téléphone). */
+.row .title .bg {
+  white-space: nowrap;
+}
+
+.sub-label .sub-kind {
+  margin-right: 6px;
+}
+
+.sub-label .sub-kind .ic {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+}
+
+.sub-row .act {
+  min-width: 2.6em;
+}
+
+.sub-flow-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding-top: 6px;
+  font-size: 1rem;
+}
+
+.sub-flow-head .st {
+  width: 22px;
+  flex: none;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sub-flow-head .ellipsis {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-phase-head {
+  padding-top: 4px;
+  padding-left: calc(var(--pad) + 32px);
+}
+
+/* Déplié : les derniers pas, à plat, alignés sur le texte de la ligne. */
+.sub-detail {
+  padding-left: calc(var(--pad) + 32px);
+  padding-bottom: 10px;
+}
+
+.sub-detail .text {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-block: 3px;
+}
+
+.sub-detail .tool {
+  font-size: 0.9375rem;
+  font-style: italic;
+  padding-block: 3px;
+  overflow-wrap: anywhere;
+  opacity: 0.85;
+}
+
+.sub-detail .result {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  padding-block: 2px;
+  opacity: 0.85;
 }

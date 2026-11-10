@@ -7,12 +7,14 @@ import { ago, durLong } from './format'
 import { Icon } from './icons'
 import { useT } from '../i18n'
 import M from '../i18n/h24'
+import B from '../i18n/bits'
 import { tapHint } from './hints'
 
 /** Bande H24 collée en bas : on la tire vers le haut (ou on la touche) pour voir les activités permanentes. */
 export function H24Rail() {
   const { snap, now, refresh, h24Open: open, setH24Open: setOpen } = useApp()
   const t = useT(M)
+  const tb = useT(B)
   const list = snap.h24
   const stats = { running: list.filter((a) => a.runState === 'running').length, total: list.length }
   const y = useMotionValue(0)
@@ -118,6 +120,7 @@ export function H24Rail() {
                   <div style={{ flex: 1, minWidth: 0 }}>
                     <div className="strong ellipsis" style={{ fontSize: '1.0625rem' }}>
                       {a.title}
+                      {a.demo && <span className="tr-tag">{tb.demo}</span>}
                     </div>
                     <div className="meta">
                       {a.kind === 'job'

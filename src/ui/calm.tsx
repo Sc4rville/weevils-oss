@@ -92,6 +92,7 @@ export function CalmGrid() {
               <span className="calm-title">{s.title}</span>
               <span className="meta">
                 {names.get(s.projectId) ?? s.projectId} · {s.status === 'working' ? (s.now ?? t.working) : s.status === 'needs_user' ? t.yourTurn : ago(now - s.lastActivityAt)}
+                {s.background > 0 && <span className="strong"> · {t.background(s.background)}</span>}
               </span>
             </button>
           ))}

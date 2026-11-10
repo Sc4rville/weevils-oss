@@ -6,8 +6,8 @@ const dist = (a: number, b: number) => Math.min((a - b + 16) % 16, (b - a + 16) 
 
 describe('couleurs des projets', () => {
   it('sont stables : même projet, même couleur, quel que soit l’ordre ou les voisins affichés', () => {
-    const a = colorSlots(['weevils', 'arcade', 'replay', 'notes', 'divers'])
-    const b = colorSlots(['notes', 'divers', 'weevils', 'replay', 'arcade'])
+    const a = colorSlots(['weevils', 'mygame', 'replay', 'geste', 'divers'])
+    const b = colorSlots(['geste', 'divers', 'weevils', 'replay', 'mygame'])
     for (const id of Object.keys(a)) if (id !== '__foot') expect(a[id]).toBe(b[id])
   })
   it('jusqu’à 8 projets, deux projets ne sont jamais à moins de 2 emplacements (teintes proches)', () => {

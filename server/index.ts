@@ -26,6 +26,8 @@ import { quotas, today as usageToday } from './usage.ts'
 import type { InfraDetail, MachineBrief, MachineFacts, Reach, UsageRow } from '../shared/infra.ts'
 import { facts } from './discover.ts'
 import { Setup, installPlan, writeConfig } from './setup.ts'
+import { TourKeeper } from './tour.ts'
+import { DEMOS, isTourId } from '../shared/tour.ts'
 import { isBrick, isSetupKey, type Device } from '../shared/setup.ts'
 
 const w = new Weevils()
@@ -76,6 +78,16 @@ const setup = new Setup({
   handoff: (text, brief) => w.sendMain(text, brief),
 })
 w.setup = setup
+const tour = new TourKeeper({
+  setup,
+  seen: () => hints.get().seen,
+  snapshot: () => w.snapshot(),
+  // Une installation existante : weevboss a déjà servi, ou des bulles et gestes ont déjà été vus.
+  veteran: () => w.snapshot().main.some((m) => m.role === 'user' && !m.id.startsWith('setup-')) || hints.get().seen.length > 2,
+  bump: () => w.bump(),
+  refreshH24: () => w.refreshH24(),
+})
+w.tour = tour
 const asDevice = (d: any): Device => ({
   os: ['ios', 'android', 'mac', 'windows', 'linux'].includes(d?.os) ? d.os : 'other',
   mobile: !!d?.mobile,
@@ -124,6 +136,16 @@ const readBody = (req: http.IncomingMessage, limit = 1 << 20) =>
 
 const MIME: Record<string, string> = {
   '.html': 'text/html; charset=utf-8',
+  '.htm': 'text/html; charset=utf-8',
+  '.jpg': 'image/jpeg',
+  '.jpeg': 'image/jpeg',
+  '.gif': 'image/gif',
+  '.webp': 'image/webp',
+  '.ico': 'image/x-icon',
+  '.txt': 'text/plain; charset=utf-8',
+  '.mjs': 'text/javascript; charset=utf-8',
+  '.mp3': 'audio/mpeg',
+  '.wasm': 'application/wasm',
   '.js': 'text/javascript; charset=utf-8',
   '.css': 'text/css; charset=utf-8',
   '.png': 'image/png',
@@ -141,6 +163,55 @@ function serveStatic(res: http.ServerResponse, pathname: string) {
   res.writeHead(200, {
     'content-type': MIME[ext] ?? 'application/octet-stream',
     'cache-control': pathname.startsWith('/assets/') ? 'public, max-age=31536000, immutable' : 'no-cache',
+  })
+  fs.createReadStream(file).pipe(res)
+}
+
+// ---------------------------------------------------------------- pages statiques des repos (navigateur intégré)
+
+// Une petite appli faite par un agent (index.html, chemins relatifs) s'ouvre dans l'app sans domaine de preview :
+// /api/site/<clé>/<repo>/… sert les fichiers du repo (dist/ s'il n'y a pas d'index.html à la racine). La clé (dérivée du
+// code d'accès, donnée dans le snapshot) remplace le cookie, que le document isolé ne porte pas. La page est servie en
+// bac à sable (CSP sandbox, sans allow-same-origin) : son JavaScript n'a pas l'origine de weevils et ne peut pas piloter
+// l'API, même si le repo vient d'ailleurs. Jamais de fichier caché (.git, .env…).
+const SITE_KEY = crypto.createHmac('sha256', SECRET).update('weevils-site').digest('base64url').slice(0, 22)
+w.siteKey = SITE_KEY
+const SITE_RE = /^\/api\/site\/([\w-]{22})\/([\w.@+-]+)(\/.*)?$/
+
+function serveSite(res: http.ServerResponse, key: string, repo: string, rest: string | undefined) {
+  const a = Buffer.from(key)
+  const b = Buffer.from(SITE_KEY)
+  if (a.length !== b.length || !crypto.timingSafeEqual(a, b)) return json(res, 404, { error: tr(M).unknownRoute })
+  let dir: string
+  try {
+    dir = w.repoDir(repo)
+  } catch (e) {
+    return json(res, 404, { error: (e as Error).message })
+  }
+  if (rest === undefined) {
+    res.writeHead(302, { location: `/api/site/${key}/${repo}/` })
+    return res.end()
+  }
+  let rel: string
+  try {
+    rel = decodeURIComponent(rest)
+  } catch {
+    return json(res, 400, { error: tr(M).unknownRoute })
+  }
+  if (rel.split('/').some((seg) => seg.startsWith('.'))) return json(res, 404, { error: tr(M).unknownRoute })
+  if (rel === '/' && !fs.existsSync(path.join(dir, 'index.html')) && fs.existsSync(path.join(dir, 'dist', 'index.html'))) {
+    res.writeHead(302, { location: `/api/site/${key}/${repo}/dist/` })
+    return res.end()
+  }
+  let file = path.resolve(dir, `.${rel}`)
+  if (file !== dir && !file.startsWith(dir + path.sep)) return json(res, 404, { error: tr(M).unknownRoute })
+  if (fs.existsSync(file) && fs.statSync(file).isDirectory()) file = path.join(file, 'index.html')
+  if (!fs.existsSync(file)) return json(res, 404, { error: tr(M).unknownRoute })
+  res.writeHead(200, {
+    'content-type': MIME[path.extname(file).toLowerCase()] ?? 'application/octet-stream',
+    'cache-control': 'no-cache',
+    'content-security-policy': 'sandbox allow-scripts allow-forms allow-popups allow-modals',
+    'x-content-type-options': 'nosniff',
   })
   fs.createReadStream(file).pipe(res)
 }
@@ -205,6 +276,10 @@ const routes: [string, RegExp, Handler][] = [
     const d = await w.detailAny(decodeURIComponent(id))
     d ? json(res, 200, d) : json(res, 404, { error: tr(M).sessionNotFound })
   }],
+  ['GET', /^\/api\/sessions\/([^/]+)\/subagents\/([^/]+)$/, async (_req, res, _u, [id, subId]) => {
+    const d = await w.subagentAny(decodeURIComponent(id), decodeURIComponent(subId))
+    d ? json(res, 200, d) : json(res, 404, { error: tr(M).subagentNotFound })
+  }],
   ['GET', /^\/api\/sessions\/([^/]+)\/screen$/, async (_req, res, _u, [id]) => json(res, 200, { screen: await w.screen(decodeURIComponent(id)) })],
   ['POST', /^\/api\/sessions\/([^/]+)\/send$/, async (req, res, _u, [id]) => {
     const body = await readBody(req)
@@ -225,7 +300,24 @@ const routes: [string, RegExp, Handler][] = [
   // ---- Accueil et branchements : weevboss guide dans son fil (server/setup.ts, src/ui/setup.tsx).
   ['GET', /^\/api\/setup$/, async (_req, res) => {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' })
-    res.end((await setup.report()) + '\n')
+    await tour.refresh(true)
+    res.end((await setup.report()) + '\n' + tour.report() + '\n')
+  }],
+  // ---- Premiers pas (server/tour.ts, src/ui/tour.tsx).
+  ['GET', /^\/api\/tour$/, async (req, res) => {
+    tour.seenFrom(new URL(req.url ?? '/', 'http://x').searchParams.get('mobile') === '1')
+    json(res, 200, await tour.refresh(false, true))
+  }],
+  ['POST', /^\/api\/tour$/, async (req, res) => {
+    const b = await readBody(req)
+    const action = String(b.action ?? '')
+    if (!['skip', 'unskip', 'done', 'close', 'open', 'intro'].includes(action) || (b.id !== undefined && !isTourId(b.id))) return json(res, 400, { error: tr(S).badBrick })
+    json(res, 200, await tour.act(action, b.id, !!b.mobile))
+  }],
+  ['POST', /^\/api\/tour\/demo$/, async (req, res) => {
+    const b = await readBody(req)
+    if (!isTourId(b.id) || !DEMOS.has(b.id)) return json(res, 400, { error: tr(S).badBrick })
+    json(res, 200, await tour.demo(b.id))
   }],
   ['GET', /^\/api\/setup\/install$/, async (_req, res) => {
     res.writeHead(200, { 'content-type': 'text/plain; charset=utf-8', 'cache-control': 'no-store' })
@@ -512,6 +604,8 @@ const server = http.createServer(async (req, res) => {
   const url = new URL(req.url ?? '/', 'http://local')
   try {
     if (!url.pathname.startsWith('/api/')) return serveStatic(res, url.pathname)
+    const site = SITE_RE.exec(url.pathname)
+    if (site && req.method === 'GET') return serveSite(res, site[1], site[2], site[3])
     // Le Raccourci Siri n'a pas de cookie : son jeton personnel n'ouvre que le tour de parole et le son qui va avec.
     const viaShortcut = /^\/api\/voice\/(turn|clip\/)/.test(url.pathname) && shortcutAuthed(req, url)
     if (!PUBLIC.has(url.pathname) && !viaShortcut && !authed(req)) return json(res, 401, { error: tr(M).signInRequired })

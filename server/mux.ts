@@ -29,6 +29,8 @@ export interface WvSession {
   title: string
   cwd: string
   createdAt: number
+  /** Pid du processus de la pane (l'agent lui-même : lancé sans shell). */
+  pid?: number
 }
 
 const SEP = '\u001f'
@@ -38,7 +40,7 @@ const SEP_OUT = /\u001f|\\037/
 export async function listWv(): Promise<WvSession[]> {
   let out = ''
   try {
-    out = await tmux(['list-sessions', '-F', ['#{session_name}', '#{@wv_tool}', '#{@wv_session_id}', '#{@wv_title}', '#{@wv_cwd}', '#{pane_current_path}', '#{session_created}'].join(SEP)])
+    out = await tmux(['list-sessions', '-F', ['#{session_name}', '#{@wv_tool}', '#{@wv_session_id}', '#{@wv_title}', '#{@wv_cwd}', '#{pane_current_path}', '#{session_created}', '#{pane_pid}'].join(SEP)])
   } catch {
     return [] // pas de serveur tmux = aucune session
   }
@@ -47,15 +49,17 @@ export async function listWv(): Promise<WvSession[]> {
     .filter((l) => l.startsWith('wv-'))
     .map((l) => {
       // tmux 3.4 (Ubuntu 24.04) écrit les caractères de contrôle d'un format en octal : « \037 » au lieu du séparateur.
-      const [name, tool, sessionId, title, cwd, current, created] = l.split(SEP_OUT)
-      return {
+      const [name, tool, sessionId, title, cwd, current, created, pid] = l.split(SEP_OUT)
+      const s: WvSession = {
         name,
         tool: tool === 'codex' ? 'codex' : 'claude',
         sessionId: sessionId || undefined,
         title: title || tr(M).newSession,
         cwd: cwd || current,
         createdAt: Number(created) * 1000,
-      } satisfies WvSession
+      }
+      if (Number(pid) > 0) s.pid = Number(pid)
+      return s
     })
 }
 
@@ -70,10 +74,17 @@ export const QUIET_ENV: Record<string, string> = {
   DISABLE_TIPS: '1',
 }
 
+/**
+ * tmux donne TMUX et TMUX_PANE à chaque pane, et TMUX l'emporte sur TMUX_TMPDIR et -S : un agent qui lance dans sa pane
+ * « TMUX_TMPDIR=/tmp/x tmux kill-server » pour un serveur de test tuerait le serveur de weevils et toutes les sessions
+ * (arrivé le 10/11 à 03:48). L'agent part donc sans ces deux variables : son tmux vise son propre serveur.
+ */
+export const NO_TMUX = ['env', '-u', 'TMUX', '-u', 'TMUX_PANE']
+
 export async function spawnWv(name: string, cwd: string, tool: Tool, title: string, command: string[], sessionId?: string) {
-  // Plusieurs arguments : tmux lance la commande directement, sans shell (pas d'injection possible).
+  // Plusieurs arguments : tmux lance la commande directement, sans shell (pas d'injection possible) ; env non plus.
   const env = Object.entries(QUIET_ENV).flatMap(([k, v]) => ['-e', `${k}=${v}`])
-  await tmux(['new-session', '-d', '-s', name, '-x', '120', '-y', '40', '-c', cwd, ...env, ...command], cwd)
+  await tmux(['new-session', '-d', '-s', name, '-x', '120', '-y', '40', '-c', cwd, ...env, ...NO_TMUX, ...command], cwd)
   await setOpt(name, '@wv_tool', tool)
   await setOpt(name, '@wv_title', title)
   await setOpt(name, '@wv_cwd', cwd)

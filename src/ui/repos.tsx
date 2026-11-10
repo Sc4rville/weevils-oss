@@ -7,7 +7,7 @@ import { useApp } from './app-context'
 import { Shell } from './shell'
 import { Icon } from './icons'
 import { useViewHint } from './hints'
-import { askSetup } from './setup'
+import { device } from './setup'
 
 /** Couleur par position : un pas de 7 sur les 16 teintes, donc deux rectangles voisins (à côté ou dessous) n'ont jamais une teinte proche. */
 const tint = (i: number) => ({ '--c': `var(--p${(i * 7) % 16})` }) as CSSProperties
@@ -22,7 +22,9 @@ export function ReposPage() {
   const [busy, setBusy] = useState(false)
   const pinned = new Set(snap.pinnedRepos)
   // Sans GitHub branché, la bulle renvoie vers weevboss, qui explique comment le brancher.
-  useViewHint('repos', undefined, snap.setup?.github === false && { variant: 'reposOff', onOff: () => void askSetup('github') })
+  // Sans GitHub : weevboss explique en haut, avec son bouton ; les questions ne s'ouvrent qu'au tap (on peut être juste
+  // venu voir, en apprenant le geste).
+  useViewHint('repos', undefined, snap.setup?.github === false && { variant: 'reposOff', onOff: () => void api.setupAsk('github', device()).catch(() => undefined) })
 
   // Les phrases s'écrivent en fond côté serveur : on relit tant qu'il en manque.
   useEffect(() => {

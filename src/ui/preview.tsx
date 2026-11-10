@@ -8,6 +8,8 @@ import { Icon } from './icons'
 export interface PreviewConfig {
   exposeDomain: string
   publicHost: string
+  /** Pages statiques des repos servies par weevilsd (/api/site/<clé>/<repo>/), quand il n'y a pas de domaine de preview. */
+  siteKey?: string
 }
 const KEY = (id: string) => `weevils-preview:${id}`
 
@@ -30,17 +32,21 @@ export function urlsInMessages(messages: Message[], cfg: PreviewConfig): string[
   return out.sort((a, b) => rank(a) - rank(b))
 }
 
-/** URL proposée : celle citée dans la conversation, sinon https://<repo>.<domaine configuré>. */
+/** URL proposée : celle citée dans la conversation (sauf une adresse locale, que le téléphone ne joint pas, quand weevilsd
+ * sert le repo lui-même), sinon https://<repo>.<domaine configuré>, sinon la page statique du repo servie par weevilsd. */
 export function guessPreviewUrl(messages: Message[], session: Session, project: Project | undefined, cfg: PreviewConfig): string {
-  const found = urlsInMessages(messages, cfg)[0]
-  if (found) return found
   const repo = session.repo ?? project?.repos[0]
-  return repo && cfg.exposeDomain ? `https://${repo}.${cfg.exposeDomain}` : ''
+  const site = repo && !cfg.exposeDomain && cfg.siteKey ? `${location.origin}/api/site/${cfg.siteKey}/${repo}/` : ''
+  const found = urlsInMessages(messages, cfg).find((u) => !(site && /\/\/(localhost|127\.0\.0\.1|0\.0\.0\.0)[:/]/.test(u)))
+  if (found) return found
+  return repo && cfg.exposeDomain ? `https://${repo}.${cfg.exposeDomain}` : site
 }
 
 interface Saved {
   url?: string
   open?: boolean
+  /** Sur téléphone, la page vue prend tout l'écran (le fil de la session se cache). */
+  full?: boolean
 }
 
 function load(id: string): Saved {
@@ -58,6 +64,9 @@ function save(id: string, v: Saved) {
     /* stockage indisponible */
   }
 }
+
+/** Ouvre le navigateur intégré d'une session à sa prochaine ouverture (premiers pas : « voir le résultat »). */
+export const openPreviewOf = (id: string) => save(id, { ...load(id), open: true, full: true })
 
 /** Choix mémorisés par session : volet ouvert ou non, URL réglée à la main. */
 export function usePreviewState(id: string) {
@@ -79,7 +88,7 @@ const normalize = (raw: string) => {
 }
 
 /** Le navigateur intégré : une barre d'adresse et la page, pour voir en live ce que l'agent construit. */
-export function Preview({ url, suggestions, onUrl, onClose }: { url: string; suggestions: string[]; onUrl: (u: string) => void; onClose: () => void }) {
+export function Preview({ url, suggestions, onUrl, onClose, full, onFull }: { url: string; suggestions: string[]; onUrl: (u: string) => void; onClose: () => void; full?: boolean; onFull?: (full: boolean) => void }) {
   const t = useT(M)
   const [draft, setDraft] = useState(url)
   const [gen, setGen] = useState(0)
@@ -95,7 +104,7 @@ export function Preview({ url, suggestions, onUrl, onClose }: { url: string; sug
   }
 
   return (
-    <div className="preview">
+    <div className={full ? 'preview full' : 'preview'}>
       <form className="preview-bar" onSubmit={go}>
         <button type="button" className="key" onClick={onClose} aria-label={t.close}>
           <Icon name="close" />
@@ -114,6 +123,11 @@ export function Preview({ url, suggestions, onUrl, onClose }: { url: string; sug
         <button type="submit" className="key" aria-label={t.reload}>
           <Icon name="reload" />
         </button>
+        {onFull && (
+          <button type="button" className="key preview-full" onClick={() => onFull(!full)} aria-label={full ? t.shrink : t.grow} aria-pressed={!!full}>
+            <Icon name="chevron" dir={full ? 'down' : 'up'} />
+          </button>
+        )}
         {url && (
           <a className="key" href={url} target="_blank" rel="noreferrer" aria-label={t.openTab}>
             <Icon name="external" />

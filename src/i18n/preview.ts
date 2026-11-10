@@ -7,6 +7,8 @@ export default defineMessages({
     reload: 'recharger',
     openTab: 'ouvrir dans un onglet',
     frame: 'aperçu de l’application',
+    grow: 'la page en grand',
+    shrink: 'revoir la session',
   },
   en: {
     close: 'close the browser',
@@ -14,5 +16,7 @@ export default defineMessages({
     reload: 'reload',
     openTab: 'open in a new tab',
     frame: 'app preview',
+    grow: 'page full screen',
+    shrink: 'back to the session',
   },
 })

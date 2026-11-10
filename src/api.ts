@@ -2,10 +2,11 @@
 
 import { useCallback, useEffect, useRef, useState } from 'react'
 import type { AskResult, Brick, Device } from '../shared/setup.ts'
+import type { Tour, TourId } from '../shared/tour.ts'
 import { tr } from './i18n'
 import M from './i18n/app'
 import type { FsListing, InfraDetail, UsageInfo, UsageToday } from '../shared/infra.ts'
-import type { ConversationDetail, ExplainReply, ExplainRequest, ConversationSummary, GithubRepo, SessionDetail, Snapshot, Tool } from '../shared/api.ts'
+import type { ConversationDetail, ExplainReply, ExplainRequest, ConversationSummary, GithubRepo, SessionDetail, Snapshot, SubagentDetail, Tool } from '../shared/api.ts'
 
 export class ApiError extends Error {
   status: number
@@ -48,6 +49,8 @@ export const api = {
   logout: () => call<{ ok: true }>('POST', '/api/logout', {}),
   snapshot: () => call<Snapshot>('GET', '/api/snapshot'),
   session: (id: string) => call<SessionDetail>('GET', `/api/sessions/${enc(id)}`),
+  /** Détail d'un sous-agent, d'une étape de workflow ou d'une commande d'arrière-plan (ses derniers pas). */
+  subagent: (id: string, subId: string) => call<SubagentDetail>('GET', `/api/sessions/${enc(id)}/subagents/${enc(subId)}`),
   screen: (id: string) => call<{ screen: string | null }>('GET', `/api/sessions/${enc(id)}/screen`),
   send: (id: string, text: string) => call<{ id: string }>('POST', `/api/sessions/${enc(id)}/send`, { text }),
   attach: (id: string, text: string, files: { name: string; type: string; data: string }[]) => call<{ id: string }>('POST', `/api/sessions/${enc(id)}/attach`, { text, files }),
@@ -66,6 +69,9 @@ export const api = {
   setupAsk: (brick: Brick, device: Device) => call<AskResult>('POST', '/api/setup/ask', { brick, device }),
   setupApply: (brick: Brick, values: Record<string, string>) => call<{ ok: true }>('POST', '/api/setup/apply', { brick, values }),
   setupDone: (brick: Brick) => call<{ ok: true }>('POST', '/api/setup/done', { brick }),
+  tour: (mobile: boolean) => call<Tour>('GET', `/api/tour${mobile ? '?mobile=1' : ''}`),
+  tourAct: (action: 'skip' | 'unskip' | 'done' | 'close' | 'open' | 'intro', id?: TourId) => call<Tour>('POST', '/api/tour', { action, id }),
+  tourDemo: (id: TourId) => call<{ text?: string; audio?: string }>('POST', '/api/tour/demo', { id }),
   setupLink: () => call<{ link: string }>('GET', '/api/setup/link'),
   voiceChunk: (id: string, seq: number, type: string, data: string) => call<{ ok: true }>('POST', '/api/voice/chunk', { id, seq, type, data }),
   voiceFinish: (id: string, lang: string) => call<{ text: string }>('POST', '/api/voice/finish', { id, lang }),

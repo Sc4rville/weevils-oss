@@ -25,11 +25,11 @@ import type { Message } from '../shared/api.ts'
 import type { MachineFacts } from '../shared/infra.ts'
 import { CONTEXT_BLOCK, FIELDS, type Brick, type Device } from '../shared/setup.ts'
 import { resetAuthors, authors } from './authors.ts'
-import { CODEX_DIR, CONFIG_FILE, DATA_DIR, HOME, HOST, MACHINE, PORT, PUBLIC_URL, USER_NAME } from './config.ts'
+import { CODEX_DIR, CONFIG_FILE, DATA_DIR, HOME, HOST, MACHINE, PORT, PUBLIC_URL } from './config.ts'
 import { devilConfig } from './devil.ts'
 import { facts } from './discover.ts'
 import { cartesia, edgeTts } from './fast.ts'
-import { lang, onLangChange, tr } from './i18n.ts'
+import { lang, tr } from './i18n.ts'
 import M from './i18n/setup.ts'
 import { Imap } from './imap.ts'
 import { mailConfig } from './mailbridge.ts'
@@ -544,14 +544,6 @@ export class Setup {
         return { log: [], marks: {}, bossSeenAt: 0 }
       }
     })()
-    // Langue changée avant le moindre échange : l'accueil se réécrit dans la nouvelle langue.
-    onLangChange(() => {
-      if (this.p.device && this.p.log.length && this.p.log.every((m) => m.id.startsWith('welcome-'))) {
-        this.p.log = []
-        this.p.welcomed = false
-        void this.welcome(this.p.device, false)
-      }
-    })
     void github()
     // Une connexion faite dans un terminal (claude, gh auth login) : weevboss le remarque et le dit.
     setInterval(() => void this.watch(), 5000).unref()
@@ -572,7 +564,8 @@ export class Setup {
   }
 
   /** Les messages écrits au nom de weevboss (et les réponses des parcours), à mêler à son fil. */
-  messages = () => this.p.log
+  /** Les démos des premiers pas s'effacent d'elles-mêmes au bout de 20 min : le fil reste le vrai. */
+  messages = () => this.p.log.filter((m) => !m.demo || Date.now() - m.at < 20 * 60_000)
   welcomed = () => !!this.p.welcomed
 
   private add(role: 'user' | 'assistant', text: string, id = `setup-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`) {
@@ -584,6 +577,24 @@ export class Setup {
   }
   say = (text: string) => this.add('assistant', text)
   userSays = (text: string) => this.add('user', text)
+
+  /** Un message de démo (premiers pas, server/tour.ts) : marqué démo dans l'app, jamais envoyé à weevboss. */
+  demoSay(role: 'assistant' | 'orchestrator', text: string, demo: string, author?: string, devil?: boolean) {
+    const last = this.p.log.at(-1)?.at ?? 0
+    this.p.log.push({ id: `demo-${demo}-${Date.now()}-${Math.random().toString(36).slice(2, 6)}`, role, text, at: Math.max(Date.now(), last + 1), demo, ...(author ? { author } : {}), ...(devil ? { devil } : {}) })
+    this.save()
+    this.deps.bump()
+  }
+
+  /** La vraie brique est branchée : ses démos quittent le fil. */
+  dropDemo(demo: string) {
+    const before = this.p.log.length
+    this.p.log = this.p.log.filter((m) => m.demo !== demo)
+    if (this.p.log.length !== before) {
+      this.save()
+      this.deps.bump()
+    }
+  }
 
   async detect(force = false): Promise<SetupState> {
     if (!force && this.cache && Date.now() - this.cache.at < 15_000) return this.cache.v
@@ -621,40 +632,18 @@ export class Setup {
 
   // ---------------------------------------------------------------- accueil
 
-  /** Premier lancement : weevboss se présente, puis le téléphone, la machine, et la seule chose qui bloque. Une fois. */
-  async welcome(device: Device, stagger = true) {
+  /** Premier lancement : l'appareil est noté. L'accueil lui-même, ce sont les premiers pas (server/tour.ts,
+   * src/ui/tour.tsx) : ce qui est déjà prêt, coché d'office, puis une première vraie demande. Rien n'est écrit dans le
+   * fil : weevboss prend la parole quand on lui parle, ou quand un branchement a besoin de lui. */
+  async welcome(device: Device) {
     if (this.p.welcomed) return
     this.p.welcomed = true
     this.p.device = device
-    this.save()
-    // Quelqu'un qui parle déjà à weevboss n'est pas un nouveau venu : rien n'est ajouté à son fil.
-    if (this.deps.hasHistory()) {
-      this.p.claudeLogged = true
-      this.p.githubLogged = true
-      this.save()
-      return void this.deps.bump()
-    }
     const s = await this.detect(true)
-    const t = tr(M)
-    const out: string[] = [t.hello(USER_NAME)]
-    if (!device.mobile) out.push(s.reach === 'local' ? `${t.phoneDesktopLocal} [[setup:reach]]` : `${t.phoneDesktop} [[setup:phone]]`)
-    else if (!device.standalone) out.push(device.os === 'ios' ? t.phoneIos : t.phoneAndroid)
-    else if (!s.phone.push) out.push(`${t.phoneInstalled} [[setup:push]]`)
-    out.push(t.machine(s.machine))
-    if (!s.claude.installed) out.push(chip(t.claudeMissing(s.machine), 'claude'))
-    else if (!s.claude.logged) out.push(chip(t.claudeLogin, 'claude'))
-    else if (!s.github.logged) out.push(`${t.githubPitch} [[setup:github]]`)
-    else out.push(t.claudeReady)
     this.p.claudeLogged = s.claude.logged
     this.p.githubLogged = s.github.logged
-    out.forEach((text, i) => {
-      const post = () => {
-        if (this.p.log.some((m) => m.id === `welcome-${i}`)) return
-        this.add('assistant', text, `welcome-${i}`)
-      }
-      if (stagger && i) setTimeout(post, i * 900)
-      else post()
-    })
+    this.save()
+    this.deps.bump()
   }
 
   /** Claude Code vient d'être connecté : weevboss le dit, propose GitHub s'il manque, et reprend le travail en attente. */
@@ -1205,7 +1194,7 @@ export class Setup {
 
   /** Ce que weevilsd a écrit au nom de weevboss depuis sa dernière réponse : un bloc à joindre au message (jamais affiché). */
   contextFor(brief?: string): string {
-    const fresh = this.p.log.filter((m) => m.at > this.p.bossSeenAt)
+    const fresh = this.p.log.filter((m) => m.at > this.p.bossSeenAt && !m.demo)
     this.p.bossSeenAt = Date.now()
     this.save()
     const parts: string[] = []

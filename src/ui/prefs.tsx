@@ -2,7 +2,7 @@ import { useEffect } from 'react'
 import { LANGS, LANG_NAMES, langIsChosen, setLang, syncServer, useLang, useT } from '../i18n'
 import M from '../i18n/prefs'
 import { Line } from './bits'
-import { OnboardingLine } from './onboarding'
+import { TourLine } from './tour'
 import { TipsLine } from './tips'
 
 /** App-wide preferences shown in the bottom band: language, intro, tips (devil mode: the devil next to the logo). */
@@ -20,7 +20,7 @@ export function PrefLines() {
       <Line ch="~" go={null} meta={langIsChosen() ? t.chosen : t.followsBrowser} onClick={() => setLang(next)}>
         {t.language} · {LANG_NAMES[lang]}
       </Line>
-      <OnboardingLine />
+      <TourLine />
       <TipsLine />
     </>
   )
