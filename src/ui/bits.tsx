@@ -123,7 +123,7 @@ export function SessionRow({ session }: { session: Session }) {
   const ref = session.status === 'working' && session.workStartedAt ? session.workStartedAt : session.lastActivityAt
   // Un seul texte, en entier : la question qui t'attend, sinon l'activité en cours quand ça travaille, sinon le titre.
   const act = waiting && session.attention ? session.attention : session.status === 'working' ? session.now : undefined
-  const text = act || session.title
+  const text = session.title
   const cut = session.status === 'interrupted'
   const when = dur(now - (cut ? (session.interrupted?.at ?? session.lastActivityAt) : session.status === 'done' ? session.lastActivityAt : ref))
   const row = (
@@ -143,6 +143,7 @@ export function SessionRow({ session }: { session: Session }) {
         <span className="title wrap">
           {unread && <span className="dot" aria-hidden />}
           {text}
+          {act && act !== text && <span className="session-activity meta">{act}</span>}
           {session.background > 0 && <span className="bg strong"> · {t.background(session.background)}</span>}
           {/* Session Codex ouverte en relais d'une session Claude arrêtée par sa limite d'usage. */}
           {session.relayOf && (

@@ -2686,3 +2686,5 @@ html[data-keyboard] .agent:not(.open) .agent-nav .fyt-words {
   box-shadow: none;
   caret-color: var(--ink);
 }
+
+.session-activity { display: block; font-size: .8125rem; font-weight: 400; line-height: 1.3; margin-top: 3px; }

@@ -35,7 +35,7 @@ import TM from './i18n/tour.ts'
 import { createRepo, describeRepos, listRepos, loadBlurbs, remoteFile, remoteFiles } from './github.ts'
 import { TranscriptStore, digestOf, lastMessageOf, titleOf } from './transcripts.ts'
 import { emptyBg, subagentSteps } from './background.ts'
-import { llmTitles, needsTitle, shortNow } from './titles.ts'
+import { llmTitles, needsTitle, shortNow, stableTitle } from './titles.ts'
 import type { Titled } from './titles.ts'
 import type { Transcript } from './transcripts.ts'
 import type { WvSession } from './mux.ts'
@@ -1090,12 +1090,12 @@ export class Weevils {
     try {
       const items = todo.map((t) => {
         const where = place(t.cwd, PROJECT_ROOTS)
-        return { id: t.id, tool: t.tool, where: where.repo ?? t.cwd.replace(HOME, '~'), ...digestOf(t) }
+        return { id: t.id, previousTitle: this.titles.get(t.id)?.title, tool: t.tool, where: where.repo ?? t.cwd.replace(HOME, '~'), ...digestOf(t) }
       })
       const out = await llmTitles(items, path.join(DATA_DIR, 'titles'))
       for (const r of out) {
         const t = todo.find((x) => x.id === r.id)
-        if (t) this.titles.set(r.id, { title: r.title, now: r.now, at: now, messageCount: t.messages.length })
+        if (t) this.titles.set(r.id, { title: stableTitle(this.titles.get(r.id)?.title, r.title, r.topicChanged), now: r.now, at: now, messageCount: t.messages.length })
       }
       this.persist()
       this.bump()

@@ -10,14 +10,14 @@ export default defineMessages({
         'Pour chaque session, à partir de son début et de ses derniers échanges :',
         '- title : le THÈME de la session, ce sur quoi on bosse dedans, en français, 2 à 5 mots, très court, style note perso (ex. « UX de weevils », « code d’accès iPhone », « perf du jeu », « mails prospects »). Sans point final, sans guillemets, sans « session » ni « conversation », jamais le premier message mot pour mot. Un titre stable : si le thème général n’a pas changé, garde le même esprit.',
         '- now : la dernière chose faite ou en cours, ≤ 5 mots et ≤ 40 caractères (elle doit tenir sur une ligne de téléphone), en français, au présent, sans sujet (ex. « corrige le détecteur d’écran », « déploie sur le VPS »).',
-        'Si les derniers échanges partent sur un autre thème que le début, c’est le nouveau thème qui compte.',
+        'Garde previousTitle mot pour mot. topicChanged vaut true UNIQUEMENT si l’utilisateur demande explicitement de passer à un autre sujet global. Une correction, un test, un déploiement ou une étape technique ne changent jamais le sujet. Sans previousTitle, nomme le sujet global selon tout le contexte.',
         '',
         'Sessions :',
         sessions,
       ].join('\n'),
     /** One session of the prompt, as JSON (keys in the prompt's language). */
-    item: (id: string, tool: string, where: string, start: string, recent: string[]) =>
-      JSON.stringify({ id, outil: tool, ou: where, debut: start, derniers_echanges: recent }),
+    item: (id: string, tool: string, where: string, start: string, recent: string[], previousTitle?: string) =>
+      JSON.stringify({ previousTitle, id, outil: tool, ou: where, debut: start, derniers_echanges: recent }),
     /** Without Codex (no output schema): the answer format, said in the prompt. */
     jsonOnly: 'Réponds uniquement avec ce JSON, sans rien autour : {"items":[{"id":"…","title":"…","now":"…"}]}',
   },
@@ -29,13 +29,13 @@ export default defineMessages({
         'For each session, from its beginning and its latest exchanges:',
         '- title: the TOPIC of the session, what is being worked on, in English, 2 to 5 words, very short, like a personal note (e.g. "weevils UX", "iPhone passcode", "game perf", "prospect emails"). No final period, no quotes, no "session" or "conversation", never the first message word for word. A stable title: if the overall topic has not changed, keep the same spirit.',
         '- now: the last thing done or in progress, ≤ 5 words and ≤ 40 characters (it must fit on one phone line), in English, present tense, no subject (e.g. "fixes the screen detector", "deploys to the VPS").',
-        'If the latest exchanges drift to a different topic from the beginning, the new topic is what counts.',
+        'Keep previousTitle verbatim. topicChanged is true ONLY when the user explicitly requests a different overall subject. Fixes, tests, deployments and technical steps never change the topic. Without previousTitle, name the overall subject from the full context.',
         '',
         'Sessions:',
         sessions,
       ].join('\n'),
-    item: (id: string, tool: string, where: string, start: string, recent: string[]) =>
-      JSON.stringify({ id, tool, where, start, latest_exchanges: recent }),
+    item: (id: string, tool: string, where: string, start: string, recent: string[], previousTitle?: string) =>
+      JSON.stringify({ previousTitle, id, tool, where, start, latest_exchanges: recent }),
     jsonOnly: 'Answer with this JSON only, nothing around it: {"items":[{"id":"…","title":"…","now":"…"}]}',
   },
 })
