@@ -227,6 +227,7 @@ export interface UsageModel {
 
 /** Débit en direct : tokens (entrée, sortie, cache) des réponses écrites dans les transcripts, par tranche. */
 export interface TokenRate {
+  available?: boolean
   step: number
   /** Fin de la dernière tranche (ms). */
   end: number

@@ -178,6 +178,8 @@ interface Agg {
   last: number
 }
 interface FileState {
+  cumulative?: { tokens: number; weight: number }
+  hasUsage?: boolean
   offset: number
   seen: Set<string>
   agg: Map<string, Agg>
@@ -201,6 +203,7 @@ const modelFactor = (m: string) => (/haiku/i.test(m) ? 1 / 3 : /opus|fable/i.tes
 /** Ce qu'une ligne de transcript a consommé : jetons, poids (≈ coût relatif), modèle, et l'id du message (claude : une
  *  réponse est écrite sur plusieurs lignes avec le même usage, à ne compter qu'une fois). null : pas une ligne d'usage. */
 export interface LineUsage {
+  cumulative?: boolean
   id?: string
   at: number
   tokens: number
@@ -229,12 +232,22 @@ export function usageOfLine(o: any, tool: 'claude' | 'codex'): LineUsage | null 
       cwd: String(o.cwd ?? ''),
     }
   }
-  const u = o?.payload?.info?.last_token_usage
+  const cumulative = o?.payload?.info?.total_token_usage
+  const u = cumulative ?? o?.payload?.info?.last_token_usage
   if (!u) return null
   const inp = Number(u.input_tokens ?? 0)
   const cached = Number(u.cached_input_tokens ?? 0)
   const out = Number(u.output_tokens ?? 0)
-  return { at, tokens: Number(u.total_tokens ?? inp + out), weight: inp - cached + 0.1 * cached + 5 * out }
+  return { at, cumulative: !!cumulative, tokens: Number(u.total_tokens ?? inp + out), weight: inp - cached + 0.1 * cached + 5 * out }
+}
+
+/** Cumulative Codex snapshots are watermarks, not additional calls. */
+function increment(u: LineUsage, state: { cumulative?: { tokens: number; weight: number } }): LineUsage {
+  if (!u.cumulative) return u
+  const prev = state.cumulative
+  state.cumulative = { tokens: u.tokens, weight: u.weight }
+  if (!prev || u.tokens < prev.tokens) return u // a resumed counter can start a new epoch
+  return { ...u, tokens: u.tokens - prev.tokens, weight: Math.max(0, u.weight - prev.weight) }
 }
 
 function scan(file: string, tool: 'claude' | 'codex') {
@@ -245,7 +258,8 @@ function scan(file: string, tool: 'claude' | 'codex') {
     return
   }
   if (st.mtimeMs < dayStart) return
-  const s: FileState = files.get(file) ?? { offset: 0, seen: new Set(), agg: new Map(), models: new Map(), recent: [] }
+  const previous = files.get(file)
+  const s: FileState = previous && previous.offset <= st.size ? previous : { offset: 0, seen: new Set(), agg: new Map(), models: new Map(), recent: [] }
   files.set(file, s)
   if (st.size <= s.offset) return
   const fd = fs.openSync(file, 'r')
@@ -278,8 +292,11 @@ function scan(file: string, tool: 'claude' | 'codex') {
     } catch {
       continue
     }
-    const u = usageOfLine(o, tool)
-    if (!u || u.at < dayStart) continue
+    const raw = usageOfLine(o, tool)
+    if (!raw) continue
+    s.hasUsage = true
+    const u = increment(raw, s)
+    if (u.at < dayStart) continue
     if (u.id !== undefined) {
       if (s.seen.has(u.id)) continue
       s.seen.add(u.id)
@@ -307,7 +324,7 @@ function scan(file: string, tool: 'claude' | 'codex') {
 
 /** Jetons d'une session entière (tous les jours), lus dans son transcript : une tâche auto, un passage. Incrémental
  *  (relit seulement la fin depuis le dernier appel) ; 0 sans fichier lisible. */
-const totals = new Map<string, { offset: number; seen: Set<string>; tokens: number }>()
+const totals = new Map<string, { offset: number; seen: Set<string>; tokens: number; cumulative?: { tokens: number; weight: number } }>()
 export function sessionTokens(file: string, tool: 'claude' | 'codex' = 'claude'): number {
   let size: number
   try {
@@ -334,8 +351,9 @@ export function sessionTokens(file: string, tool: 'claude' | 'codex' = 'claude')
         } catch {
           continue
         }
-        const u = usageOfLine(o, tool)
-        if (!u) continue
+        const raw = usageOfLine(o, tool)
+        if (!raw) continue
+        const u = increment(raw, s)
         if (u.id !== undefined) {
           if (s.seen.has(u.id)) continue
           s.seen.add(u.id)
@@ -359,9 +377,10 @@ function listJsonl(dir: string, depth: number, out: string[]) {
     const p = path.join(dir, e.name)
     if (e.isFile() && e.name.endsWith('.jsonl')) out.push(p)
     else if (e.isDirectory() && depth > 0) {
-      // Codex range par date : seuls les dossiers récents (≥ hier) sont ouverts.
+      // Appending a rollout does not update its parent year/month directory mtime.
+      // Visit parents; scan() filters files by their own mtime.
       try {
-        if (fs.statSync(p).mtimeMs >= dayStart - 86400_000) listJsonl(p, depth - 1, out)
+        listJsonl(p, depth - 1, out)
       } catch {
         /* disparu */
       }
@@ -407,7 +426,7 @@ export function rate(): TokenRate {
       const i = buckets.length - 1 - Math.floor((end - 1 - at) / RATE_STEP)
       if (i >= 0 && i < buckets.length) buckets[i] += tokens
     }
-  return { step: RATE_STEP, end, buckets }
+  return { step: RATE_STEP, end, buckets, available: [...files.values()].some((s) => s.hasUsage) }
 }
 
 export function today(lookup: (id: string) => { title: string; projectId: string } | undefined): { rows: UsageRow[]; models: UsageModel[] } {

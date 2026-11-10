@@ -722,6 +722,7 @@ const routes: [string, RegExp, Handler][] = [
     const far = await Promise.all(w.remotes.filter((x) => x.online).map((x) => x.call<TokenRate>('GET', '/api/usage/rate?local=1').catch(() => null)))
     for (const f of far) {
       if (!f || f.step !== r.step) continue
+      if (f.available !== false) r.available = true
       const shift = Math.round((r.end - f.end) / r.step)
       f.buckets.forEach((v, i) => {
         const j = i - shift

@@ -53,11 +53,19 @@ export function TokenMeter() {
       void api
         .usageRate()
         .then((r) => {
+          if (stop) return
+          if (r.available === false) {
+            target.current = null
+            if (num.current) num.current.textContent = '—'
+            root.current?.setAttribute('aria-label', label.current('—'))
+            text = ''
+            return
+          }
           const per = Math.round(WINDOW / r.step)
           target.current = (r.buckets.slice(-per).reduce((a, b) => a + b, 0) * 60_000) / WINDOW
           if (!raf && !stop) raf = requestAnimationFrame(frame)
         })
-        .catch(() => undefined)
+        .catch(() => { target.current = null; text = ''; if (num.current) num.current.textContent = '—' })
     }
     load()
     const iv = setInterval(load, 5000)
@@ -72,7 +80,7 @@ export function TokenMeter() {
 
   return (
     <button ref={root} className="token-meter idle" onClick={() => push({ kind: 'usage' })}>
-      <span ref={num}>0</span>
+      <span ref={num}>—</span>
     </button>
   )
 }
