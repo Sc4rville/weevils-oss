@@ -50,4 +50,12 @@ describe('mergePending', () => {
     expect(texts(mergePending([msg('c', 'hello')], [pend('hello')]))).toEqual(['hello'])
     expect(texts(mergePending([msg('c', 'hello')], [pend('hello', 'trimmed')]))).toEqual(['hello'])
   })
+
+  it('sans repère dans le fil : un message identique bien plus ancien n’efface pas la bulle (reprise, photo seule)', () => {
+    const at = 1_000_000_000
+    const old = { ...msg('a', 'ok'), at: at - 10 * 60_000 }
+    expect(texts(mergePending([old], [{ ...pend('ok', 'gone'), at }]))).toEqual(['ok', 'ok'])
+    expect(texts(mergePending([old], [{ ...pend('', undefined, '(photo)'), at }]))).toEqual(['ok', '(photo)'])
+    expect(texts(mergePending([old, { ...msg('b', 'ok'), at: at + 2000 }], [{ ...pend('ok', 'gone'), at }]))).toEqual(['ok', 'ok'])
+  })
 })

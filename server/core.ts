@@ -1,11 +1,12 @@
+import { noticeKey } from '../shared/notices.ts'
 // Le cœur de weevilsd : transcripts + hooks + panes zellij → sessions, projets, H24, agent principal.
 
 import { execFile } from 'node:child_process'
 import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
-import type { ConversationDetail, ConversationSummary, H24Activity, Message, Project, Session, SessionDetail, Snapshot, SubagentDetail, Tool } from '../shared/api.ts'
-import { CLAUDE_DIR, CODEX_DIR, DATA_DIR, EXPOSE_DOMAIN, PUBLIC_URL, USER_NAME, DONE_AFTER_MS, HOME, KILL_AFTER_MS, INBOX_DIR, LOGS_DIR, MACHINE, ORCHESTRATOR, ORCH_DIR, PROJECT_ROOTS, PROJECTS_DIR, RECENT_MS, REMOTES, STALE_MS } from './config.ts'
+import type { AutoDetail, AutoRun, AutoRunDetail, ConversationDetail, ConversationSummary, H24Activity, InterruptReason, Message, Project, Session, SessionDetail, Snapshot, SubagentDetail, Tool } from '../shared/api.ts'
+import { CLAUDE_DIR, CODEX_DIR, DATA_DIR, EXPOSE_DOMAIN, PUBLIC_URL, USER_NAME, DONE_AFTER_MS, HOME, KILL_AFTER_MS, INBOX_DIR, LOGS_DIRS, MACHINE, ORCHESTRATOR, ORCH_DIR, PROJECT_ROOTS, PROJECTS_DIR, RECENT_MS, REMOTES, STALE_MS } from './config.ts'
 import { Remote, parseRemotes } from './remotes.ts'
 import { ConversationStore, parseExport, readExportFile } from './conversations.ts'
 import { llmClassify, ruleMatch } from './classify.ts'
@@ -20,7 +21,15 @@ import { keepWarm, warmCues } from './voicepipe.ts'
 import { detectLang } from '../shared/detect-lang.ts'
 import { devilConfig, devilMessages, devilSend, devilWorking } from './devil.ts'
 import { claudeLogged, withoutContext, type Setup } from './setup.ts'
-import { splitChips } from '../shared/setup.ts'
+import type { Memory } from './memory.ts'
+import type { Optimizers } from './optimizers.ts'
+import type { ForYou, MailIn } from './foryou.ts'
+import { PLAN_MARKER, clockOf, type Relay, type RelayHost } from './relay.ts'
+import R from './i18n/relay.ts'
+import { parseTimerShow } from './schedule.ts'
+import { extractLinks, journalRuns, tailLines, unitDescriptions, type JournalRun } from './auto-runs.ts'
+import { chipsInPlace } from '../shared/setup.ts'
+import { asksUser, type Ask } from '../shared/asks.ts'
 import { isDemoJob, type TourKeeper } from './tour.ts'
 import TM from './i18n/tour.ts'
 import { createRepo, describeRepos, listRepos, loadBlurbs, remoteFile, remoteFiles } from './github.ts'
@@ -30,7 +39,7 @@ import { llmTitles, needsTitle, shortNow } from './titles.ts'
 import type { Titled } from './titles.ts'
 import type { Transcript } from './transcripts.ts'
 import type { WvSession } from './mux.ts'
-import { capture, dialogOnScreen, flatScreen, killWv, listWv, sendKey, sendText, setOpt, spawnWv } from './mux.ts'
+import { capture, dialogOnScreen, screenDialog, workingOnScreen, type ScreenDialog, flatScreen, killWv, listWv, sendKey, sendText, setOpt, spawnWv, wvName } from './mux.ts'
 import { lang, onLangChange, tr, user, type Lang } from './i18n.ts'
 import TipsM from './i18n/tips.ts'
 import { normalizeFrom, parseSigned, publicAuthors, signAs } from './authors.ts'
@@ -40,11 +49,39 @@ interface HookState {
   at: number
   message?: string
   pid?: number
+  /** SessionEnd : pourquoi la session s'est fermée (prompt_input_exit, clear, logout, other…). */
+  reason?: string
+}
+
+type Cut = { at: number; reason: InterruptReason }
+/** Fins propres d'une session (SessionEnd) : /exit, /clear, /logout. Sans raison (ancien hook) : propre aussi. */
+const CLEAN_END = new Set(['prompt_input_exit', 'clear', 'logout'])
+/** Une coupure plus ancienne que ça, découverte après coup (redémarrage, déploiement), n'est pas annoncée : seulement montrée. */
+const ANNOUNCE_WITHIN_MS = 6 * 3600_000
+/** A timer's journal: the fields its runs are read from (journalRuns), and how many of its newest entries. */
+const JOURNAL_FIELDS = '_SYSTEMD_INVOCATION_ID,USER_INVOCATION_ID,INVOCATION_ID,MESSAGE,EXIT_STATUS,UNIT_RESULT,JOB_RESULT'
+const JOURNAL_LINES = 20_000
+/** Une session lancée pour un test (son brief commence par « [test] », ou par « TEST » en majuscules juste après la
+ * signature d'un agent [from:…] : jamais un simple « TEST » tapé dans un terminal) : elle reste visible dans l'app, mais ne prévient jamais (ni notification, ni message dans le fil de weevboss).
+ * Les tests de weevils lui-même tournent sur un serveur jetable (CONTRIBUTING.md) ; ceci protège le vrai fil des autres. */
+export const isTestBrief = (p?: string) => !!p && /^\s*(?:\[test\]|\[from:[^\]]*\]\s*TEST(?![\p{L}\p{N}_]))/u.test(p)
+
+/** Le dossier a du travail non commité (fichiers modifiés ou nouveaux) ; pas un dépôt git, ou git muet : non. */
+export function gitDirty(cwd: string): Promise<boolean> {
+  // Never in an « auto » task's folder: its jailed agent could have pointed git at a config of its own (an fsmonitor run
+  // here, unjailed). Its runs are read by server/auto-runs.ts, with git's dirs pinned.
+  if (cwd.split(path.sep).includes('.auto')) return Promise.resolve(false)
+  return new Promise((resolve) => {
+    execFile('git', ['-C', cwd, 'status', '--porcelain'], { timeout: 5000, maxBuffer: 4 << 20 }, (err, stdout) => resolve(!err && stdout.trim().length > 0))
+  })
 }
 
 /** Session tmux wv-* vue au dernier passage, avec ce qu'on lit à son écran. */
 interface ManagedPane extends WvSession {
   screenAttention?: string
+  screenDialog?: ScreenDialog
+  screenWorking?: boolean
+  screenQueued?: number
 }
 
 interface Persisted {
@@ -54,6 +91,12 @@ interface Persisted {
   orchestratorId?: string
   pinnedRepos?: string[]
   voiceId?: string
+  /** Coupures vues au passage, reprises ou laissées, coupures déjà annoncées. */
+  cuts?: [string, Cut][]
+  cleared?: [string, number][]
+  announced?: (string | [string, number])[]
+  archived?: string[]
+  closedByUs?: [string, number][]
 }
 
 const STATE_FILE = path.join(DATA_DIR, 'state.json')
@@ -160,12 +203,35 @@ export function checkCommand(command: string): string {
 }
 
 /** Le message tel que l'agent le reçoit : le texte, puis « (photo : /chemin) » ou « (fichier : /chemin) » pour chaque pièce. */
+/** Au-delà, un message ne passe plus par tmux (« command too long » : une commande tmux tient en 16 Ko, arguments
+ * compris) : un mail de manifeste, un long collage. */
+export const TERMINAL_MAX = 6000
+
+/** Un message trop long pour le terminal : le texte intégral va dans l'inbox (fichier .md), l'agent reçoit son début
+ * (signature « [from:x] » comprise) et le chemin du fichier. Un message court passe tel quel. */
+export function fitTerminal(text: string, dir = INBOX_DIR): string {
+  if (Buffer.byteLength(text) <= TERMINAL_MAX) return text
+  fs.mkdirSync(dir, { recursive: true })
+  const file = path.join(dir, `${new Date().toISOString().slice(0, 10)}-message-${crypto.randomBytes(3).toString('hex')}.md`)
+  fs.writeFileSync(file, text)
+  const cut = text.slice(0, 1500)
+  const head = cut.slice(0, Math.max(cut.lastIndexOf(' '), 1000)).trimEnd()
+  return `${head}… ${tr(M).longMessage(file)}`
+}
+
 export function withFiles(text: string, saved: { path: string; image: boolean }[]): string {
   const n = saved.length
   const allImages = saved.every((s) => s.image)
   const t = tr(M)
   const lead = text.trim() || (allImages ? (n > 1 ? t.lookPhotos : t.lookPhoto) : n > 1 ? t.someFiles : t.oneFile)
   return `${lead} ${saved.map((s) => t.attached(s.image, s.path)).join(' ')}`
+}
+
+/** Le bloc de contexte caché d'un message pour weevboss (« ⟦weevils — … ⟧ », un seul, en fin de message), avec une partie de plus. */
+export const joinContext = (block: string, extra: string): string => {
+  const more = extra.replace(/⟧/g, ']').trim()
+  if (!more) return block
+  return block.trim() ? block.replace(/⟧\s*$/, ` — ${more}⟧`) : ` ⟦weevils — ${more}⟧`
 }
 
 export class Weevils {
@@ -183,6 +249,14 @@ export class Weevils {
   tour: TourKeeper | null = null
   /** Clé des pages statiques des repos (index.ts, dérivée du code d'accès). */
   siteKey = ''
+  /** What weevils remembers about the user (server/memory.ts), on the main machine. */
+  memory: Memory | null = null
+  /** The h24 background tasks (server/optimizers.ts), on the main machine. */
+  optimizers: Optimizers | null = null
+  /** The « for you » stream (server/foryou.ts), on the main machine. */
+  foryou: ForYou | null = null
+  /** Codex relay while Claude is at its usage limit (server/relay.ts). */
+  relay: Relay | null = null
   private githubCache: Map<string, number> = new Map()
 
   // ---------------------------------------------------------------- repos GitHub
@@ -224,13 +298,11 @@ export class Weevils {
     let calm = 0
     while (Date.now() < end) {
       await sleep(500)
-      const t = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
-      const replies = t?.messages.filter((m) => m.role === 'assistant' && m.at >= since - 500) ?? []
+      const replies = this.bossTranscripts().flatMap((t) => t.messages.filter((m) => m.role === 'assistant' && m.at >= since - 500))
       calm = replies.length && !this.orchestratorWorking(Date.now()) ? calm + 1 : 0
       if (calm >= 3) return replies.map((m) => m.text).join('\n\n')
     }
-    const t = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
-    return t?.messages.filter((m) => m.role === 'assistant' && m.at >= since - 500).map((m) => m.text).join('\n\n') || null
+    return this.bossTranscripts().flatMap((t) => t.messages.filter((m) => m.role === 'assistant' && m.at >= since - 500)).map((m) => m.text).join('\n\n') || null
   }
   /** Attend la réponse d'une session (locale ou d'une autre machine) à un message envoyé à `since` : terminée quand elle ne travaille plus. */
   async waitReply(id: string, since: number, timeoutMs: number): Promise<{ id: string; text: string; done: boolean; attention?: string }> {
@@ -251,6 +323,11 @@ export class Weevils {
       if (calm >= 3) return { id: real, text: replies.map((m) => m.text).join('\n\n'), done: true, attention }
     }
     return { id: real, text: replies.map((m) => m.text).join('\n\n'), done: false, attention }
+  }
+
+  /** Le pont e-mail a reçu et routé un mail (BridgeDeps.mailed) : le flux « pour toi » le retient. */
+  mailed(m: MailIn) {
+    this.foryou?.mail(m)
   }
 
   pinRepo(repo: string, pinned: boolean) {
@@ -304,10 +381,22 @@ export class Weevils {
   private snap: Snapshot | null = null
   private persistTimer: NodeJS.Timeout | null = null
   private retitleSoon: NodeJS.Timeout | undefined
+  /** Sessions vues mourir en plein travail (ou avec du travail non commité) : id → quand, pourquoi. */
+  cuts = new Map<string, Cut>()
+  /** Reprise ou « laisser » : une coupure antérieure à cette date est réglée. */
+  cleared = new Map<string, number>()
+  /** Coupures déjà annoncées (push, fil de weevboss) : id → quand. Une par épisode, même si son heure se précise ensuite. */
+  private announced = new Map<string, number>()
+  /** Fermées par weevils (bouton fermer, ménage des panes) : leur fin n'est pas une coupure. */
+  private archived = new Set<string>()
+  private closedByUs = new Map<string, number>()
+  /** Dernier passage de watchCuts : la session vivait-elle, et dans quel état. */
+  private lastSeen = new Map<string, { alive: boolean; status: Session['status'] }>()
 
   constructor() {
     // Preuves de vie de l'arrière-plan d'une session : le processus claude de sa pane, sinon celui que ses hooks ont donné.
     this.store.pidOf = (id) => this.paneFor(id)?.pid ?? this.hooks.get(id)?.pid
+    this.store.authorOfThread = (id) => id === this.orchestratorId || id === this.relay?.boss?.sessionId || this.store.get(id)?.cwd === ORCH_DIR ? 'weevboss' : undefined
     this.migrateCategories()
     if (ORCHESTRATOR) {
       this.prepareOrchestrator()
@@ -333,6 +422,12 @@ export class Weevils {
       this.orchestratorId = p.orchestratorId ?? null
       this.pinnedRepos = p.pinnedRepos ?? []
       this.voiceId = p.voiceId
+      this.cuts = new Map(p.cuts ?? [])
+      this.cleared = new Map(p.cleared ?? [])
+      // Premier format (« id@quand ») : relu tel quel.
+      this.announced = new Map((p.announced ?? []).map((a): [string, number] => (typeof a === 'string' ? [a.split('@')[0], Number(a.split('@')[1]) || 0] : a)))
+      this.archived = new Set(p.archived ?? [])
+      this.closedByUs = new Map(p.closedByUs ?? [])
       setCartesiaVoice(this.voiceId)
       warmCues(this.voiceId)
     } catch {
@@ -352,7 +447,7 @@ export class Weevils {
       if (this.store.scan(Date.now())) this.bump()
       this.linkCodexPanes()
     }, 1500)
-    setInterval(() => void this.watchPanes(), 2500)
+    setInterval(() => void this.watchPanes().then(() => this.watchCuts()), 2500)
     setInterval(() => void this.reapPanes(), 60_000)
     setInterval(() => void this.watchImports(), 30_000)
     setInterval(() => void this.classify(), 60_000)
@@ -378,12 +473,14 @@ export class Weevils {
       this.snap = null
       for (const fn of this.listeners) fn()
       this.notifyTransitions()
+      this.announceCuts()
     }, 200)
   }
 
   /** Notification quand une session se met à t'attendre, ou finit un travail de plus d'une minute. */
   private notifyTransitions() {
-    if (!this.push.enabled) return
+    // Personne à prévenir : ni notifications, ni flux « pour toi ».
+    if (!this.push.enabled && !this.foryou) return
     const snap = this.snapshot()
     const now = Date.now()
     const first = this.prevStatus.size === 0
@@ -392,7 +489,14 @@ export class Weevils {
       const prev = this.prevStatus.get(s.id)
       const entry = prev && prev.status === s.status ? prev : { status: s.status, since: now, notifiedAt: prev?.notifiedAt }
       next.set(s.id, entry)
-      if (first || !prev || prev.status === s.status) continue
+      if (s.archived || first || !prev || prev.status === s.status) continue
+      const rested = (s.status === 'idle' || s.status === 'done') && !!s.lastMessage
+      const ended = prev.status === 'working' && rested
+      // Le flux « pour toi » retient chaque question et chaque fin de tour (un item par session : ni délai, ni seuil),
+      // y compris une question réglée sans que le travail ait été vu reprendre.
+      if (s.status === 'needs_user') this.foryou?.sessionTurn(s, 'question')
+      else if (ended || (prev.status === 'needs_user' && rested)) this.foryou?.sessionTurn(s, 'result')
+      if (!this.push.enabled) continue
       if (prev.notifiedAt && now - prev.notifiedAt < 60_000) continue
       const project = snap.projects.find((p) => p.id === s.projectId)?.name ?? s.projectId
       let title: string | null = null
@@ -400,11 +504,12 @@ export class Weevils {
       if (s.status === 'needs_user') {
         title = tr(P).waitingTitle(project)
         body = s.attention ?? tr(P).waitingBody
-      } else if (prev.status === 'working' && (s.status === 'idle' || s.status === 'done') && now - prev.since > 15_000 && s.lastMessage) {
+      } else if (ended && now - prev.since > 15_000) {
         title = tr(P).doneTitle(project)
-        body = s.lastMessage
+        body = s.lastMessage ?? null
       }
       if (!title || !body) continue
+      if (isTestBrief(this.store.get(s.id)?.firstPrompt)) continue
       entry.notifiedAt = now
       void this.push.send({ title, body: body.replace(/\s+/g, ' ').slice(0, 180), url: `/#s=${encodeURIComponent(s.id)}`, tag: s.id })
     }
@@ -417,7 +522,19 @@ export class Weevils {
       // Les hooks des trois derniers jours suffisent (pid des sessions encore ouvertes).
       const hooks = [...this.hooks].filter(([, h]) => Date.now() - h.at < RECENT_MS)
       const titles = [...this.titles].filter(([, t]) => Date.now() - t.at < 14 * 86400_000)
-      const data: Persisted = { hooks, titles, orchestratorId: this.orchestratorId ?? undefined, pinnedRepos: this.pinnedRepos, voiceId: this.voiceId }
+      const recent = (at: number) => Date.now() - at < RECENT_MS
+      const data: Persisted = {
+        hooks,
+        titles,
+        orchestratorId: this.orchestratorId ?? undefined,
+        pinnedRepos: this.pinnedRepos,
+        voiceId: this.voiceId,
+        cuts: [...this.cuts].filter(([, c]) => recent(c.at)),
+        cleared: [...this.cleared].filter(([, at]) => recent(at)),
+        announced: [...this.announced].filter(([, at]) => recent(at)),
+        archived: [...this.archived],
+        closedByUs: [...this.closedByUs].filter(([, at]) => recent(at)),
+      }
       fs.writeFileSync(STATE_FILE, JSON.stringify(data, null, 1))
     } catch {
       /* disque plein ? on continue en mémoire */
@@ -431,7 +548,7 @@ export class Weevils {
     if (!id) return
     const prev = this.hooks.get(id)
     const pid = pidHeader ? (findClaudePid(Number(pidHeader)) ?? prev?.pid) : prev?.pid
-    this.hooks.set(id, { event: body.hook_event_name ?? 'unknown', at: Date.now(), message: body.message, pid })
+    this.hooks.set(id, { event: body.hook_event_name ?? 'unknown', at: Date.now(), message: body.message, pid, ...(typeof body.reason === 'string' ? { reason: body.reason } : {}) })
     // Nouveau message : l'activité précédente ne vaut plus, on l'efface et on la réécrit dès que possible.
     if (body.hook_event_name === 'UserPromptSubmit') {
       const t = this.titles.get(id)
@@ -457,13 +574,20 @@ export class Weevils {
     const next: ManagedPane[] = []
     for (const p of found) {
       const prev = this.panes.find((x) => x.name === p.name)
-      let screenAttention = prev?.screenAttention
+      let screenAttention: string | undefined
+      let dialog: ScreenDialog | undefined
+      let screenWorking = false
+      let screenQueued = 0
       try {
-        screenAttention = dialogOnScreen(await capture(p.name))
+        const screen = await capture(p.name)
+        dialog = screenDialog(screen)
+        screenAttention = dialog?.question
+        screenWorking = workingOnScreen(screen)
+        screenQueued = (screen.split('Queued follow-up inputs')[1]?.split(/^[›❯>]/m)[0].match(/^\s*↳/gm) ?? []).length
       } catch {
         /* écran illisible un instant */
       }
-      next.push({ ...p, sessionId: p.sessionId ?? prev?.sessionId, screenAttention })
+      next.push({ ...p, sessionId: p.sessionId ?? prev?.sessionId, screenAttention, screenDialog: dialog, screenWorking, screenQueued })
     }
     for (const old of this.panes) {
       if (next.some((p) => p.name === old.name)) continue
@@ -486,6 +610,7 @@ export class Weevils {
         .sort((a, b) => a.openedAt - b.openedAt)[0]
       if (t) {
         p.sessionId = t.id
+        if (this.archived.delete(p.name)) { this.archived.add(t.id); this.persist() }
         void setOpt(p.name, '@wv_session_id', t.id).catch(() => undefined)
         this.bump()
       }
@@ -506,12 +631,16 @@ export class Weevils {
     for (const p of this.panes) {
       if (this.isOrchestratorPane(p)) continue
       const t = p.sessionId ? this.store.get(p.sessionId) : undefined
+      // No local transcript means unknown activity, never permission to destroy a foreign pane.
+      if (!t) continue
       const last = Math.max(t?.lastActivityAt ?? 0, this.hooks.get(p.sessionId ?? '')?.at ?? 0, p.createdAt)
       if (now - last < KILL_AFTER_MS) continue
       if (t?.phase === 'working' && now - t.lastActivityAt < 10 * 60_000) continue
       // Des sous-agents, un workflow ou une commande tournent encore : fermer la pane les tuerait.
       if (t && this.toSession(t, now).background > 0) continue
       try {
+        if (p.sessionId) this.closedByUs.set(p.sessionId, now)
+        this.persist()
         await killWv(p.name)
         console.log(`[sessions] ${p.name} fermée après ${Math.round((now - last) / 60_000)} min sans activité`)
       } catch (e) {
@@ -550,13 +679,101 @@ export class Weevils {
     return where
   }
 
-  private toSession(t: Transcript, now: number): Session {
-    let where = place(t.cwd, PROJECT_ROOTS)
-    if (where.kind === 'invented') where = this.inferPlace(t) ?? where
+  /** Ce qu'on sait de la vie d'une session : sa pane, son dernier hook, son processus. alive : vivante et pas fermée (SessionEnd). */
+  private lifeOf(t: Transcript, now: number) {
     const pane = this.paneFor(t.id)
     const hook = this.hooks.get(t.id)
     const hookAlive = hook?.pid ? pidAlive(hook.pid) : undefined
     const live = !!pane || hookAlive === true || (hookAlive === undefined && now - t.lastActivityAt < STALE_MS && t.originator !== 'codex_exec')
+    return { pane, hook, hookAlive, live, alive: live && hook?.event !== 'SessionEnd' }
+  }
+
+  /** Fin voulue : /exit, /clear, /logout (SessionEnd), ou pane fermée par weevils (bouton, ménage). */
+  private endedCleanly(id: string, hook: HookState | undefined) {
+    if (hook?.event === 'SessionEnd' && (!hook.reason || CLEAN_END.has(hook.reason))) return true
+    return this.closedByUs.has(id)
+  }
+
+  /**
+   * Session coupée en plein travail, tant que personne ne l'a reprise ni laissée : tour arrêté par une erreur (limite
+   * d'usage, connexion, API, compaction), processus disparu au milieu d'un tour ou de son arrière-plan, ou mort vue au
+   * passage (watchCuts : elle travaillait, ou laissait du travail non commité). Une fin voulue n'en est jamais une.
+   */
+  private cutOf(t: Transcript, alive: boolean, hook: HookState | undefined, bgRunning: boolean): Session['interrupted'] {
+    // Appels ponctuels (claude -p, codex exec) : un script les attend, pas une personne.
+    if (t.headless || t.originator === 'codex_exec') return undefined
+    const settled = this.cleared.get(t.id) ?? 0
+    const clean = !alive && this.endedCleanly(t.id, hook)
+    if (t.stopError && t.stopError.at > settled && !clean) return { at: t.stopError.at, reason: t.stopError.reason, detail: t.stopError.text || undefined }
+    if (alive || clean) return undefined
+    const seen = this.cuts.get(t.id)
+    // Une activité après la coupure : elle a été reprise (message écrit, --resume), cette coupure-là est réglée.
+    if (seen && seen.at > settled && t.lastActivityAt <= seen.at) return { ...seen }
+    const at = Math.max(t.lastActivityAt, hook?.at ?? 0)
+    if ((t.phase === 'working' || bgRunning) && at > settled) return { at, reason: 'died' } // i18n-ignore : code de raison, pas un texte affiché
+    return undefined
+  }
+
+  /**
+   * Toutes les 2,5 s, après la relecture des panes : une session qui vivait et ne vit plus, sans fin voulue, est coupée si
+   * elle travaillait (ou attendait une réponse), ou si son dossier garde du travail non commité.
+   */
+  private async watchCuts(now = Date.now()) {
+    const seen = new Map<string, { alive: boolean; status: Session['status'] }>()
+    const died: { id: string; cwd: string; status: Session['status'] }[] = []
+    for (const s of this.sessions(now)) {
+      const t = this.store.get(s.id)
+      if (!t) continue
+      const { alive, hook } = this.lifeOf(t, now)
+      const prev = this.lastSeen.get(s.id)
+      seen.set(s.id, { alive, status: s.status })
+      if (prev?.alive && !alive && !this.endedCleanly(s.id, hook)) died.push({ id: s.id, cwd: s.cwd, status: prev.status })
+    }
+    this.lastSeen = seen
+    for (const d of died) {
+      const working = d.status === 'working' || d.status === 'needs_user'
+      const reason: InterruptReason | null = working ? 'died' : d.cwd && (await gitDirty(d.cwd)) ? 'dirty' : null
+      console.log(`[sessions] ${d.id.slice(0, 8)} arrêtée sans fin voulue (était ${d.status})${reason ? ` · coupée : ${reason}` : ''}`)
+      if (!reason) continue
+      this.cuts.set(d.id, { at: now, reason })
+      this.persist()
+      this.bump()
+    }
+  }
+
+  /** Une coupure nouvelle : notification push et message dans le fil de weevboss, une fois. Celles découvertes tard : montrées seulement. */
+  private announceCuts() {
+    const snap = this.snapshot()
+    const now = Date.now()
+    let changed = false
+    for (const s of snap.sessions) {
+      if (s.archived || s.status !== 'interrupted' || !s.interrupted) continue
+      // Déjà annoncée, et pas reprise depuis (ni rouverte, ni réglée) : le même épisode, dont l'heure a pu se préciser.
+      const last = this.announced.get(s.id)
+      if (last !== undefined && (this.cleared.get(s.id) ?? 0) <= last && s.lastActivityAt <= last + 30_000) continue
+      this.announced.set(s.id, now)
+      changed = true
+      // Le flux « pour toi » la montre, même découverte tard (il écarte lui-même les sessions de test).
+      this.foryou?.sessionTurn(s, 'cut')
+      if (now - s.interrupted.at > ANNOUNCE_WITHIN_MS) continue
+      // Une session de test (vérifier la détection elle-même) : montrée, jamais annoncée dans le vrai fil.
+      if (isTestBrief(this.store.get(s.id)?.firstPrompt)) continue
+      // Arrêtée par la limite de Claude et Codex peut prendre le relais : une seule annonce, celle du relais (server/relay.ts).
+      if (s.machineId === MACHINE.id && this.relay?.covers(s)) continue
+      const project = snap.projects.find((p) => p.id === s.projectId)?.name ?? s.projectId
+      const why = tr(M).cutWhy(s.interrupted.reason)
+      console.log(`[sessions] ${s.id.slice(0, 8)} coupée en plein travail (${s.interrupted.reason}) · « ${s.title} »`)
+      if (this.push.enabled) void this.push.send({ title: tr(P).cutTitle(project), body: `${s.title} · ${why}`.replace(/\s+/g, ' ').slice(0, 180), url: `/#s=${encodeURIComponent(s.id)}`, tag: `cut-${s.id}` })
+      // Le fil de weevboss (machine principale) ; ailleurs, personne ne le lit : sans effet.
+      this.setup?.say(tr(M).cutSaid(s.title, project, why))
+    }
+    if (changed) this.persist()
+  }
+
+  private toSession(t: Transcript, now: number): Session {
+    let where = place(t.cwd, PROJECT_ROOTS)
+    if (where.kind === 'invented') where = this.inferPlace(t) ?? where
+    const { pane, hook, hookAlive, live, alive } = this.lifeOf(t, now)
 
     let status: Session['status'] = 'idle'
     let attention: string | undefined
@@ -564,27 +781,50 @@ export class Weevils {
     else if (pane?.screenAttention) {
       status = 'needs_user'
       attention = pane.screenAttention
-    } else if (hook?.event === 'Notification' && hook.at >= t.lastActivityAt - 2000 && !/waiting for your input/i.test(hook.message ?? '')) {
+    } else if (pane?.screenWorking) status = 'working'
+    else if (hook?.event === 'Notification' && hook.at >= t.lastActivityAt - 2000 && !/waiting for your input/i.test(hook.message ?? '')) {
       status = 'needs_user'
       attention = hook.message
     } else if (hook && hookAlive && hook.at >= t.lastActivityAt - 2000 && ['UserPromptSubmit', 'PostToolUse'].includes(hook.event)) status = 'working'
     else if (hook?.event === 'Stop' && hook.at >= t.lastActivityAt - 2000) status = 'idle'
     else if (t.phase === 'working' && now - t.lastActivityAt < 10 * 60_000) status = 'working'
+    // Tour fini sur une question ou une demande (lien, valeur à coller, choix), sans réponse depuis : la session attend
+    // l'utilisateur, même si ses sous-agents tournent encore (sinon elle passait pour « travaille »).
+    let ask: Ask | undefined
+    // Avant la règle des 30 min : une question sans réponse attend, elle ne devient pas « terminée ».
+    if (status === 'idle' && live && !(pane && this.isOrchestratorPane(pane))) {
+      const last = t.messages.findLast((m) => m.role !== 'event')
+      ask = last?.role === 'assistant' ? (asksUser(last.text) ?? undefined) : undefined
+      if (ask) {
+        status = 'needs_user'
+        attention = ask.text
+      }
+    }
     // Une pane weevils qui n'a rien fait depuis 30 min rejoint les sessions terminées (lui écrire la réveille, son contexte est là).
     if (status === 'idle' && pane && !this.isOrchestratorPane(pane) && now - t.lastActivityAt > DONE_AFTER_MS) status = 'done'
     // Le tour principal, sans l'arrière-plan : la file d'attente de Claude Code ne vit que pendant un tour.
     const turnWorking = status === 'working'
 
     // Arrière-plan (sous-agents, étapes de workflow, commandes) : il meurt avec le processus claude, jamais de « working » fantôme.
-    const alive = live && hook?.event !== 'SessionEnd'
     const lastSeen = Math.max(t.lastActivityAt, hook?.at ?? 0)
     const subagents = alive ? t.subagents : t.subagents.map((s) => (s.status === 'working' ? { ...s, status: 'stopped' as const, endedAt: Math.max(s.startedAt, lastSeen) } : s))
     const running = subagents.filter((s) => s.status === 'working')
     // Tant qu'il tourne, la session travaille : ni « idle », ni « done » après 30 min, ni « a fini » (notifyTransitions).
     if (running.length && status !== 'needs_user') status = 'working'
+    // Coupée en plein travail : ni « terminée », ni « travaille » ; elle attend une reprise.
+    const interrupted = this.cutOf(t, alive, hook, t.subagents.some((x) => x.status === 'working'))
+    if (interrupted) status = 'interrupted'
 
     // Ouverte dans un terminal que weevils ne pilote pas : on ne peut ni lui écrire ni la reprendre sans risque.
     const unmanagedLive = live && !pane
+    // Relais Codex (server/relay.ts) : la session Codex porte le titre de la session Claude qu'elle reprend.
+    const relayOf = t.tool === 'codex' ? this.relay?.relayOf(t.id, pane?.name) : undefined
+    const relayedBy = t.tool === 'claude' ? this.relay?.relayedBy(t.id) : undefined
+    const relayTitle = relayOf && !t.customTitle ? (this.titles.get(relayOf)?.title ?? (this.store.get(relayOf) ? titleOf(this.store.get(relayOf)!) : undefined)) : undefined
+    const userTurn = t.messages.findLast((m) => m.role === 'user' || m.role === 'orchestrator')?.id ?? t.openedAt
+    const source = pane?.screenDialog ? t.messages.findLast((m) => m.role === 'event')?.id : t.messages.findLast((m) => m.role === 'assistant')?.id
+    const noticeId = status === 'needs_user' ? noticeKey('question', t.id, userTurn, source ?? [attention, pane?.screenDialog?.options.map((o) => o.id)])
+      : status === 'interrupted' ? noticeKey('cut', t.id, userTurn) : undefined
     return {
       id: t.id,
       projectId: where.projectId,
@@ -592,11 +832,15 @@ export class Weevils {
       machineId: MACHINE.id,
       tool: t.tool,
       // Le titre choisi par l'utilisateur dans l'outil prime ; sinon celui du renommeur (ce dont la session parle maintenant) ; sinon le début.
-      title: t.customTitle ? titleOf(t) : (this.titles.get(t.id)?.title ?? titleOf(t)),
+      title: relayTitle ?? (t.customTitle ? titleOf(t) : (this.titles.get(t.id)?.title ?? titleOf(t))),
       // En attendant l'activité réécrite : le dernier pas de l'agent (outil) plutôt que l'ancienne tâche.
-      now: shortNow(this.titles.get(t.id)?.now || (t.phase === 'working' ? stepOf(t) : '')) || undefined,
+      now: shortNow(this.titles.get(t.id)?.now || (t.phase === 'working' || pane?.screenWorking ? stepOf(t) : '')) || undefined,
       status,
-      attention,
+      ...(noticeId ? { noticeId } : {}),
+      attention: status === 'needs_user' ? attention : undefined,
+      ...(status === 'needs_user' && pane?.screenDialog ? { choices: pane.screenDialog.options } : {}),
+      ...(ask && status === 'needs_user' ? { ask } : {}),
+      ...(interrupted ? { interrupted } : {}),
       cwd: t.cwd,
       branch: t.branch,
       openedAt: t.openedAt,
@@ -613,7 +857,9 @@ export class Weevils {
       messageCount: t.messages.length,
       settings: t.model || t.approval || t.effort ? { model: t.model, approval: t.approval, effort: t.effort } : undefined,
       // Une file ne survit pas à la fin du tour : si la session ne travaille plus, tout a été traité.
-      queued: turnWorking ? t.queued.length : 0,
+      queued: turnWorking ? Math.max(t.queued.length, pane?.screenQueued ?? 0) : 0,
+      ...(relayOf ? { relayOf } : {}),
+      ...(relayedBy ? { relayedBy } : {}),
     }
   }
 
@@ -629,6 +875,7 @@ export class Weevils {
       title: p.title,
       status: p.screenAttention ? 'needs_user' : now - p.createdAt > DONE_AFTER_MS ? 'done' : 'working',
       attention: p.screenAttention,
+      ...(p.screenDialog ? { choices: p.screenDialog.options } : {}),
       cwd: p.cwd,
       openedAt: p.createdAt,
       lastActivityAt: p.createdAt,
@@ -642,13 +889,14 @@ export class Weevils {
       messageCount: 0,
       queued: 0,
       lastMessage: now - p.createdAt < 60_000 ? tr(M).starting : undefined,
+      ...(p.tool === 'codex' && this.relay?.relayOf(p.sessionId, p.name) ? { relayOf: this.relay.relayOf(p.sessionId, p.name) } : {}),
     }
   }
 
   sessions(now = Date.now()): Session[] {
     const list = this.store
       .all()
-      .filter((t) => now - t.lastActivityAt < RECENT_MS && (t.messages.length > 0 || this.paneFor(t.id)) && !t.cwd.startsWith(DATA_DIR))
+      .filter((t) => now - t.lastActivityAt < RECENT_MS && (t.messages.length > 0 || this.paneFor(t.id)) && !t.cwd.startsWith(DATA_DIR) && !t.firstPrompt?.startsWith(PLAN_MARKER))
       .map((t) => this.toSession(t, now))
     const known = new Set(list.map((s) => s.id))
     for (const p of this.panes) {
@@ -657,7 +905,7 @@ export class Weevils {
       if (!known.has(id) && !p.cwd.startsWith(DATA_DIR)) list.push(this.placeholder(p, now))
     }
     // Les sessions ouvertes dans un terminal que weevils ne pilote pas polluent la liste sans servir : cachées.
-    return list.filter((s) => s.controllable).sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+    return list.filter((s) => s.controllable).map((s) => this.archived.has(s.id) ? { ...s, archived: true } : s).sort((a, b) => b.lastActivityAt - a.lastActivityAt)
   }
 
   /** Projets de cette machine seule (chaque weevilsd les calcule pour ses sessions). */
@@ -703,16 +951,16 @@ export class Weevils {
   snapshot(): Snapshot {
     if (this.snap) return this.snap
     const now = Date.now()
-    const remote = this.remotes.filter((r) => r.online && r.snap)
-    const sessions = [...this.sessions(now), ...remote.flatMap((r) => r.snap!.sessions)].sort((a, b) => b.lastActivityAt - a.lastActivityAt)
+    const remote = this.remotes.filter((r) => r.online && r.snap && r.snap.machines[0]?.id !== MACHINE.id)
+    const sessions = [...new Map([...remote.flatMap((r) => r.snap!.sessions.filter((s) => s.machineId === r.snap!.machines[0]?.id)), ...this.sessions(now)].map((s) => [s.id, this.archived.has(s.id) ? { ...s, archived: true } : s])).values()].sort((a, b) => b.lastActivityAt - a.lastActivityAt)
     this.snap = {
       version: this.version,
       now,
-      machines: [
+      machines: [...new Map([
         { ...MACHINE, online: true },
         // Une machine distante : seulement ce qui se calcule (nom, en ligne), jamais sa description.
-        ...this.remotes.map((r) => ({ id: r.snap?.machines[0]?.id ?? r.id, name: r.snap?.machines[0]?.name ?? r.id, online: r.online })),
-      ],
+        ...this.remotes.filter((r) => r.snap?.machines[0]?.id !== MACHINE.id).map((r) => ({ id: r.snap?.machines[0]?.id ?? r.id, name: r.snap?.machines[0]?.name ?? r.id, online: r.online })),
+      ].map((m) => [m.id, m])).values()],
       projects: this.withConversationProjects(this.projects(sessions, remote.flatMap((r) => r.snap!.projects)), now),
       sessions,
       h24: [...this.h24, ...remote.flatMap((r) => r.snap!.h24)],
@@ -728,9 +976,28 @@ export class Weevils {
       setup: this.setup?.flags(),
       tour: this.tour?.current() ?? undefined,
       pinnedRepos: this.pinnedRepos,
+      memoryCount: this.memory?.count,
+      optimizers: this.optimizers?.list() ?? [],
+      autoMachine: this.optimizers?.machine(),
+      relay: this.relayView(now, remote.flatMap((r) => r.snap!.relay?.plans ?? [])),
+      ...(this.optimizers ? { autoRound: { busy: this.optimizers.roundBusy } } : {}),
       config: { userName: USER_NAME, exposeDomain: EXPOSE_DOMAIN, publicHost: PUBLIC_URL ? new URL(PUBLIC_URL).host : '', authors: publicAuthors(), siteKey: this.siteKey },
     }
-    return this.snap
+    // « Pour toi » : sa marque (révision, non vus) se calcule sur le snapshot qu'on vient de poser, sans rappeler snapshot().
+    // Le flux lui-même n'y est jamais ; une erreur de son côté ne prive personne du snapshot.
+    const snap = this.snap
+    try {
+      const mark = this.foryou?.mark(snap)
+      if (mark) snap.foryou = mark
+    } catch (e) {
+      console.error(`[foryou] marque : ${(e as Error).message}`)
+    }
+    return snap
+  }
+
+  /** L'id d'une session à partir de celui qu'on a reçu à son lancement (Codex : le nom de sa pane, avant son transcript). */
+  sessionIdOf(id: string) {
+    return this.resolveId(id)
   }
 
   private resolveId(id: string) {
@@ -986,6 +1253,16 @@ export class Weevils {
 
   // ---------------------------------------------------------------- actions
 
+  /** Archive presentation only: no key, signal, close, or file deletion. Also works for an offline peer. */
+  archive(id: string, archived: boolean): { ok: true } {
+    const real = this.resolveId(id)
+    if (archived) this.archived.add(real)
+    else this.archived.delete(real)
+    this.persist()
+    this.bump()
+    return { ok: true }
+  }
+
   /** Écrit dans la session ; si elle n'a plus de processus, la rouvre dans une pane weevils. */
   async send(id: string, text: string, from?: string): Promise<{ id: string }> {
     // Signé par un auteur (weevboss, un agent externe) : le fil le montre comme son message, pas celui de l'utilisateur.
@@ -995,7 +1272,12 @@ export class Weevils {
     if (!text.trim()) throw new Error(tr(M).emptyMessage)
     if (author) text = signAs(author, text)
     const remote = this.remoteFor(id)
-    if (remote) return remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/send`, { text })
+    if (remote) {
+      const s = this.snapshot().sessions.find((x) => x.id === id)
+      const result = await remote.call<{ id: string }>('POST', `/api/sessions/${encodeURIComponent(id)}/send`, { text })
+      if (s) this.foryou?.resolveSession(s)
+      return result
+    }
     const real = this.resolveId(id)
     const s = this.snapshot().sessions.find((x) => x.id === real)
     if (!s) {
@@ -1007,12 +1289,52 @@ export class Weevils {
     if (pane) {
       console.log(`[sessions] ${pane.name} ← message${author ? ` (${author})` : ''} · ${text.replace(/\s+/g, ' ').slice(0, 60)}`)
       await this.deliver(pane.name, real, text)
+      this.foryou?.resolveSession(s)
       return { id: real }
     }
     const cwd = s.cwd && fs.existsSync(s.cwd) ? s.cwd : HOME
     const command = s.tool === 'claude' ? [...CLAUDE, '--resume', s.id, text] : ['codex', 'resume', ...CODEX_FLAGS, s.id, text]
+    const at = Date.now()
     await this.spawn(s.tool, cwd, s.title, command, s.id)
+    // Rouverte : une coupure d'avant est réglée (une nouvelle, plus tard, comptera).
+    this.cleared.set(real, at)
+    this.closedByUs.delete(real)
+    this.foryou?.resolveSession(s)
+    this.persist()
     return { id: real }
+  }
+
+  /**
+   * Reprise en un geste d'une session coupée : relancée avec --resume (ou, encore ouverte après une erreur d'API, dans sa
+   * pane) et un message signé weevboss qui lui dit de repartir de son travail sur disque.
+   */
+  async resume(id: string): Promise<{ id: string }> {
+    const remote = this.remoteFor(id)
+    if (remote) return remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/resume`, {})
+    const real = this.resolveId(id)
+    const s = this.snapshot().sessions.find((x) => x.id === real && x.machineId === MACHINE.id)
+    if (!s) throw new Error(tr(M).sessionNotFound)
+    const at = Date.now()
+    const t = tr(M)
+    const r = await this.send(real, t.resumePrompt(t.cutWhy(s.interrupted?.reason ?? 'died'), s.cwd), 'weevboss')
+    this.cleared.set(real, at)
+    this.cuts.delete(real)
+    console.log(`[sessions] ${real.slice(0, 8)} reprise après coupure (${s.interrupted?.reason ?? s.status})`)
+    this.persist()
+    this.bump()
+    return r
+  }
+
+  /** « Laisser » : la coupure est vue, la session redevient une session terminée (lui écrire la reprend toujours). */
+  async dismiss(id: string): Promise<{ ok: true }> {
+    const remote = this.remoteFor(id)
+    if (remote) return remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/dismiss`, {})
+    const real = this.resolveId(id)
+    this.cleared.set(real, Date.now())
+    this.cuts.delete(real)
+    this.persist()
+    this.bump()
+    return { ok: true }
   }
 
   /** Message avec des photos : les fichiers sont posés sur la machine de la session, l'agent reçoit leur chemin et va les regarder. */
@@ -1031,10 +1353,33 @@ export class Weevils {
 
   async key(id: string, key: string) {
     const remote = this.remoteFor(id)
-    if (remote) return void (await remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/key`, { key }))
-    const pane = this.paneFor(this.resolveId(id))
+    if (remote) {
+      const s = this.snapshot().sessions.find((x) => x.id === id)
+      await remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/key`, { key })
+      if (s && key.startsWith('choice:')) this.foryou?.resolveSession(s)
+      return
+    }
+    const real = this.resolveId(id)
+    const s = this.snapshot().sessions.find((x) => x.id === real)
+    const pane = this.paneFor(real)
     if (!pane) throw new Error(tr(M).noScreen)
     if (key === 'esc' && /trust|confiance/i.test(pane.screenAttention ?? '')) throw new Error(tr(M).escWouldClose)
+    if (key.startsWith('choice:')) {
+      const dialog = screenDialog(await capture(pane.name))
+      const index = dialog?.options.findIndex((o) => o.id === key.slice(7)) ?? -1
+      if (!dialog || index < 0) throw new Error(tr(M).noScreen)
+      if (dialog.selected < 0) {
+        await sendKey(pane.name, key.endsWith(':y') ? 'y' : 'n')
+        if (s) this.foryou?.resolveSession(s)
+        this.bump()
+        return
+      }
+      for (let n = Math.abs(index - dialog.selected); n > 0; n--) await sendKey(pane.name, index < dialog.selected ? 'up' : 'down')
+      await sendKey(pane.name, 'enter')
+      if (s) this.foryou?.resolveSession(s)
+      this.bump()
+      return
+    }
     console.log(`[sessions] ${pane.name} ← touche ${key}`)
     await sendKey(pane.name, key)
   }
@@ -1071,9 +1416,11 @@ export class Weevils {
 
   private async spawn(tool: Tool, cwd: string, title: string, command: string[], sessionId?: string): Promise<string> {
     const short = crypto.randomBytes(3).toString('hex')
-    const name = `wv-${path.basename(cwd).slice(0, 18)}-${short}`
+    const name = wvName(path.basename(cwd), short)
     // Jamais de dialogue de confiance au lancement : le dossier est marqué sûr avant.
     if (tool === 'claude') trustDirs([cwd])
+    // Le message de départ (dernier argument) passe lui aussi par tmux.
+    command = command.map((a) => fitTerminal(a))
     try {
       await spawnWv(name, cwd, tool, title.slice(0, 60), command, sessionId)
     } catch (e) {
@@ -1102,6 +1449,8 @@ export class Weevils {
       const projects = PROJECTS_DIR.startsWith(HOME + path.sep) ? '~' + PROJECTS_DIR.slice(HOME.length) : PROJECTS_DIR
       const text = fs.readFileSync(src, 'utf8').replaceAll('{{user}}', user()).replaceAll('{{owner}}', owner).replaceAll('{{projects}}', projects)
       fs.writeFileSync(path.join(ORCH_DIR, 'CLAUDE.md'), text)
+      // Les mêmes consignes pour Codex, qui répond à la place de Claude pendant sa limite d'usage (server/relay.ts).
+      fs.writeFileSync(path.join(ORCH_DIR, 'AGENTS.md'), text)
     } catch (e) {
       console.error(`[orchestrateur] CLAUDE.md : ${(e as Error).message}`)
     }
@@ -1113,12 +1462,34 @@ export class Weevils {
     }
   }
 
-  private orchestratorPane() {
+  private claudeBossPane() {
     return this.orchestratorId ? this.paneFor(this.orchestratorId) : undefined
   }
 
+  /** weevboss sur Codex pendant que Claude est à sa limite (server/relay.ts) : sa pane, son transcript une fois relié. */
+  private codexBoss() {
+    const b = this.relay?.boss
+    if (!b) return undefined
+    const pane = (b.pane ? this.panes.find((p) => p.name === b.pane) : undefined) ?? (b.sessionId ? this.paneFor(b.sessionId) : undefined)
+    if (pane?.sessionId && pane.sessionId !== b.sessionId) this.relay!.setBoss({ ...b, sessionId: pane.sessionId })
+    const id = pane?.sessionId ?? b.sessionId
+    return { since: b.since, pane, id, t: id ? this.store.get(id) : undefined }
+  }
+
+  /** Les transcripts du fil de weevboss : celui de Claude, et celui de Codex quand il a pris le relais. */
+  private bossTranscripts(): Transcript[] {
+    const claude = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
+    const codex = this.codexBoss()?.t
+    return [claude, codex].filter((t): t is Transcript => !!t)
+  }
+
+  /** La pane où weevboss répond en ce moment : celle de Codex pendant le relais, sinon celle de Claude. */
+  private orchestratorPane() {
+    return (this.relay?.bossOn() ? this.codexBoss()?.pane : undefined) ?? this.claudeBossPane()
+  }
+
   private orchestratorSettings() {
-    const t = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
+    const t = (this.relay?.bossOn() ? this.codexBoss()?.t : undefined) ?? (this.orchestratorId ? this.store.get(this.orchestratorId) : undefined)
     return t?.model || t?.approval || t?.effort ? { model: t.model, approval: t.approval, effort: t.effort } : undefined
   }
 
@@ -1146,6 +1517,8 @@ export class Weevils {
     if (remote) return remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/close`, {})
     const pane = this.paneFor(this.resolveId(id))
     if (!pane || this.isOrchestratorPane(pane)) throw new Error(tr(TipsM).notClosable)
+    if (pane.sessionId) this.closedByUs.set(pane.sessionId, Date.now())
+    this.persist()
     await killWv(pane.name)
     console.log(`[sessions] ${pane.name} fermée depuis l'app`)
     this.panes = this.panes.filter((p) => p.name !== pane.name)
@@ -1158,6 +1531,8 @@ export class Weevils {
     const pane = this.orchestratorPane()
     if (!pane) throw new Error(tr(M).orchNotRunning)
     await this.runCommand(pane.name, checkCommand(command))
+    // /clear ou /new : même pane, même id pour weevils, mais weevboss repart de zéro ; il doit recevoir la mémoire à nouveau.
+    if (/^\/(clear|new)\b/.test(command.trim())) this.setup?.bossReset()
     this.bump()
     return { ok: true }
   }
@@ -1196,13 +1571,36 @@ export class Weevils {
    * message de l'utilisateur dans le transcript, ou le texte visible à l'écran (saisi ou en file d'attente) sans dialogue par-dessus.
    * Sinon : écran capturé, Échap si un menu/dialogue est là, un seul nouvel essai, et une erreur à l'appelant.
    */
+  private deliveryLocks = new Map<string, Promise<void>>()
+
   private async deliver(pane: string, sessionId: string | undefined, text: string): Promise<void> {
+    const previous = this.deliveryLocks.get(pane) ?? Promise.resolve()
+    const next = previous.catch(() => undefined).then(() => this.deliverOne(pane, sessionId, text))
+    this.deliveryLocks.set(pane, next)
+    try { await next } finally { if (this.deliveryLocks.get(pane) === next) this.deliveryLocks.delete(pane) }
+  }
+
+  private async deliverOne(pane: string, sessionId: string | undefined, text: string): Promise<void> {
+    const managed = this.panes.find((p) => p.name === pane)
+    if (managed?.tool === 'codex') {
+      const screen = await capture(pane)
+      if (screenDialog(screen)) throw new Error(tr(M).noConfirmation)
+      const t = sessionId ? this.store.get(sessionId) : undefined
+      const queued = workingOnScreen(screen) || t?.phase === 'working'
+      const before = Date.now()
+      await sendText(pane, fitTerminal(text), queued ? 'Tab' : 'Enter')
+      // Tab queues in Codex; the transcript is written only at the next turn. No blind resend:
+      // an uncertain confirmation must never duplicate a message or interrupt the running turn.
+      if (!await this.confirmDelivery(pane, sessionId, text, before, true)) throw new Error(tr(M).noConfirmation)
+      return
+    }
     const attempt = async (): Promise<string | undefined> => {
       const before = Date.now()
       await sendText(pane, text)
       if (await this.confirmDelivery(pane, sessionId, text, before)) return undefined
       return dialogOnScreen(await capture(pane).catch(() => '')) ?? tr(M).noConfirmation
     }
+    text = fitTerminal(text)
     const blocked = await this.clearDialog(pane)
     const first = await attempt()
     if (!first) return
@@ -1214,7 +1612,7 @@ export class Weevils {
     throw new Error(tr(M).notReceived(why))
   }
 
-  private async confirmDelivery(pane: string, sessionId: string | undefined, text: string, before: number): Promise<boolean> {
+  private async confirmDelivery(pane: string, sessionId: string | undefined, text: string, before: number, codex = false): Promise<boolean> {
     // L'écran montre le texte tel que tapé (signé « [from:x] … ») ; le transcript le garde sans signature (parseSigned).
     const mark = flatScreen(text).slice(0, 48).trim()
     const tmark = flatScreen(parseSigned(text)?.text ?? text).slice(0, 32).trim()
@@ -1230,25 +1628,35 @@ export class Weevils {
       // Toutes les secondes : l'écran. Le texte y est (envoyé, ou en file pendant que l'agent travaille) et aucun dialogue ne le recouvre.
       if (Math.round((Date.now() - before) / 300) % 3 === 0) {
         const screen = await capture(pane).catch(() => '')
-        if (screen && !dialogOnScreen(screen) && mark.length >= 8 && flatScreen(screen).includes(mark)) return true
+        if (screen && !dialogOnScreen(screen) && mark.length >= 8 && flatScreen(screen).includes(mark)) {
+          if (!codex) return true
+          const queue = screen.split('Queued follow-up inputs')[1]?.split(/^[›❯>]/m)[0] ?? ''
+          if (flatScreen(queue).includes(mark)) return true
+        }
       }
     }
     return false
   }
 
   private orchestratorMessages(): Message[] {
-    const t = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
+    const boss = this.codexBoss()
     // La bande du haut : tes messages et les réponses de weevils, pas ses appels d'outils.
     // Le devil mode écrit dans le même fil : ses échanges sont mêlés par ordre d'arrivée.
     // L'accueil et les branchements, écrits par weevilsd au nom de weevboss, aussi. Le bloc de contexte joint à un message
     // pour weevboss (ce qu'il n'a pas vu passer) ne s'affiche jamais.
-    const own = (t?.messages.filter((m) => m.role !== 'event') ?? []).map((m) => (m.role === 'user' ? { ...m, text: withoutContext(m.text) } : m))
+    // Pendant la limite de Claude, Codex répond à sa place : ses échanges sont dans le même fil. Un message qui n'est
+    // que du contexte (la reprise d'un message resté sans réponse) ne s'affiche pas.
+    const own = this.bossTranscripts()
+      .flatMap((t) => t.messages.filter((m) => m.role !== 'event' && (t.tool === 'claude' || m.at >= (boss?.since ?? 0) - 60_000)))
+      .map((m) => (m.role === 'user' ? { ...m, text: withoutContext(m.text).trim() } : m))
+      .filter((m) => m.text)
     const msgs = [...own, ...devilMessages(), ...(this.setup?.messages() ?? [])]
       .sort((a, b) => a.at - b.at)
       .slice(-40)
       .map((m) => {
         if (m.role !== 'assistant' || m.devil) return m
-        const { text, chips } = splitChips(m.text)
+        // Les puces restent à leur place dans la phrase : l'app en fait un bouton (« … via [bouton]. »), pas un trou.
+        const { text, chips } = chipsInPlace(m.text)
         return chips.length ? { ...m, text, chips } : m
       })
     if (!msgs.length && ORCHESTRATOR) {
@@ -1258,6 +1666,8 @@ export class Weevils {
   }
 
   private orchestratorWorking(now: number) {
+    const codex = this.codexBoss()?.t
+    if (codex?.phase === 'working' && now - codex.lastActivityAt < 10 * 60_000) return true
     const t = this.orchestratorId ? this.store.get(this.orchestratorId) : undefined
     if (!t) return false
     const hook = this.hooks.get(t.id)
@@ -1266,11 +1676,24 @@ export class Weevils {
     return t.phase === 'working' && now - t.lastActivityAt < 10 * 60_000
   }
 
+  /** La conversation de weevboss où ira le prochain message (son pane est ouvert ou son transcript connu) ; null : sendMain
+   * en ouvrira une nouvelle (Setup.contextFor lui redonne alors la mémoire). */
+  bossConversation(): string | null {
+    const id = this.orchestratorId
+    return id && (this.orchestratorPane() || this.store.get(id)) ? id : null
+  }
+
   /** L'utilisateur parle à weevboss : le message part dans la session Claude de l'orchestrateur (lancée ou reprise au besoin).
    * « brief » : la marche à suivre d'un bouton de branchement, jointe au bloc ⟦weevils …⟧ (jamais affichée). */
   async sendMain(text: string, brief?: string) {
     if (!ORCHESTRATOR) throw new Error(tr(M).orchNotHere)
     if (!text.trim()) throw new Error(tr(M).emptyMessage)
+    // Claude à sa limite (ou tout près) : weevboss répond par Codex, même dossier, mêmes consignes (server/relay.ts).
+    if (this.relay?.bossOn()) {
+      const since = Date.now()
+      void this.waitMainReply(since, 300_000).then((r) => r && console.log(`[voix] weevboss (codex) a répondu en ${Date.now() - since} ms`))
+      return this.sendBossCodex(text, this.setup?.contextFor(brief) ?? '')
+    }
     // Claude Code pas connecté sur cette machine : weevboss ne peut pas répondre. Le message reste dans le fil, et la marche
     // à suivre y arrive à sa place (weevilsd préviendra dès que la connexion est faite).
     if (this.setup && !claudeLogged()) {
@@ -1279,11 +1702,11 @@ export class Weevils {
     }
     this.prepareOrchestrator()
     // Ce que weevilsd a écrit en son nom depuis sa dernière réponse (accueil, branchements) : joint au message.
-    text = text + (this.setup?.contextFor(brief) ?? '')
+    text = text + joinContext(this.setup?.contextFor(brief) ?? '', this.bossBackContext())
     // Mesure : temps de réponse complet de weevboss, au journal.
     const since = Date.now()
     void this.waitMainReply(since, 300_000).then((r) => r && console.log(`[voix] weevboss a répondu en ${Date.now() - since} ms`))
-    const pane = this.orchestratorPane()
+    const pane = this.claudeBossPane()
     if (pane) {
       await this.deliver(pane.name, this.orchestratorId!, text)
       this.bump()
@@ -1298,16 +1721,118 @@ export class Weevils {
     return { id }
   }
 
+  /** Les derniers échanges du fil, en une ligne, pour celui qui prend (ou reprend) le fil. */
+  private threadDigest(msgs: Message[], max = 3000, me = 'you') {
+    return msgs
+      .filter((m) => m.role !== 'event' && m.text.trim())
+      .map((m) => `${m.role === 'user' ? 'user' : m.role === 'orchestrator' ? (m.author ?? 'agent') : me}: ${m.text.replace(/\s+/g, ' ').slice(0, 400)}`)
+      .join(' | ')
+      .slice(-max)
+      .replace(/⟧/g, ']')
+  }
+
+  /**
+   * weevboss sur Codex : dans sa pane si elle est ouverte, sinon une session Codex dans le dossier de l'orchestrateur
+   * (AGENTS.md = ses consignes), reprise si elle existe déjà. Son premier message porte, caché, les derniers échanges du fil.
+   * unanswered : aucun texte de l'utilisateur, seulement le contexte (son dernier message est resté sans réponse).
+   */
+  private async sendBossCodex(text: string, context = '', unanswered = false): Promise<{ id: string }> {
+    this.prepareOrchestrator()
+    const boss = this.codexBoss()
+    if (boss?.pane) {
+      await this.deliver(boss.pane.name, boss.pane.sessionId, (text + joinContext(context, unanswered ? tr(R).bossUnanswered : '')).trim())
+      this.bump()
+      return { id: boss.id ?? boss.pane.name }
+    }
+    const e = this.relay?.episode()
+    const t = tr(R)
+    const until = e?.until ? t.until(clockOf(e.until, Date.now(), e.tz)) : ''
+    const first = (text + joinContext(context, t.bossIn(t[`bossWhy_${e?.kind ?? 'limit'}`], until, this.threadDigest(this.orchestratorMessages().slice(-12)), unanswered))).trim()
+    const known = boss?.id && boss.t ? boss.id : undefined
+    const command = known ? ['codex', 'resume', ...CODEX_FLAGS, known, first] : ['codex', ...CODEX_FLAGS, first]
+    const name = await this.spawn('codex', ORCH_DIR, 'weevboss', command, known)
+    void this.acceptTrust(name)
+    this.relay?.setBoss({ pane: name, sessionId: known, since: boss?.since ?? Date.now() })
+    console.log(`[relais] weevboss répond par Codex (${name})`)
+    return { id: known ?? name }
+  }
+
+  /** Claude est revenu : ce que Codex a dit à sa place dans le fil, joint (caché) à son prochain message ; la pane de Codex est fermée. */
+  private bossBackContext(): string {
+    const since = this.relay?.takeBossBack()
+    if (since === undefined) return ''
+    const boss = this.codexBoss()
+    if (boss?.pane) {
+      if (boss.pane.sessionId) this.closedByUs.set(boss.pane.sessionId, Date.now())
+      void killWv(boss.pane.name).catch(() => undefined)
+    }
+    const said = (boss?.t?.messages ?? []).filter((m) => m.at >= since - 60_000).map((m) => (m.role === 'user' ? { ...m, text: withoutContext(m.text) } : m))
+    if (!said.some((m) => m.role === 'assistant')) return ''
+    return tr(R).bossBack(this.threadDigest(said, 3000, 'codex'))
+  }
+
+  /** Le relais vu par l'app : celui de cette machine, plus les plans de reprise des autres. */
+  private relayView(now: number, far: NonNullable<Snapshot['relay']>['plans']) {
+    const v = this.relay?.view(now)
+    return v && far.length ? { ...v, plans: [...v.plans, ...far] } : v
+  }
+
+  /**
+   * Une session Codex que weevils lance sans personne devant (relais, weevboss sur Codex, tâche auto) : dans un dossier
+   * qu'il ne connaît pas, Codex demande d'abord « Trust this folder? », et rien n'avance. Le dossier est à l'utilisateur
+   * (comme pour Claude, marqué de confiance d'avance) : on accepte, pendant les premières secondes seulement.
+   */
+  private async acceptTrust(pane: string) {
+    for (let i = 0; i < 14; i++) {
+      await sleep(1500)
+      const dlg = dialogOnScreen(await capture(pane).catch(() => ''))
+      if (dlg && /trust|confiance/i.test(dlg)) {
+        console.log(`[sessions] ${pane} · dossier accepté pour Codex : ${dlg.slice(0, 60)}`)
+        await sendKey(pane, 'enter').catch(() => undefined)
+        return
+      }
+    }
+  }
+
+  /** Ce que le relais Codex (server/relay.ts) demande à weevilsd. */
+  relayHost(): RelayHost {
+    return {
+      sessions: (now) => this.sessions(now),
+      transcript: (id) => this.store.get(id),
+      send: (id, text, from) => this.send(id, text, from),
+      resume: (id) => this.resume(id),
+      settle: (id) => {
+        this.cleared.set(id, Date.now())
+        this.cuts.delete(id)
+        this.persist()
+        this.bump()
+      },
+      openCodex: async (cwd, title, text) => (await this.createIn(cwd, title, text, [], {}, 'codex')).id,
+      resolve: (id) => this.resolveId(id),
+      bossStop: () => (this.orchestratorId ? this.store.get(this.orchestratorId)?.stopError : undefined),
+      bossRelayCut: () => this.sendBossCodex('', '', true),
+      autoOwns: (id) => !!this.optimizers?.owns(id),
+      autoRun: (id, text) => this.optimizers!.relayRun(id, text),
+      autoTick: () => this.optimizers?.poke(),
+      notify: (title, body, url, tag) => {
+        if (this.push.enabled) void this.push.send({ title, body: body.replace(/\s+/g, ' ').slice(0, 180), url, tag })
+      },
+      say: (text) => void this.setup?.say(text),
+      bump: () => this.bump(),
+    }
+  }
+
   // ---------------------------------------------------------------- H24
 
-  /** Jobs longs (LOGS_DIR, WEEVILS_LOGS_DIR) et timers systemd « wv-* ». */
+  /** Jobs longs (LOGS_DIRS : WEEVILS_LOGS_DIR, sinon ~/logs et le dossier de weevils) et timers systemd « wv-* ». */
   refreshH24() {
     const now = Date.now()
     const out: H24Activity[] = []
-    try {
-      for (const f of fs.readdirSync(LOGS_DIR)) {
+    for (const dir of LOGS_DIRS) try {
+      for (const f of fs.readdirSync(dir)) {
         if (!f.endsWith('.log') || f === 'weevils.log' || f === 'weevilsd.log') continue
-        const file = path.join(LOGS_DIR, f)
+        if (out.some((a) => a.id === `job:${f.replace(/\.log$/, '')}`)) continue
+        const file = path.join(dir, f)
         const st = fs.statSync(file)
         const running = now - st.mtimeMs < 120_000
         // Ce qui tourne, plus ce qui a fini dans les 3 dernières heures.
@@ -1343,6 +1868,11 @@ export class Weevils {
           lastEvent: last.slice(0, 160) || '—',
           canToggle: false,
           ...(isDemoJob(name) ? { demo: true } : {}),
+          since: st.birthtimeMs || null,
+          lastRunAt: st.mtimeMs,
+          group: familyOf(name),
+          // Over: its one run, from the log's birth to its last write.
+          ...(running ? {} : { lastDurMs: Math.max(0, st.mtimeMs - (st.birthtimeMs || st.mtimeMs)), runCount: 1 }),
         })
       }
     } catch {
@@ -1355,6 +1885,7 @@ export class Weevils {
         try {
           for (const x of JSON.parse(stdout) as { unit: string; next?: number; last?: number; activates: string }[]) {
             if (!x.unit.startsWith('wv-')) continue
+            if (x.activates) this.timerSvc.set(x.unit, x.activates)
             out.push({
               id: `timer:${x.unit}`,
               title: x.unit.replace(/^wv-/, '').replace(/\.timer$/, ''),
@@ -1366,19 +1897,165 @@ export class Weevils {
               runStartedAt: null,
               lastEvent: x.last ? t.lastRun(when(x.last)) : t.neverRun,
               canToggle: true,
+              nextRunAt: x.next ? Math.round(x.next / 1000) : null,
+              lastRunAt: x.last ? Math.round(x.last / 1000) : null,
+              since: unitSince(x.unit),
+              group: familyOf(x.unit.replace(/^wv-/, '')),
             })
           }
         } catch {
           /* format inattendu */
         }
       }
-      out.sort((a, b) => Number(b.runState === 'running') - Number(a.runState === 'running') || a.title.localeCompare(b.title))
-      out.splice(16)
-      if (JSON.stringify(out) !== JSON.stringify(this.h24)) {
-        this.h24 = out
-        this.bump()
+      // La période de chaque timer, lue dans son planning (OnCalendar, OnUnitActiveSec) : « / 6 h » dans la bande auto.
+      // Relue toutes les 10 min (ou quand la liste change), pas à chaque passage.
+      const timers = out.filter((a) => a.kind === 'timer').map((a) => a.id.replace(/^timer:/, ''))
+      // Plus what it is for (its service's Description=, else the timer's) and its runs in the journal (last one's
+      // length and outcome, how many in 30 days), re-read when it ran again.
+      const apply = (every: Map<string, number | null>, desc: Map<string, string>) => {
+        for (const a of out) {
+          if (a.kind !== 'timer') continue
+          const unit = a.id.replace(/^timer:/, '')
+          a.everyMs = every.get(unit) ?? (a.nextRunAt && a.lastRunAt && a.nextRunAt > a.lastRunAt ? a.nextRunAt - a.lastRunAt : null)
+          const d = desc.get(this.timerSvc.get(unit) ?? '') ?? desc.get(unit)
+          if (d) a.description = d
+          const runs = this.timerRunsCache.get(unit)
+          if (!runs || runs.key !== String(a.lastRunAt ?? '') || now - runs.at > 600_000) void this.timerRuns(unit, String(a.lastRunAt ?? '')).then((r) => r.fresh && this.refreshH24())
+          const last = runs?.runs.at(-1)
+          if (last) {
+            a.lastDurMs = last.at - last.startedAt
+            a.lastOk = last.ok
+          }
+          if (runs) a.runCount = runs.runs.length
+        }
+        this.publishH24(out)
       }
+      const key = timers.join(' ')
+      const cached = this.timerEvery
+      if (!timers.length || (cached && cached.key === key && now - cached.at < 600_000)) return apply(cached?.map ?? new Map(), cached?.desc ?? new Map())
+      const services = timers.map((u) => this.timerSvc.get(u)).filter((u): u is string => !!u)
+      execFile('systemctl', ['--user', 'show', ...timers, ...services, '-p', 'Id', '-p', 'TimersCalendar', '-p', 'TimersMonotonic', '-p', 'Description'], { timeout: 4000 }, (e2, show) => {
+        const map = e2 ? new Map<string, number | null>() : parseTimerShow(show)
+        const desc = e2 ? new Map<string, string>() : unitDescriptions(show)
+        this.timerEvery = { at: now, key, map, desc }
+        apply(map, desc)
+      })
     })
+  }
+
+  private timerEvery: { at: number; key: string; map: Map<string, number | null>; desc: Map<string, string> } | null = null
+  /** The service each wv-* timer starts (list-timers' « activates »). */
+  private timerSvc = new Map<string, string>()
+  /** A timer's runs read in the journal (30 days), and for which last run (key: its lastRunAt). */
+  private timerRunsCache = new Map<string, { key: string; at: number; runs: JournalRun[] }>()
+  private timerRunsLoading = new Map<string, Promise<{ runs: JournalRun[]; fresh: boolean }>>()
+
+  /** A timer's runs from the user journal (one per invocation of its service, oldest first); cached until it runs again. */
+  private timerRuns(unit: string, key: string, maxAgeMs = 600_000): Promise<{ runs: JournalRun[]; fresh: boolean }> {
+    const c = this.timerRunsCache.get(unit)
+    if (c && c.key === key && Date.now() - c.at < maxAgeMs) return Promise.resolve({ runs: c.runs, fresh: false })
+    const loading = this.timerRunsLoading.get(unit)
+    if (loading) return loading
+    const svc = this.timerSvc.get(unit) ?? unit.replace(/\.timer$/, '.service')
+    // Only the fields a run is read from, and only the newest entries (still oldest first): a chatty service never
+    // fills the buffer with its oldest weeks, nor holds the event loop on a huge parse.
+    const args = ['--user', '-u', svc, '-o', 'json', `--output-fields=${JOURNAL_FIELDS}`, '--since', '-30d', '-n', String(JOURNAL_LINES), '--no-pager', '-q']
+    const p = new Promise<{ runs: JournalRun[]; fresh: boolean }>((resolve) =>
+      execFile('journalctl', args, { timeout: 10_000, maxBuffer: 32 << 20 }, (err, stdout) => {
+        // Cut short (too big anyway): what it gave is the oldest part, never read as the last runs; what was known stays.
+        const cut = (err as NodeJS.ErrnoException | null)?.code === 'ERR_CHILD_PROCESS_STDIO_MAXBUFFER'
+        // No journal for this user: no runs, kept as such until it runs again (never a loop).
+        const runs = cut ? (c?.runs ?? []) : err && !stdout ? [] : journalRuns(stdout)
+        this.timerRunsCache.set(unit, { key, at: Date.now(), runs })
+        resolve({ runs, fresh: !cut })
+      }),
+    ).finally(() => this.timerRunsLoading.delete(unit))
+    this.timerRunsLoading.set(unit, p)
+    return p
+  }
+
+  /** The log file of a job (job:<name>), in the first logs folder that has it. */
+  private jobFile(id: string): string | null {
+    const name = id.replace(/^job:/, '')
+    // Its own logs never (refreshH24 leaves them out too): they are not a job.
+    if (!name || name.includes('/') || name.includes('\\') || name.startsWith('.') || name === 'weevils' || name === 'weevilsd') return null
+    for (const dir of LOGS_DIRS) {
+      const f = path.join(dir, `${name}.log`)
+      if (fs.existsSync(f)) return f
+    }
+    return null
+  }
+
+  /** A job's one run (its log's birth → last write), once it is over (a running one is live, not a run yet). */
+  private jobRun(file: string): AutoRun | null {
+    const st = fs.statSync(file, { throwIfNoEntry: false })
+    if (!st || Date.now() - st.mtimeMs < 120_000) return null
+    const at = Math.round(st.mtimeMs)
+    return { at, startedAt: Math.min(at, Math.round(st.birthtimeMs || st.mtimeMs)), ok: true }
+  }
+
+  /** GET /api/auto/:id for a timer (its runs in the journal, newest first) or a job (one run). Local ones only. */
+  async h24Detail(id: string): Promise<AutoDetail | null> {
+    if (id.startsWith('timer:')) {
+      const a = this.h24.find((x) => x.id === id)
+      if (!a) return null
+      const { runs } = await this.timerRuns(id.slice(6), String(a.lastRunAt ?? ''), 60_000)
+      return { id, runs: runs.slice(-30).reverse().map(({ inv: _i, lines: _l, ...r }) => r), machine: MACHINE.id }
+    }
+    const f = id.startsWith('job:') ? this.jobFile(id) : null
+    if (!f) return null
+    const run = this.jobRun(f)
+    return { id, runs: run ? [run] : [], machine: MACHINE.id }
+  }
+
+  /** GET /api/auto/:id/runs/:at for a timer (that invocation's journal lines) or a job (its log's last lines). */
+  async h24Run(id: string, at: number): Promise<AutoRunDetail | null> {
+    if (id.startsWith('timer:')) {
+      const a = this.h24.find((x) => x.id === id)
+      if (!a) return null
+      const { runs } = await this.timerRuns(id.slice(6), String(a.lastRunAt ?? ''), 60_000)
+      const r = runs.find((x) => x.at === at)
+      if (!r) return null
+      const { inv: _i, lines, ...run } = r
+      const log = lines.join('\n')
+      return { run, files: [], links: extractLinks(log), images: [], log }
+    }
+    const f = id.startsWith('job:') ? this.jobFile(id) : null
+    const run = f ? this.jobRun(f) : null
+    if (!f || !run) return null
+    const log = tailLines(f)
+    return { run, files: [], links: extractLinks(log), images: [], log }
+  }
+
+  private publishH24(out: H24Activity[]) {
+    out.sort((a, b) => Number(b.runState === 'running') - Number(a.runState === 'running') || a.title.localeCompare(b.title))
+    out.splice(16)
+    if (JSON.stringify(out) !== JSON.stringify(this.h24)) {
+      this.h24 = out
+      this.bump()
+    }
+  }
+
+  /** Session Claude locale lancée dans un dossier donné, avec son titre (tâches de fond de la bande auto, server/optimizers.ts).
+   *  args : arguments de plus pour claude (les interdits de la tâche, --settings). env : variables posées (set) ou retirées
+   *  (unset) pour cette session seulement (les barrières de la tâche : gh sans compte, git qui ne pousse pas…), par
+   *  « env » devant claude : tmux lance la commande sans shell, une valeur n'est jamais interprétée. wrap : une commande
+   *  devant tout le reste (la prison bwrap de la tâche). */
+  async createIn(cwd: string, title: string, text: string, args: string[] = [], env: { set?: Record<string, string>; unset?: string[]; wrap?: string[] } = {}, tool: Tool = 'claude'): Promise<{ id: string }> {
+    if (tool === 'codex') {
+      const un = (env.unset ?? []).filter((k) => /^[A-Za-z_]\w*$/.test(k)).flatMap((k) => ['-u', k])
+      const st = Object.entries(env.set ?? {}).filter(([k]) => /^[A-Za-z_]\w*$/.test(k)).map(([k, v]) => `${k}=${v}`)
+      // Codex ne laisse pas choisir l'identifiant : c'est le nom de la pane, jusqu'à ce que son transcript apparaisse.
+      const name = await this.spawn('codex', cwd, title, [...(env.wrap ?? []), ...(un.length || st.length ? ['env', ...un, ...st] : []), 'codex', ...CODEX_FLAGS, ...args, text])
+      void this.acceptTrust(name)
+      return { id: name }
+    }
+    const id = crypto.randomUUID()
+    const unset = (env.unset ?? []).filter((k) => /^[A-Za-z_]\w*$/.test(k)).flatMap((k) => ['-u', k])
+    const set = Object.entries(env.set ?? {}).filter(([k]) => /^[A-Za-z_]\w*$/.test(k)).map(([k, v]) => `${k}=${v}`)
+    const prefix = unset.length || set.length ? ['env', ...unset, ...set] : []
+    await this.spawn('claude', cwd, title, [...(env.wrap ?? []), ...prefix, ...CLAUDE, ...args, '--session-id', id, text], id)
+    return { id }
   }
 
   async toggleH24(id: string) {
@@ -1460,5 +2137,15 @@ export class Weevils {
     fs.closeSync(fd)
     const binary = buf.subarray(0, 8000).includes(0)
     return { path: rel, size: st.size, binary, content: binary ? '' : buf.toString('utf8'), truncated: st.size > max }
+  }
+}
+
+/** Depuis quand un timer systemd existe : la date de son fichier d'unité (bande auto). */
+function unitSince(unit: string): number | null {
+  try {
+    const st = fs.statSync(path.join(HOME, '.config', 'systemd', 'user', unit))
+    return Math.round(st.birthtimeMs || st.mtimeMs) || null
+  } catch {
+    return null
   }
 }

@@ -7,6 +7,9 @@ export default defineMessages({
     open: (n: number) => `${n} ${n > 1 ? 'ouvertes' : 'ouverte'}`,
     nothingRunning: 'rien ne tourne',
     yours: (n: number) => `${n} à toi`,
+    /** Sessions coupées en plein travail. */
+    cut: (n: number) => `${n} ${n > 1 ? 'interrompues' : 'interrompue'}`,
+    cutAria: (n: number) => `${n} ${n > 1 ? 'sessions coupées' : 'session coupée'} en plein travail`,
     conversations: (n: number) => `${n} conversation${n > 1 ? 's' : ''}`,
 
     // Bande de l'orchestrateur
@@ -15,6 +18,19 @@ export default defineMessages({
     openChat: 'ouvrir la conversation avec weevboss',
     agentPlaceholder: 'dis-moi quoi faire',
     agentLabel: 'message à weevboss',
+    /** Bulle envoyée, pas encore dans le fil : en route, ou en file derrière la réponse en cours. */
+    sending: 'envoi…',
+    queued: 'en attente',
+    withFiles: (n: number) => `(${n} fichier${n > 1 ? 's' : ''})`,
+    /** Bouton flottant « ↓ » du fil ouvert : du nouveau en bas pendant qu'on relit. */
+    toEnd: 'du nouveau en bas : y descendre',
+
+    // Les deux mots sous le logo (src/ui/foryou-top.tsx) : « weevboss · pour toi », et l'aperçu du flux.
+    forYou: 'pour toi',
+    forYouOpen: 'ouvrir « pour toi » en grand',
+    forYouEmpty: 'rien de neuf pour l’instant',
+    forYouUnseen: (n: number) => `${n} pas encore ${n > 1 ? 'vus' : 'vu'}`,
+    forYouSpeaking: 'en cours de lecture',
 
     // Bande projet
     projectBand: (name: string) => `projet ${name}`,
@@ -32,7 +48,7 @@ export default defineMessages({
     reposLabel: 'repos',
     machinesLabel: 'machines',
     openSessions: (n: number) => `${n} session${n > 1 ? 's ouvertes' : ' ouverte'}`,
-    h24Label: 'h24',
+    h24Label: 'auto',
     running: 'en cours',
 
     // Notifications
@@ -53,12 +69,16 @@ export default defineMessages({
     importConversations: 'importer des conversations',
     theme: (theme: string) => `thème ${theme === 'dark' ? 'sombre' : theme === 'zen' ? 'zen' : theme === 'graphite' ? 'graphite' : 'clair'}`,
     logout: 'se déconnecter',
+    memory: 'mémoire',
+    memories: (n: number) => `${n} souvenir${n > 1 ? 's' : ''}`,
   },
   en: {
     working: (n: number) => `${n} working`,
     open: (n: number) => `${n} open`,
     nothingRunning: 'nothing running',
     yours: (n: number) => `${n} need${n === 1 ? 's' : ''} you`,
+    cut: (n: number) => `${n} interrupted`,
+    cutAria: (n: number) => `${n} ${n === 1 ? 'session' : 'sessions'} cut off mid-work`,
     conversations: (n: number) => `${n} conversation${n === 1 ? '' : 's'}`,
 
     agentBand: 'weevboss, the orchestrator',
@@ -66,6 +86,16 @@ export default defineMessages({
     openChat: 'open the conversation with weevboss',
     agentPlaceholder: 'tell me what to do',
     agentLabel: 'message to weevboss',
+    sending: 'sending…',
+    queued: 'queued',
+    withFiles: (n: number) => `(${n} file${n === 1 ? '' : 's'})`,
+    toEnd: 'new messages below: scroll down',
+
+    forYou: 'for you',
+    forYouOpen: 'open “for you” full screen',
+    forYouEmpty: 'nothing new for now',
+    forYouUnseen: (n: number) => `${n} not seen yet`,
+    forYouSpeaking: 'playing',
 
     projectBand: (name: string) => `project ${name}`,
     unread: 'replied, not read yet',
@@ -82,7 +112,7 @@ export default defineMessages({
     reposLabel: 'repos',
     machinesLabel: 'machines',
     openSessions: (n: number) => `${n} open session${n === 1 ? '' : 's'}`,
-    h24Label: '24/7',
+    h24Label: 'auto',
     running: 'running',
 
     testSent: 'test notification sent',
@@ -101,5 +131,7 @@ export default defineMessages({
     importConversations: 'import conversations',
     theme: (theme: string) => `${theme === 'dark' ? 'dark' : theme === 'zen' ? 'zen' : theme === 'graphite' ? 'graphite' : 'light'} theme`,
     logout: 'log out',
+    memory: 'memory',
+    memories: (n: number) => `${n} ${n === 1 ? 'memory' : 'memories'}`,
   },
 })

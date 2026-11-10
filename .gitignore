@@ -6,4 +6,13 @@ build/
 .DS_Store
 .claude/
 steps/
+# le kit est décompressé dans harness-interface-kit/ ; le zip d'origine reste en local
 *.zip
+
+# Local runtime exports and private recordings
+.local/
+recordings/
+voice-archives/
+cookies*.txt
+*.pem
+*.key

@@ -11,6 +11,7 @@ export default defineMessages({
     oneFile: 'Voici un fichier.',
     someFiles: 'Voici des fichiers.',
     attached: (image: boolean, path: string) => `(${image ? 'photo' : 'fichier'} : ${path})`,
+    longMessage: (path: string) => `[message trop long pour le terminal, la suite et le texte intégral sont dans ${path} : lis-le en entier avant de répondre]`,
     commandRefused: (c: string) => `commande refusée : ${c}`,
 
     badRepo: 'repo invalide',
@@ -43,13 +44,20 @@ export default defineMessages({
     continuePrompt: (source: string, title: string, context: string, text: string) =>
       `Contexte : suite de ma conversation ${source} « ${title} » (fin de l'échange ci-dessous).\n\n${context}---\n${text}`,
 
-    // 24/7 band: long jobs (WEEVILS_LOGS_DIR) and systemd timers.
+    // 24/7 band: long jobs (WEEVILS_LOGS_DIR, else ~/logs and weevils' own folder) and systemd timers.
     manualJob: 'job lancé à la main',
     nextRun: (when: string) => `prochaine : ${when}`,
     scheduled: 'planifié',
     lastRun: (when: string) => `dernière : ${when}`,
     neverRun: 'jamais lancé',
     cantPause: 'cette activité ne se met pas en pause',
+
+    // Session cut off mid-work (status « interrupted »): why, the line posted in weevboss' thread, the resume message.
+    cutWhy: (reason: string) =>
+      ({ died: 'processus arrêté', dirty: 'arrêtée avec du travail non commité', quota: 'limite d’usage atteinte', auth: 'connexion expirée', api: 'erreur de l’API' })[reason] ?? 'arrêtée',
+    cutSaid: (title: string, project: string, why: string) => `La session « ${title} » (${project}) a été coupée en plein travail : ${why}.`,
+    resumePrompt: (why: string, cwd: string) =>
+      `Ta session a été coupée en plein travail (${why}). Reprends là où tu en étais : ton travail est sur disque dans ${cwd} (git status, git diff, fichiers non commités), relis tes derniers messages et relance ce qui tournait en arrière-plan et a été tué. Puis termine la tâche ; si elle était déjà finie, dis-le en une phrase.`,
   },
   en: {
     fileName: 'file',
@@ -58,6 +66,7 @@ export default defineMessages({
     oneFile: 'Here is a file.',
     someFiles: 'Here are some files.',
     attached: (image: boolean, path: string) => `(${image ? 'photo' : 'file'}: ${path})`,
+    longMessage: (path: string) => `[message too long for the terminal, the rest and the full text are in ${path}: read all of it before answering]`,
     commandRefused: (c: string) => `command not allowed: ${c}`,
 
     badRepo: 'invalid repo',
@@ -93,5 +102,11 @@ export default defineMessages({
     lastRun: (when: string) => `last: ${when}`,
     neverRun: 'never run',
     cantPause: 'this activity can’t be paused',
+
+    cutWhy: (reason: string) =>
+      ({ died: 'process stopped', dirty: 'stopped with uncommitted work', quota: 'usage limit reached', auth: 'login expired', api: 'API error' })[reason] ?? 'stopped',
+    cutSaid: (title: string, project: string, why: string) => `The session “${title}” (${project}) was cut off mid-work: ${why}.`,
+    resumePrompt: (why: string, cwd: string) =>
+      `Your session was cut off mid-work (${why}). Pick up where you left off: your work is on disk in ${cwd} (git status, git diff, uncommitted files), reread your last messages and restart whatever was running in the background and got killed. Then finish the task; if it was already done, say so in one sentence.`,
   },
 })

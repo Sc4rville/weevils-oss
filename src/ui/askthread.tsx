@@ -4,7 +4,7 @@ import { useApp } from './app-context'
 import { AskPanel, AskVoice, useAsk, type Ask } from './ask'
 import { wordAt } from './codesel'
 import { EDGE } from './codeview'
-import { flatText, offsetOf, pathAt, pathOrWord, rangeOf, wordUnder } from './textpick'
+import { anchorRow, flatText, offsetOf, pathAt, pathOrWord, rangeOf, wordUnder } from './textpick'
 import { listFiles, matchFile, parsePath } from './repofiles'
 import { step, userText } from './format'
 import { markSeen } from './hints'
@@ -68,6 +68,19 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
       return r.bottom > top && r.top < bottom
     }).map((n) => n.dataset.mid!)
   }
+  /** Le message sous lequel ouvrir une question dictée : le dernier vu en entier (pas celui que coupe le bas de l'écran,
+   * ni celui caché sous le logo ou la saisie) ; sinon le dernier visible. */
+  const spotId = () => {
+    const el = box.current
+    const sc = el?.closest('[data-scroll]') ?? el?.closest('.chat') ?? el
+    if (!el || !sc) return null
+    const { top, bottom } = sc.getBoundingClientRect()
+    const whole = [...el.querySelectorAll<HTMLElement>('[data-mid]')].filter((n) => {
+      const r = n.getBoundingClientRect()
+      return r.bottom > top && r.bottom <= bottom - 72
+    })
+    return whole.at(-1)?.dataset.mid ?? visibleIds().at(-1) ?? null
+  }
 
   const a: Ask = useAsk(
     () => {
@@ -80,10 +93,23 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
       for (let i = from; i <= to; i++) lines.push(`[${who(messages[i], info.tool, snap.config.userName || 'user')}] ${clip(body(messages[i]), i >= first && i <= last ? 3000 : 900)}`)
       return { kind: 'conv', repo: info.repo ?? '', path: '', machine: info.machine, title: info.title, tool: info.tool, project: info.project, selection: sel ? selText : '', from: 0, to: 0, around: lines.join('\n\n') }
     },
-    { onVoice: () => !sel && !spot && setSpot(visibleIds().at(-1) ?? null) },
+    { onVoice: () => !sel && !spot && setSpot(spotId()) },
   )
   const live = useRef({ a, sel })
   live.current = { a, sel }
+
+  /** Au lâcher, le message touché reste à sa place à l'écran pendant que la barre change de message (recalé après le rendu). */
+  const settle = useRef<(() => void) | null>(null)
+  const keepRow = useCallback((row: Element | null) => {
+    const fix = anchorRow(row)
+    settle.current = fix
+    requestAnimationFrame(() => settle.current === fix && (settle.current = null))
+  }, [])
+  useLayoutEffect(() => {
+    const fix = settle.current
+    settle.current = null
+    fix?.()
+  })
 
   const choose = useCallback((next: TSel | null, text = '') => {
     live.current.a.reset()
@@ -156,6 +182,7 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
         const was = g
         g = null
         setDragging(false)
+        keepRow(was.root)
         if (was.mode === 'words') {
           live.current.a.reset()
           setSpot(null)
@@ -201,7 +228,7 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
         el.removeEventListener('pointercancel', cancel, true)
       }
     },
-    [choose],
+    [choose, keepRow],
   )
 
   // ---- Surlignage (CSS Custom Highlight API) : rien ne change dans le rendu des messages.
@@ -214,10 +241,22 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
     else h.reg.delete(HL)
   })
   useEffect(() => () => highlights()?.reg.delete(HL), [])
-  // Le message a disparu du fil (fenêtre glissante) : la sélection tombe.
+  // Le message a disparu du fil (fenêtre glissante : retiré de `messages`, ou sorti des messages affichés, Messages
+  // n'en montre que les derniers) : la sélection tombe ; une réponse affichée reste, sous le premier message encore
+  // affiché (sinon elle disparaîtrait avec lui, et `hold` resterait vrai sans rien à l'écran).
   useEffect(() => {
-    if (sel && !messages.some((m) => m.id === sel.mid)) setSel(null)
-  }, [messages, sel])
+    if (!sel && !spot) return
+    const ids = new Set(messages.map((m) => m.id))
+    const root = box.current
+    const shown = root ? [...root.querySelectorAll<HTMLElement>('[data-mid]')].map((n) => n.dataset.mid!).filter((id) => ids.has(id)) : [...ids]
+    const gone = (id: string) => !shown.includes(id)
+    const keep = live.current.a.answer ? (shown[0] ?? null) : null
+    if (sel && gone(sel.mid)) {
+      setSel(null)
+      setSelText('')
+      setSpot(keep)
+    } else if (!sel && spot && gone(spot)) setSpot(keep)
+  }, [messages, sel, spot])
 
   // ---- « ouvre le fichier » : la sélection est un chemin d'un repo connu, et le fichier existe.
   const [file, setFile] = useState<{ projectId: string; repo: string; path: string; line?: number } | null>(null)
@@ -258,5 +297,13 @@ export function useThreadAsk(messages: Message[], info: ThreadInfo) {
       </div>
     ) : null
 
-  return { ref: attach, after, a, voice: <AskVoice a={a} />, selected: !!sel }
+  return {
+    ref: attach,
+    after,
+    a,
+    voice: <AskVoice a={a} />,
+    selected: !!sel,
+    /** Une barre ou une réponse ouverte sous un message : le fil ne doit pas la pousser hors de l'écran (useFollow `hold`). */
+    hold: !!sel || dragging || (!!spot && (a.asking || !!a.answer)),
+  }
 }

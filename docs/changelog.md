@@ -2,6 +2,58 @@
 
 A short summary of what changed after the first working version.
 
+## 2026-11-10
+
+### For you
+- Next to weevboss at the top, a second word: **for you**, a stream of what the agents did, ask and suggest. One
+  full-width band per item: a session's result (green), its question (amber) or why it stopped, a word from weevboss,
+  a mail from an outside agent (unfolds in place), suggested automations as a carousel (✓ / ×), a way for weevils to
+  serve you better, alerts, bold « did you know » about what is really in a repo, milestones, and bars that say where
+  the day stands. Reply under an item, open the real conversation, launch an action: it slides out of the stream.
+- The preview lives in the top band; a tap opens the stream full screen, with a line of participants to isolate
+  weevboss, an outside agent, the sessions, the media or the ideas. The stream ends: « up to date ».
+- **Media on purpose**: `weevils show <file> "caption"` (any session, or weevboss) puts an image or a video in the
+  stream; files named in the last message of a turn join its result. Served by `GET /api/foryou/media/<id>` with
+  `Range`, only for files the stream listed. `weevils post "…" [--action "label::brief"]` lets weevboss say a word
+  there, with buttons.
+- **Voice messages**: a word from weevboss or from an outside agent can be listened to, each speaker in its own voice.
+- Generated items (weevboss's digest, ideas, insights) are written by weevilsd on a budget: only while the stream is
+  being looked at, never past 85 % of a usage window, 12 model calls a day at most. Plan and state: [foryou.md](foryou.md).
+### Codex relay when Claude hits its usage limit
+- weevilsd watches three signals, in plain code (no model call): the limit message Claude Code writes in a transcript
+  (with its reset time), sessions that stop dead or API errors piling up, and the subscription quota read live (5-hour
+  and weekly windows, the figures of the usage page).
+- From 90 % of a window, Codex writes a **takeover plan** for every Claude session at work, read-only and in the
+  background (`codex exec --sandbox read-only --ephemeral`), and one line says so, once per window (“you're at 90% of your week,
+  I'm keeping Codex warm”); the next message is the switch, nothing in between. At 97 % (the limit has no grace period; the threshold is a setting, `WEEVILS_RELAY_AT` before any
+  choice in the app) the switch is made ahead of the cut: weevboss answers through Codex (same folder, `AGENTS.md` =
+  its instructions, same `weevils` command) and every working session is told to finish its step and stop. A limit
+  seen after the fact opens the same episode.
+- Each stopped session gets its plan (done, left, risks, what Codex intends to do), shown in one grouped view, under
+  weevboss' thread and in the session's page: **approve**, **adjust** (Codex rewrites it with your note) or **wait for
+  Claude**, one by one or all at once. Nothing is touched before the approval; approved, a Codex session opens in the
+  same folder, linked to the Claude one (a small “relay” sign). Setting: propose a plan (default) / automatic / never.
+- Background tasks of the auto band follow the same rule: on Codex only inside the bwrap jail (Codex has no deny
+  list), otherwise they wait. At the reset time everything goes back to Claude: weevboss is told what Codex said in
+  its place, sessions left to Claude are resumed, waiting tasks are released.
+- `POST /api/relay` (mode, switchAt), `POST /api/relay/plans/:id|all` (go, adjust, wait), `POST
+  /api/sessions/:id/relay` (ask for a plan). To try it on a throwaway server: `WEEVILS_FAKE_CLAUDE_USAGE=<file>`
+  (a file shaped like the usage API's answer).
+- Fixed on the way: an unclosed block in `src/styles.css` swallowed every rule written after it (inline setup chips,
+  the language choices, masked secrets).
+
+### Sessions cut off mid-work
+- A session that dies while it was working (process or pane gone, tmux killed, crash), that stops on an API error
+  (usage limit, expired login, failed compaction) or that stops without a clean end and leaves uncommitted work is now
+  **interrupted**: a red row with a one-tap **resume**, a red counter in its project band (also when folded), a red
+  band in its thread (resume / dismiss). Never shown as done, never with the green star.
+- Each new interruption sends a push notification and posts a line in weevboss' thread; `weevils sessions` lists
+  them first. Resume (`POST /api/sessions/:id/resume`, `weevils resume <id>`) restarts it with `--resume` and a message
+  pointing it to its work on disk. A clean end (`/exit`, `/clear`, closed from the app, idle cleanup) is never one.
+- Agent sessions now live on their own tmux server (`tmux -L weevils`; `WEEVILS_TMUX_SOCKET` to rename it): a
+  `tmux kill-server` run by an agent no longer closes them. Sessions started before stay on the default server
+  until they end; `wv ls` / `wv a` see both.
+
 ## 2026-11-09
 
 ### Open source

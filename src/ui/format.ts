@@ -1,6 +1,19 @@
 import type { SessionStatus } from '../../shared/api.ts'
 import { tr } from '../i18n'
 import M from '../i18n/format'
+import S from '../i18n/setup'
+import { isBrick, isSecretName, type Brick } from '../../shared/setup.ts'
+
+/** Une puce : « [[setup:mail]] » (une brique) ou « [[setup:key:RUNPOD_API_KEY]] » (un secret demandé). */
+const ANY_CHIP = /\[\[setup:(?:key:([A-Z][A-Z0-9_]{1,63})|([a-z]+))\]\]/g
+/** Une puce dans la phrase : une brique, ou « key:NOM ». */
+export type ChipId = Brick | `key:${string}`
+
+/** Une puce de branchement écrite dans le texte de weevboss (« [[setup:mail]] »), par son libellé : « brancher le pont e-mail ». */
+export const chipLabel = (c: ChipId): string => (c.startsWith('key:') ? tr(S).keyChip(c.slice(4)) : tr(S)[`chip_${c as Brick}`])
+/** Le texte avec ses puces lues comme leur libellé (aperçus, copie) : la phrase reste lisible, jamais « via . ». */
+export const chipLabels = (text: string): string => text.replace(ANY_CHIP, (m, k: string | undefined, b: string | undefined) => chipOf(k, b) ? chipLabel(chipOf(k, b)!) : m)
+const chipOf = (k: string | undefined, b: string | undefined): ChipId | null => (k ? (isSecretName(k) ? `key:${k}` : null) : isBrick(b) ? b : null)
 
 /** Durée compacte, façon croquis : 12m, 1h36, 14h01, 2j (2d en anglais). */
 export function dur(ms: number): string {
@@ -29,8 +42,8 @@ export function ago(ms: number): string {
 }
 
 /** Caractère et libellé de chaque état ; le libellé suit la langue (lu à chaque accès). */
-const statusKey = { working: 'working', needs_user: 'needsUser', idle: 'idle', done: 'done' } as const
-const statusCh: Record<SessionStatus, string> = { working: '*', needs_user: '!', idle: '_', done: '✓' }
+const statusKey = { working: 'working', needs_user: 'needsUser', idle: 'idle', done: 'done', interrupted: 'interrupted' } as const
+const statusCh: Record<SessionStatus, string> = { working: '*', needs_user: '!', idle: '_', done: '✓', interrupted: '×' }
 export const status = Object.fromEntries(
   (Object.keys(statusCh) as SessionStatus[]).map((s) => [
     s,
@@ -46,7 +59,7 @@ export const status = Object.fromEntries(
 /** Texte d'agent simplifié : on enlève la mise en forme markdown qui n'apporte rien sur le téléphone.
  *  `keep` garde les liens et les `commandes`, que le fil rend cliquables et copiables. */
 export function plain(text: string, keep = false): string {
-  const t = keep ? text : text.replace(/`([^`\n]+)`/g, '$1').replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1')
+  const t = keep ? text : chipLabels(text).replace(/`([^`\n]+)`/g, '$1').replace(/\[([^\]]+)\]\((https?:[^)]+)\)/g, '$1')
   return t
     .replace(/^#{1,6}\s+/gm, '')
     .replace(/\*\*(.+?)\*\*/g, '$1')
@@ -58,7 +71,7 @@ export function plain(text: string, keep = false): string {
 }
 
 /** Morceau d'une ligne de texte : prose, lien, ou commande entre accents graves. */
-export type Inline = { kind: 'text'; s: string } | { kind: 'url'; href: string; label: string } | { kind: 'cmd'; s: string }
+export type Inline = { kind: 'text'; s: string } | { kind: 'url'; href: string; label: string } | { kind: 'cmd'; s: string } | { kind: 'chip'; brick: ChipId }
 
 /** Domaines nus reconnus sans https:// (« myaccount.google.com/… ») : seulement des extensions courantes, pour ne pas prendre « core.ts » pour un site. */
 const TLD = 'com|org|net|io|dev|app|tech|fr|ai|co|me|gg|xyz|eu|uk|de|be|ch|ca|us|tv|ly|cloud|site|page'
@@ -76,6 +89,22 @@ function trimUrl(u: string): string {
 
 /** Repère les liens (nus ou markdown) et, si `code`, les commandes `…` ; le reste reste du texte. */
 export function inline(text: string, code = true): Inline[] {
+  // Les puces de branchement (« [[setup:mail]] ») d'abord, à leur place dans la phrase ; le reste comme avant.
+  const out: Inline[] = []
+  let last = 0
+  for (const m of text.matchAll(ANY_CHIP)) {
+    const c = chipOf(m[1], m[2])
+    if (!c) continue
+    const i = m.index ?? 0
+    out.push(...inlineText(text.slice(last, i), code), { kind: 'chip', brick: c })
+    last = i + m[0].length
+  }
+  if (!last) return inlineText(text, code)
+  out.push(...inlineText(text.slice(last), code))
+  return out
+}
+
+function inlineText(text: string, code: boolean): Inline[] {
   const out: Inline[] = []
   let last = 0
   const push = (s: string) => {
@@ -177,8 +206,20 @@ export function activityText(text: string): string {
 /** Ce que l'utilisateur a écrit, sans les balises techniques du collage ni les marqueurs d'images. */
 export function userText(text: string): string {
   return text
+    // Display only: the transcript and the prompt sent to the model keep their context.
+    // A terminal excerpt can end inside the injected block, before its closing bracket.
+    .replace(/\s*⟦weevils\b[^⟧]*(?:⟧|$)/g, '')
     .replace(/<\/?pasted_content[^>]*>/g, '')
     .replace(/\[Image #\d+\]/g, '(image)')
     .replace(/\n{3,}/g, '\n\n')
     .trim()
+}
+
+/** Photo annotations are transport metadata; use their paths only for authenticated previews. */
+export function userPhotos(text: string): string[] {
+  return [...userText(text).matchAll(/\(photo\s*:\s*(\/[^)\n]+)\)/g)].map((m) => m[1].trim())
+}
+
+export function userCaption(text: string): string {
+  return userText(text).replace(/\(photo\s*:\s*\/[^)\n]+\)/g, '').trim()
 }

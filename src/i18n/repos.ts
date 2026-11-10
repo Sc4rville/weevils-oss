@@ -11,6 +11,7 @@ export default defineMessages({
     create: 'créer le repo',
     unpin: (repo: string) => `retirer ${repo} du fil`,
     pin: (repo: string) => `épingler ${repo} au fil`,
+    plugGithub: 'brancher github',
   },
   en: {
     title: 'repos',
@@ -22,5 +23,6 @@ export default defineMessages({
     create: 'create repo',
     unpin: (repo: string) => `unpin ${repo} from the feed`,
     pin: (repo: string) => `pin ${repo} to the feed`,
+    plugGithub: 'plug in github',
   },
 })

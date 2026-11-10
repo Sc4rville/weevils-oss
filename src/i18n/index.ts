@@ -6,7 +6,17 @@ import { isLang, locale, pickLang, type Lang, type Messages, type Msg } from '..
 
 export { defineMessages, LANGS, LANG_NAMES, type Lang } from '../../shared/i18n.ts'
 
-const KEY = 'weevils-lang'
+// The language picked in the settings. The old key was written by a language line that switched on a single tap: a
+// stray tap left the app in the other language for good. Its value is not a choice anyone made on
+// purpose, so it is dropped once and the app follows the browser again until a language is really picked.
+const KEY = 'weevils-language'
+const LEGACY_KEY = 'weevils-lang'
+
+try {
+  localStorage.removeItem(LEGACY_KEY)
+} catch {
+  /* storage unavailable */
+}
 
 function stored(): Lang | null {
   try {
@@ -17,7 +27,7 @@ function stored(): Lang | null {
   }
 }
 
-const browserLang = (): Lang => pickLang(typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language])
+export const browserLang = (): Lang => pickLang(typeof navigator === 'undefined' ? [] : navigator.languages?.length ? navigator.languages : [navigator.language])
 
 let current: Lang = stored() ?? browserLang()
 const listeners = new Set<() => void>()
@@ -31,7 +41,7 @@ export const getLang = (): Lang => current
 /** True when the user picked a language; false while the app follows the browser. */
 export const langIsChosen = (): boolean => stored() !== null
 
-/** Changes the language (null: follow the browser again). Tells weevilsd so its agents and notifications follow. */
+/** Changes this device only (null: follow the browser); shared agent prompts are never rewritten. */
 export function setLang(lang: Lang | null) {
   try {
     if (lang) localStorage.setItem(KEY, lang)
@@ -41,19 +51,16 @@ export function setLang(lang: Lang | null) {
   }
   current = lang ?? browserLang()
   apply()
-  syncServer()
   for (const l of listeners) l()
 }
 
-/** weevilsd keeps the user's language for what it writes itself (agent prompts, push notifications, errors). */
-export function syncServer() {
-  void fetch('/api/prefs', {
-    method: 'POST',
-    headers: { 'content-type': 'application/json' },
-    body: JSON.stringify({ lang: current }),
-    credentials: 'same-origin',
-  }).catch(() => undefined)
-}
+// Another tab of this device follows its stored preference; other browser profiles stay independent.
+if (typeof window !== 'undefined') window.addEventListener('storage', (e) => {
+  if (e.key !== KEY && e.key !== null) return
+  current = stored() ?? browserLang()
+  apply()
+  for (const listener of listeners) listener()
+})
 
 const subscribe = (l: () => void) => {
   listeners.add(l)

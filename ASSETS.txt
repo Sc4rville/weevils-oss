@@ -1,0 +1,9 @@
+Asset provenance
+
+public/icon-{180,192,512}.png: generated from geometric color bands by scripts/make-icons.mjs; no external image input. Regenerate with npm run icons.
+src/ui/icons.tsx: inline geometric SVG paths maintained in this repository.
+src/ui/logo.tsx: inline project logo traced from the original drawing, as recorded in its source comment. No third-party asset package is imported.
+docs/screenshot.png and docs/first-run.png: application demonstration screenshots. docs/first-run.gif: onboarding demonstration.
+Fonts: OS system font stacks; no font binaries distributed.
+The private design reference kit is excluded from this repository.
+Dependencies retain their respective upstream licenses; see package-lock.json and installed package LICENSE files.

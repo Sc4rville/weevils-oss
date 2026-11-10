@@ -70,6 +70,14 @@ export const FIELDS: Partial<Record<Brick, SetupField[]>> = {
 export interface AskResult {
   ok: true
   flow: boolean
+  /** Le message de weevboss qui répond (nouveau, ou le même déjà posté juste avant) : l'app l'amène sous les yeux. */
+  said?: string
+}
+
+/** POST /api/setup/apply : `said`, le dernier message posté (ou retrouvé) par le parcours, à mettre en avant. */
+export interface ApplyResult {
+  ok: true
+  said?: string
 }
 
 /** Les seules clés que « weevils config set » peut écrire ; le reste du fichier de config ne bouge pas. */
@@ -77,6 +85,12 @@ export const SETUP_KEYS = ['DEVIL_API_URL', 'DEVIL_MODEL', 'DEVIL_API_KEY', 'OPE
 export type SetupKey = (typeof SETUP_KEYS)[number]
 export const isSetupKey = (s: unknown): s is SetupKey => typeof s === 'string' && ((SETUP_KEYS as readonly string[]).includes(s) || /^WEEVILS_AUTHOR_[A-Z0-9_]{1,32}$/.test(s))
 export const SECRET_KEYS: ReadonlySet<string> = new Set(['DEVIL_API_KEY', 'OPENAI_API_KEY', 'CARTESIA_API_KEY', 'WEEVILS_MAIL_PASSWORD'])
+
+/** « [[setup:key:RUNPOD_API_KEY]] » : un agent demande un secret à l'utilisateur. Un champ masqué s'ouvre ; la valeur va
+ * droit dans ~/.config/weevils/env, jamais dans le fil, le modèle ou les journaux. */
+export const KEY_CHIP = /\[\[setup:key:([A-Z][A-Z0-9_]{1,63})\]\]/g
+/** Seulement des clés et des jetons (…_API_KEY, …_TOKEN), jamais un réglage de weevils lui-même. */
+export const isSecretName = (s: unknown): s is string => typeof s === 'string' && s.length <= 64 && /^[A-Z][A-Z0-9_]*_(API_KEY|TOKEN)$/.test(s) && !s.startsWith('WEEVILS_')
 
 /** L'appareil d'où l'app est ouverte : l'accueil s'y adapte (QR sur ordinateur, écran d'accueil sur téléphone). */
 export interface Device {
@@ -97,6 +111,15 @@ export function splitChips(text: string): { text: string; chips: Brick[] } {
     return ''
   })
   return { text: chips.length ? clean.replace(/[ \t]+\n/g, '\n').replace(/[ \t]{2,}/g, ' ').trim() : text, chips }
+}
+
+/** Le texte tel que l'app l'affiche : chaque puce reste à sa place dans la phrase (l'app en fait un bouton, ou son libellé
+ * sur un message plus ancien), sauf le QR du téléphone, montré sous le message. Les briques désignées, comme splitChips. */
+export function chipsInPlace(text: string): { text: string; chips: Brick[] } {
+  const { chips } = splitChips(text)
+  if (!chips.length) return { text, chips }
+  const clean = text.replace(CHIP, (m, b: string) => (isBrick(b) && b !== 'phone' ? m : ''))
+  return { text: clean.replace(/[ \t]+\n/g, '\n').replace(/[ \t]{2,}/g, ' ').trim(), chips }
 }
 
 /** Le bloc de contexte ajouté à un message envoyé à weevboss (ce que weevilsd a écrit en son nom) : jamais affiché. */

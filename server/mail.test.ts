@@ -3,20 +3,21 @@ import os from 'node:os'
 import path from 'node:path'
 import { beforeEach, describe, expect, it, vi } from 'vitest'
 import { loadAuthors, parseSigned, signAs } from './authors.ts'
-import { splitUnits } from './imap.ts'
+import { Imap, splitUnits } from './imap.ts'
 import { buildMail, decodeWords, parseMail, stripQuoted } from './mime.ts'
 
 const sent: { to: string; data: string }[] = []
 vi.mock('./smtp.ts', () => ({ smtpSend: async (o: { to: string; data: string }) => void sent.push({ to: o.to, data: o.data }) }))
 vi.mock('./authors.ts', async (orig) => {
   const real = await orig<typeof import('./authors.ts')>()
+  // Les deux écrivent aussi depuis le compte du pont (alex@gmail.com).
   const list = real.loadAuthors({
-    WEEVILS_AUTHOR_GEPETTO: 'gepetto | #4fb3ff | gepetto@example.com',
-    WEEVILS_AUTHOR_INSTINCT: 'instinct | #ff6f91 | instinct@agents.example.org | s3cret',
+    WEEVILS_AUTHOR_GEPETTO: 'gepetto | #4fb3ff | gepetto@example.com, alex@gmail.com',
+    WEEVILS_AUTHOR_INSTINCT: 'instinct | #ff6f91 | instinct@agents.example.org, alex@gmail.com | s3cret',
   })
   return { ...real, authors: () => list }
 })
-const { MailBridge, authCheck, isAutomatic, mailConfig, parseTarget, RateLimiter, screen, messageText } = await import('./mailbridge.ts')
+const { MailBridge, authCheck, dropMarker, isAutomatic, mailConfig, parseTarget, RateLimiter, screen, messageText } = await import('./mailbridge.ts')
 
 const AR_OK = 'mx.google.com; dkim=pass header.i=@example.com header.s=s1 header.b=abc; spf=pass (google.com: domain of gepetto@example.com designates 1.2.3.4 as permitted sender) smtp.mailfrom=gepetto@example.com; dmarc=pass (p=REJECT) header.from=example.com'
 const mail = (o: { from?: string; subject?: string; body?: string; headers?: string[]; id?: string; to?: string }) =>
@@ -33,6 +34,9 @@ const mail = (o: { from?: string; subject?: string; body?: string; headers?: str
     ].join('\r\n'),
   )
 const CFG = { address: 'alex+weevils@gmail.com', login: 'alex@gmail.com', authserv: 'mx.google.com' }
+const AR_GMAIL = 'mx.google.com; dkim=pass header.i=@gmail.com header.s=20230601 header.b=abc; spf=pass (google.com: domain of alex@gmail.com designates 2a00::1 as permitted sender) smtp.mailfrom=alex@gmail.com; dmarc=pass (p=NONE) header.from=gmail.com'
+/** gepetto et instinct écrivent depuis le compte du pont (ChatGPT et son connecteur Gmail, un agent). */
+const SHARED = loadAuthors({ WEEVILS_AUTHOR_GEPETTO: 'gepetto | #3fc1f0 | alex@gmail.com', WEEVILS_AUTHOR_INSTINCT: 'instinct | #ff6b8a | alex@gmail.com' })
 const AUTHORS = loadAuthors({
   WEEVILS_AUTHOR_GEPETTO: 'gepetto | #4fb3ff | gepetto@example.com',
   WEEVILS_AUTHOR_INSTINCT: 'instinct | #ff6f91 | instinct@agents.example.org | s3cret',
@@ -51,7 +55,7 @@ describe('auteurs', () => {
     expect(parseSigned('[weevils] fais ça')).toEqual({ author: 'weevboss', text: 'fais ça' })
     expect(parseSigned('un message normal')).toBeNull()
     // Le préfixe part par motif, pas par longueur : rien du message n'est mangé, quel que soit l'auteur.
-    const body = 'ultracode — Job de nuit, demandé par Yann'
+    const body = 'ultracode — Job de nuit, demandé par the user'
     for (const id of ['weevboss', 'gepetto', 'a', 'weevils-content-agent']) expect(parseSigned(`[from:${id}] ${body}`)).toEqual({ author: id, text: body })
     expect(parseSigned(`[weevils] ${body}`)).toEqual({ author: 'weevboss', text: body })
     expect(parseSigned(`[from:weevboss]${body}`)?.text).toBe(body)
@@ -118,15 +122,75 @@ describe('imap', () => {
   })
 })
 
+describe('INBOX sans filtre Gmail', () => {
+  it('la recherche des mails à l’alias est faite par le serveur IMAP (To, Cc, Delivered-To), après le dernier UID vu', async () => {
+    const c = new Imap({ host: 'h', port: 993, user: 'u', pass: 'p' })
+    const sent: string[] = []
+    ;(c as unknown as { cmd: (s: string) => Promise<unknown> }).cmd = async (s: string) => (sent.push(s), [{ line: '* SEARCH 41 52 57', literals: [] }])
+    expect(await c.uidsTo('alex+weevils@gmail.com', 52)).toEqual([57])
+    expect(sent).toEqual(['UID SEARCH UID 53:* OR OR TO "alex+weevils@gmail.com" CC "alex+weevils@gmail.com" HEADER Delivered-To "alex+weevils@gmail.com"'])
+  })
+
+  it('ne récupère (BODY.PEEK) et ne marque que les UID trouvés par la recherche ; reprend au dernier UID après un redémarrage, jamais « à partir de maintenant »', async () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wv-mail-scan-'))
+    const cfg = { ...CFG, password: 'x', label: 'weevils', imap: { host: 'h', port: 993 }, smtp: { host: 'h', port: 465 }, perMinute: 50, perHour: 300, replyTimeoutMs: 1000 }
+    const routed: string[] = []
+    const deps = {
+      snapshot: () => ({ sessions: [], projects: [] }) as any,
+      send: async () => ({ id: 'x' }),
+      create: async () => ({ id: 'x' }),
+      sendMain: async (text: string) => (routed.push(text), { id: 'boss' }),
+      waitMainReply: async () => 'ok',
+      waitReply: async () => ({ id: 'x', text: '', done: true }),
+    }
+    const bridge = () => {
+      const b = new MailBridge(cfg, deps, dir)
+      ;(b as unknown as { reply: () => Promise<void> }).reply = async () => undefined
+      return b
+    }
+    const raw = (id: string, subject: string, ageMs = 60_000) =>
+      ['From: <alex@gmail.com>', 'To: <alex+weevils@gmail.com>', `Date: ${new Date(Date.now() - ageMs).toUTCString()}`, `Subject: ${subject}`, `Message-ID: <${id}@x>`, 'Content-Type: text/plain; charset=utf-8', '', `texte ${id}`].join('\r\n')
+    // INBOX : des milliers de mails, dont quatre adressés à l'alias (UID 990 : d'il y a deux jours).
+    const box: Record<number, string> = { 990: raw('vieux', '[gepetto] vieux', 48 * 3600_000), 1003: raw('a', '[gepetto] premier'), 1007: raw('b', '[gepetto] TLO manifeste') }
+    const log: string[] = []
+    const c = {
+      select: async (name: string) => {
+        log.push(`select ${name}`)
+        if (name !== 'INBOX') throw new Error('IMAP: NO [NONEXISTENT] Unknown Mailbox')
+        return { uidValidity: 1, uidNext: Math.max(...Object.keys(box).map(Number)) + 1, exists: 5000 }
+      },
+      uidsTo: async (address: string, after: number, since?: Date) => (log.push(`search ${address} >${after}${since ? ' since' : ''}`), Object.keys(box).map(Number).filter((u) => u > after)),
+      fetch: async (uid: number) => (log.push(`peek ${uid}`), Buffer.from(box[uid])),
+      gmLabels: async (uid: number) => (log.push(`labels ${uid}`), ['\\Sent', '\\Inbox']),
+      markSeen: async (uid: number) => (log.push(`seen ${uid}`), []),
+    }
+    // Premier lancement : le libellé absent est passé ; INBOX reprend les mails à l'alias des dernières 24 h.
+    await bridge().scan(c as any, 'weevils', true)
+    await bridge().scan(c as any, 'INBOX')
+    await new Promise((r) => setTimeout(r, 20))
+    expect(log).toEqual(['select weevils', 'select INBOX', 'search alex+weevils@gmail.com >0 since', 'peek 990', 'peek 1003', 'labels 1003', 'seen 1003', 'peek 1007', 'labels 1007', 'seen 1007'])
+    // Sans cible, l'auteur étiqueté va à weevboss.
+    expect(routed).toEqual(['[from:gepetto] texte a', '[from:gepetto] texte b'])
+    // Un mail arrive pendant un redémarrage : le nouveau pont reprend après le dernier UID traité et le traite.
+    box[1012] = raw('c', '[gepetto] pendant le redémarrage')
+    log.length = 0
+    await bridge().scan(c as any, 'INBOX')
+    expect(log).toEqual(['select INBOX', 'search alex+weevils@gmail.com >1007', 'peek 1012', 'labels 1012', 'seen 1012'])
+    // Le même mail revu (libellé et INBOX à la fois, ou dossier recréé) : traité une seule fois, par Message-ID.
+    expect(bridge().handle(parseMail(box[1007]), 1007, true)).toBe(false)
+  })
+})
+
 describe('sécurité du pont', () => {
   it('accepte un expéditeur déclaré dont le DKIM / SPF est aligné', () => {
     expect(authCheck(mail({}), 'mx.google.com').pass).toBe(true)
     expect(screen(mail({}), CFG, AUTHORS)).toMatchObject({ ok: true, author: { id: 'gepetto' } })
   })
-  it('alias Gmail : connexion au compte sans « +weevils », seul le libellé est surveillé, jamais INBOX', () => {
+  it('alias Gmail : connexion au compte sans « +weevils », INBOX surveillée, le libellé weevils en plus (désactivable)', () => {
     const c = mailConfig({ WEEVILS_MAIL_ADDRESS: 'Alex+weevils@gmail.com', WEEVILS_MAIL_PASSWORD: 'abcd efgh ijkl mnop' })
     expect(c).toMatchObject({ address: 'alex+weevils@gmail.com', login: 'alex@gmail.com', password: 'abcdefghijklmnop', label: 'weevils', imap: { host: 'imap.gmail.com' }, smtp: { host: 'smtp.gmail.com' }, authserv: 'mx.google.com' })
-    expect(mailConfig({ WEEVILS_MAIL_ADDRESS: 'y+w@gmail.com', WEEVILS_MAIL_PASSWORD: 'x', WEEVILS_MAIL_LABEL: 'INBOX' })).toBeNull()
+    expect(mailConfig({ WEEVILS_MAIL_ADDRESS: 'y+w@gmail.com', WEEVILS_MAIL_PASSWORD: 'x', WEEVILS_MAIL_LABEL: 'none' })?.label).toBeNull()
+    expect(mailConfig({ WEEVILS_MAIL_ADDRESS: 'y+w@gmail.com', WEEVILS_MAIL_PASSWORD: 'x', WEEVILS_MAIL_LABEL: 'INBOX' })?.label).toBeNull()
   })
   it('ne traite que les mails adressés à l’alias du pont (To, Cc ou Delivered-To)', () => {
     expect(screen(mail({ to: 'alex@gmail.com' }), CFG, AUTHORS)).toMatchObject({ ok: false })
@@ -134,7 +198,7 @@ describe('sécurité du pont', () => {
     expect(screen(mail({ to: 'alex@gmail.com', headers: [`Authentication-Results: ${AR_OK}`, 'Delivered-To: alex+weevils@gmail.com'] }), CFG, AUTHORS).ok).toBe(true)
     expect(screen(mail({ to: 'a@b.c, "W" <alex+weevils@gmail.com>' }), CFG, AUTHORS).ok).toBe(true)
   })
-  it('refuse un inconnu, l’adresse du pont, et tout mail automatique', () => {
+  it('refuse un inconnu, le compte du pont non authentifié, et tout mail automatique', () => {
     expect(screen(mail({ from: 'alex@gmail.com' }), CFG, AUTHORS).ok).toBe(false)
     expect(screen(mail({ from: 'x@evil.com' }), CFG, AUTHORS).ok).toBe(false)
     expect(screen(mail({ from: 'alex+weevils@gmail.com' }), CFG, AUTHORS)).toMatchObject({ ok: false })
@@ -161,6 +225,33 @@ describe('sécurité du pont', () => {
     expect(screen(inBody, CFG, AUTHORS).ok).toBe(true)
     expect(messageText(inBody)).toBe('Fais le menu.')
     expect(screen(mail({ from: 'instinct@agents.example.org', subject: '[mygame] [key:nope] go' }), CFG, AUTHORS)).toMatchObject({ ok: false })
+  })
+  it('compte du pont : authentifié (DKIM gmail ou libellé \\Sent), l’étiquette dit qui signe, sinon c’est l’utilisateur', () => {
+    const own = (o: { subject?: string; body?: string; headers?: string[]; id?: string }) => mail({ from: 'alex@gmail.com', headers: [`Authentication-Results: ${AR_GMAIL}`], ...o })
+    expect(screen(own({}), CFG, SHARED)).toMatchObject({ ok: true, author: { id: '' }, how: 'dkim=pass' })
+    expect(screen(own({ subject: '[GePeTTo] [mygame] go' }), CFG, SHARED)).toMatchObject({ ok: true, author: { id: 'gepetto' } })
+    expect(screen(own({ subject: 'idée', body: 'from: instinct\nFais le menu.' }), CFG, SHARED)).toMatchObject({ ok: true, author: { id: 'instinct' } })
+    expect(screen(own({ subject: 'idée', body: 'Fais le menu.\n\n— Instinct' }), CFG, SHARED)).toMatchObject({ ok: true, author: { id: 'instinct' } })
+    expect(screen(own({ subject: 'idée', body: '[from:gepetto] Fais le menu.' }), CFG, SHARED)).toMatchObject({ ok: true, author: { id: 'gepetto' } })
+    // Le nom dans une phrase ne signe pas.
+    expect(screen(own({ subject: 'parle à gepetto', body: 'dis à instinct de venir' }), CFG, SHARED)).toMatchObject({ ok: true, author: { id: '' } })
+    // Sans DKIM/SPF, le libellé \Sent suffit (seul le compte a pu l'envoyer) ; sans rien, refusé.
+    expect(screen(own({ headers: ['X-Nothing: 1'] }), CFG, SHARED).ok).toBe(false)
+    expect(screen(own({ headers: ['X-Nothing: 1'], subject: '[instinct] go' }), CFG, SHARED, true)).toMatchObject({ ok: true, author: { id: 'instinct' }, how: 'gmail \\Sent' })
+    // Un usurpateur venu d'ailleurs avec l'adresse du compte : ni DKIM aligné ni \Sent.
+    expect(screen(own({ headers: ['Authentication-Results: mx.google.com; spf=fail smtp.mailfrom=alex@gmail.com; dmarc=fail header.from=gmail.com'], subject: '[gepetto] go' }), CFG, SHARED).ok).toBe(false)
+    // Nos propres envois ne reviennent jamais, quelle que soit l'adresse.
+    expect(screen(own({ headers: [`Authentication-Results: ${AR_GMAIL}`, 'X-Weevils: author=gepetto'] }), CFG, SHARED, true).ok).toBe(false)
+    expect(screen(own({ id: '<weevils-1234@gmail.com>' }), CFG, SHARED, true).ok).toBe(false)
+  })
+  it('adresse partagée hors du compte : étiquette obligatoire (ou secret) ; l’étiquette sort de l’objet et du corps', () => {
+    const two = loadAuthors({ WEEVILS_AUTHOR_A: 'alpha | #111 | bots@example.com', WEEVILS_AUTHOR_B: 'beta | #222 | bots@example.com' })
+    expect(screen(mail({ from: 'bots@example.com' }), CFG, two)).toMatchObject({ ok: false })
+    expect(screen(mail({ from: 'bots@example.com', subject: '[mygame] go', body: 'Fais-le.\n-- beta' }), CFG, two)).toMatchObject({ ok: true, author: { id: 'b' } })
+    const g = SHARED[1]
+    expect(parseTarget(dropMarker('[gepetto] [mygame] go', g, 'subject'))).toEqual({ kind: 'project', id: 'mygame' })
+    expect(parseTarget(dropMarker('[gepetto] go', g, 'subject'))).toBeNull()
+    expect(dropMarker('from: gepetto\nFais le menu.\n\n— gepetto', g, 'body')).toBe('Fais le menu.')
   })
   it('limite le débit par auteur', () => {
     const r = new RateLimiter(2, 3)
@@ -241,5 +332,60 @@ describe('le pont, de bout en bout (SMTP simulé)', () => {
     expect(sent.map((s) => s.to)).toEqual(['gepetto@example.com', 'gepetto@example.com', 'gepetto@example.com'])
     // La déduplication survit au redémarrage.
     expect(new MailBridge(cfg, deps, dir).handle(mail({ id: '<n@x>', subject: '[new:mygame] idée' }))).toBe(false)
+  })
+  it('compte du pont : sans cible, l’utilisateur parle à weevboss (non signé) ; un auteur étiqueté est signé ; la réponse revient au compte', async () => {
+    const b = new MailBridge(cfg, deps, dir)
+    const own = (o: { id: string; subject: string; body?: string }) => mail({ from: 'alex@gmail.com', headers: ['X-Nothing: 1'], ...o })
+    expect(b.handle(own({ id: '<o1@x>', subject: 'une question' }), 0, true)).toBe(true)
+    expect(b.handle(own({ id: '<o2@x>', subject: '[gepetto] [weevboss] coucou', body: 'Salut.\n\n— gepetto' }), 0, true)).toBe(true)
+    expect(b.handle(own({ id: '<o3@x>', subject: '[instinct] [mygame] go' }), 0, true)).toBe(true)
+    await settle()
+    expect(calls).toEqual(['main Fais le menu.', 'main [from:gepetto] Salut.', 'send aaaa0000-2222 instinct Fais le menu.'])
+    expect(sent.map((s) => s.to)).toEqual(['alex@gmail.com', 'alex@gmail.com', 'alex@gmail.com'])
+    // L'objet de la réponse perd l'étiquette de l'auteur et [weevboss] (l'agent ne la reprend pas pour une demande).
+    expect(sent.map((s) => parseMail(s.data).subject)).toEqual(['Re: une question', 'Re: coucou', 'Re: [mygame] go'])
+    // La réponse du pont, si elle repassait par la boîte, est reconnue et ignorée.
+    expect(b.handle(parseMail(sent[0].data), 0, true)).toBe(false)
+  })
+  it('flux « pour toi » : chaque mail routé est signalé (auteur, objet sans étiquette d’auteur, texte, cible, adresse) ; un refus ne l’est pas', async () => {
+    const told: unknown[] = []
+    const b = new MailBridge(cfg, { ...deps, mailed: (m: unknown) => void told.push(m) }, dir)
+    b.handle(mail({ subject: '[weevboss] dis   bonjour' }))
+    b.handle(mail({ id: '<p@x>' }))
+    b.handle(mail({ id: '<e@x>', from: 'intrus@evil.com' }))
+    b.handle(mail({ from: 'alex@gmail.com', headers: ['X-Nothing: 1'], id: '<o@x>', subject: 'une question' }), 0, true)
+    await settle()
+    expect(told).toEqual([
+      { author: 'gepetto', subject: '[weevboss] dis bonjour', text: 'Fais le menu.', target: 'weevboss', mid: '<m1@example.com>', address: 'gepetto@example.com' },
+      { author: 'gepetto', subject: '[mygame] salut', text: 'Fais le menu.', target: 'aaaa0000-2222', mid: '<p@x>', address: 'gepetto@example.com' },
+      // L'utilisateur lui-même : auteur vide (le flux ne le retient pas).
+      { author: '', subject: 'une question', text: 'Fais le menu.', target: 'weevboss', mid: '<o@x>', address: 'alex@gmail.com' },
+    ])
+    // Un flux qui plante ne casse pas le pont : la réponse part quand même.
+    sent.length = 0
+    const c = new MailBridge(cfg, { ...deps, mailed: () => { throw new Error('boom') } }, fs.mkdtempSync(path.join(os.tmpdir(), 'wv-mail-')))
+    c.handle(mail({ id: '<z@x>' }))
+    await settle()
+    expect(sent).toHaveLength(1)
+  })
+  it('write : un mail écrit depuis l’app part à l’auteur dans le même fil, sans marque de réponse automatique ; sa réponse revient à la même cible', async () => {
+    const b = new MailBridge(cfg, deps, dir)
+    expect(await b.write({ to: 'gepetto@example.com', subject: '[weevboss] dis bonjour', text: 'Merci, continue.', inReplyTo: '<m1@example.com>', author: 'gepetto', target: 'weevboss' })).toBe(true)
+    expect(sent).toHaveLength(1)
+    const r = parseMail(sent[0].data)
+    expect(sent[0].to).toBe('gepetto@example.com')
+    expect(r.inReplyTo).toBe('<m1@example.com>')
+    expect(r.subject).toBe('Re: dis bonjour')
+    expect(r.text).toContain('Merci, continue.')
+    expect(r.get('auto-submitted')).toBeUndefined()
+    expect(r.get('x-weevils')).toBe('author=gepetto; target=weevboss; via=foryou')
+    // La réponse de l'auteur à ce mail, objet hérité d'un projet : elle suit le fil, vers weevboss.
+    b.handle(mail({ id: '<m9@example.com>', subject: 'Re: [mygame] dis bonjour', headers: [`Authentication-Results: ${AR_OK}`, `In-Reply-To: ${r.messageId}`] }))
+    await settle()
+    expect(calls).toEqual(['main [from:gepetto] Fais le menu.'])
+    // Jamais à l'alias lui-même, ni sans destinataire.
+    expect(await b.write({ to: 'alex+weevils@gmail.com', subject: 'x', text: 'y', inReplyTo: '<a@b>', author: 'gepetto', target: 'weevboss' })).toBe(false)
+    expect(await b.write({ to: '', subject: 'x', text: 'y', inReplyTo: '<a@b>', author: 'gepetto', target: 'weevboss' })).toBe(false)
+    expect(sent).toHaveLength(2)
   })
 })

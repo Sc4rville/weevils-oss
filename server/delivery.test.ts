@@ -7,7 +7,7 @@ import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 import type { Message, Tool } from '../shared/api.ts'
 
 const mux = vi.hoisted(() => ({
-  sendText: vi.fn(async (_name: string, _text: string) => {}),
+  sendText: vi.fn(async (_name: string, _text: string, _submit?: 'Enter' | 'Tab') => {}),
   sendKey: vi.fn(async (_name: string, _key: string) => {}),
   capture: vi.fn(async (_name: string) => ''),
   spawnWv: vi.fn(async (..._args: unknown[]) => {}),
@@ -140,7 +140,7 @@ describe('send : preuves de réception', () => {
     t.messages.push({ id: 'old', role: 'user', text: 'hello again', at: NOW - 30_000 })
     const r = await run(w.send('s1', 'hello again'))
     expect(r).toBeInstanceOf(Error)
-    expect(mux.sendText).toHaveBeenCalledTimes(2)
+    expect(mux.sendText).toHaveBeenCalledTimes(1)
   })
 })
 
@@ -247,5 +247,26 @@ describe('attach, key, command', () => {
     expect(r).toBeInstanceOf(Error)
     expect(mux.capture).not.toHaveBeenCalled()
     expect(mux.sendText).not.toHaveBeenCalled()
+  })
+})
+
+describe('Codex queued delivery', () => {
+  it('queues exactly once using Tab while working, never Escape or a duplicate retry', async () => {
+    setup('codex')
+    t.phase = 'working'
+    const text = 'Please check the queue marker once'
+    mux.capture.mockResolvedValue(`• Working (12s • esc to interrupt)\nQueued follow-up inputs\n  ↳ ${text}\n› `)
+    const result = await run(w.send('s1', text))
+    expect(result).not.toBeInstanceOf(Error)
+    expect(mux.sendText.mock.calls).toEqual([[PANE, text, 'Tab']])
+    expect(mux.sendKey).not.toHaveBeenCalled()
+  })
+  it('never blindly retries an unconfirmed Codex delivery', async () => {
+    setup('codex')
+    t.phase = 'working'
+    mux.capture.mockResolvedValue('• Working (12s • esc to interrupt)\n› ')
+    await run(w.send('s1', 'A message not visible yet'))
+    expect(mux.sendText).toHaveBeenCalledTimes(1)
+    expect(mux.sendKey).not.toHaveBeenCalled()
   })
 })

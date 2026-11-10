@@ -1,3 +1,5 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 import { useEffect, useRef, useState } from 'react'
 import type { ExplainReply, ExplainRequest, Message, UsageHit } from '../../shared/api.ts'
 import { api } from '../api'
@@ -6,6 +8,7 @@ import { VoiceLogo } from './voice'
 import { Icon } from './icons'
 import { plain } from './format'
 import { copyText } from './copy'
+import { reveal } from './follow'
 import { useT } from '../i18n'
 import C from '../i18n/codeview'
 import './ask.css'
@@ -132,13 +135,39 @@ export function AskPanel({
   const c = useT(C)
   const [copied, setCopied] = useState(false)
   const input = useRef<HTMLInputElement>(null)
+  const box = useRef<HTMLDivElement>(null)
+  const form = useRef<HTMLFormElement>(null)
   useEffect(() => setCopied(false), [text])
-  useEffect(() => {
-    if (a.asking) input.current?.focus({ preventScroll: true })
-  }, [a.asking])
   const { answer } = a
+  // Ce qui vient de s'ouvrir (barre, question, réponse) est amené sous les yeux d'un glissé court, au-dessus du logo
+  // flottant (scroll-margin-bottom, ask.css). Une image plus tard : l'hôte a fini de recaler sa page (codeview, fil).
+  // Plus haut que l'écran : son début en haut, pour lire la réponse depuis la première ligne.
+  useEffect(() => {
+    if (held) return
+    const f = requestAnimationFrame(() => {
+      const el = box.current
+      if (!el) return
+      const sc = el.closest('[data-scroll], .chat')
+      const tall = el.getBoundingClientRect().height > (sc ? sc.clientHeight : window.innerHeight) - 80
+      reveal(el, { block: tall ? 'start' : 'nearest', flash: false })
+    })
+    return () => cancelAnimationFrame(f)
+  }, [held, text != null, a.asking, answer?.id, !!a.shown, !!answer?.err, answer?.reply?.hits?.length]) // eslint-disable-line react-hooks/exhaustive-deps
+  // « demande » : le clavier s'ouvre et raccourcit la page ; une fois ouvert, le champ est ramené au-dessus.
+  useEffect(() => {
+    if (!a.asking) return
+    input.current?.focus({ preventScroll: true })
+    const vv = window.visualViewport
+    const go = () => reveal(form.current, { block: 'nearest', flash: false })
+    vv?.addEventListener('resize', go, { once: true })
+    const tm = setTimeout(go, 350)
+    return () => {
+      vv?.removeEventListener('resize', go)
+      clearTimeout(tm)
+    }
+  }, [a.asking])
   return (
-    <div className={held ? 'qa held' : 'qa'}>
+    <div ref={box} className={held ? 'qa held' : 'qa'}>
       {text != null && (
         <div className="words qa-bar" role="group">
           {openFile && (
@@ -164,6 +193,7 @@ export function AskPanel({
       )}
       {a.asking && (
         <form
+          ref={form}
           className="qa-ask"
           onSubmit={(e) => {
             e.preventDefault()
@@ -183,7 +213,7 @@ export function AskPanel({
               <Icon name="star" />
             </span>
           )}
-          {answer.err && <div className="strong">! {answer.err}</div>}
+          {answer.err && <Notice eventId={noticeKey("error:answer", answer.err)} className="strong" role="alert">! {answer.err}</Notice>}
           {a.shown && <p className="qa-text">{a.shown}</p>}
           {answer.reply?.hits && (
             <div className="qa-hits">

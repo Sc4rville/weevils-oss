@@ -1,3 +1,5 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 import { useEffect, useState } from 'react'
 import type { SessionSettings, Tool } from '../../shared/api.ts'
 import { tr, useT } from '../i18n'
@@ -12,7 +14,18 @@ const EFFORTS = ['low', 'medium', 'high', 'max']
 /** Effort dans la langue de l'app (« effort élevé », « high effort ») : lu à l'appel. */
 export const effortLabel = (e?: string) => (e ? tr(M).effortLabel(e) : undefined)
 
-/** « claude-opus-4-1 » → « opus » ; un modèle codex est gardé tel quel. */
+/** Le modèle avec sa version exacte, pour l'en-tête : « claude-fable-5-1 » → « fable 5.1 », « claude-sonnet-5 » →
+ * « sonnet 5 », « claude-3-5-sonnet-20241022 » → « sonnet 3.5 » ; un modèle codex (gpt-…) ou inconnu tel quel. */
+export function modelLabel(model?: string): string | undefined {
+  if (!model) return undefined
+  const id = model.replace(/\[[^\]]*\]$/, '').toLowerCase()
+  const fam = /(opus|sonnet|haiku|fable)/.exec(id)?.[1]
+  if (!id.startsWith('claude') || !fam) return model
+  const nums = id.replace(/-\d{8}$/, '').match(/(?<=-)\d{1,2}(?=-|$)/g) ?? []
+  return nums.length ? `${fam} ${nums.slice(0, 2).join('.')}` : fam
+}
+
+/** « claude-opus-4-1 » → « opus » (le sélecteur) ; un modèle codex est gardé tel quel. */
 export function shortModel(model?: string): string | undefined {
   if (!model) return undefined
   const m = /opus|sonnet|haiku|fable/i.exec(model)
@@ -111,9 +124,9 @@ export function Settings({
     <div className="settings">
       {id === '__main' && <VoicePicker userName={userName ?? ''} />}
       {err && (
-        <div className="in meta" role="alert">
+        <Notice eventId={noticeKey('error:settings', location.pathname, location.hash, err)} className="in meta" role="alert">
           ! {err}
-        </div>
+        </Notice>
       )}
       {tool === 'claude' ? (
         <>

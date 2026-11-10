@@ -24,6 +24,65 @@ export function haiku(prompt: string, timeout = 20_000): Promise<string> {
 }
 
 /**
+ * A considered answer from Claude on the user's subscription (claude -p, no tools, no kept session): the weevils'
+ * questions, what to remember from an answer, the h24 proposals. Model: WEEVILS_SMART_MODEL (sonnet by default).
+ * Never the OpenAI key: what is said about the user only goes to the model the user already runs.
+ */
+export function smart(prompt: string, timeout = 90_000): Promise<string> {
+  const t0 = Date.now()
+  const model = process.env.WEEVILS_SMART_MODEL?.trim() || 'sonnet'
+  return new Promise((resolve, reject) => {
+    const c = execFile('claude', ['-p', '--model', model, '--tools', '', '--no-session-persistence', prompt], { timeout, maxBuffer: 4 << 20, cwd: os.tmpdir() }, (err, stdout) => {
+      console.log(`[rapide] ${model} ${Date.now() - t0} ms${err ? ' · échec' : ''}`)
+      if (err) reject(err)
+      else resolve(stdout.toString().trim())
+    })
+    c.stdin?.end()
+  })
+}
+
+/**
+ * The same kind of answer from Codex (codex exec, ephemeral, read-only, low effort), on the user's other subscription:
+ * what the « for you » stream writes while Claude's usage is nearly full.
+ */
+export function relay(prompt: string, timeout = 120_000): Promise<string> {
+  const t0 = Date.now()
+  const out = path.join(os.tmpdir(), `wv-relay-${process.pid}-${t0.toString(36)}-${Math.floor(Math.random() * 1e6)}.txt`)
+  return new Promise((resolve, reject) => {
+    const c = execFile('codex', ['exec', '--ephemeral', '--skip-git-repo-check', '-s', 'read-only', '-o', out, '-c', 'model_reasoning_effort="low"', prompt], { timeout, maxBuffer: 4 << 20, cwd: os.tmpdir() }, (err) => {
+      let text = ''
+      try {
+        text = fs.readFileSync(out, 'utf8').trim()
+      } catch {
+        /* nothing written */
+      }
+      fs.rmSync(out, { force: true })
+      console.log(`[rapide] codex ${Date.now() - t0} ms${err && !text ? ' · échec' : ''}`)
+      if (err && !text) reject(err)
+      else resolve(text)
+    })
+    c.stdin?.end()
+  })
+}
+
+/** The first JSON object or array in a model's answer (it sometimes wraps it in a code fence or a sentence). */
+export function parseJson<T>(text: string): T | null {
+  const fenced = /```(?:json)?\s*([\s\S]*?)```/.exec(text)
+  const body = fenced ? fenced[1] : text
+  const start = body.search(/[[{]/)
+  if (start < 0) return null
+  const open = body[start]
+  const close = open === '{' ? '}' : ']'
+  const end = body.lastIndexOf(close)
+  if (end <= start) return null
+  try {
+    return JSON.parse(body.slice(start, end + 1)) as T
+  } catch {
+    return null
+  }
+}
+
+/**
  * Réponse courte au plus vite : gpt-4.1 (~1 s, juste là où gpt-4o-mini invente) quand la clé OpenAI est là, sinon haiku (~3 s, abonnement).
  * Pour les questions posées depuis l'app, où l'on attend la réponse des yeux.
  */

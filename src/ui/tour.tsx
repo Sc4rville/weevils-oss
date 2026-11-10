@@ -6,7 +6,8 @@ import { api } from '../api'
 import { useT, tr } from '../i18n'
 import M from '../i18n/tour'
 import { useApp } from './app-context'
-import { Line } from './bits'
+import { Collapse, Line } from './bits'
+import { flash, focusBoss, reveal, when } from './follow'
 import { markSeen } from './hints'
 import { Icon } from './icons'
 import { WeevbossLogo } from './logo'
@@ -98,8 +99,15 @@ function milestones(snap: Snapshot, f: First): { list: Milestone[]; reached: num
 
 // ---------------------------------------------------------------- actions communes
 
+/** Là où weevboss répond (son aperçu, ou son fil ouvert), amené sous les yeux : la liste des premiers pas peut l'avoir
+ * poussé hors de l'écran, plus haut. */
+function showBoss() {
+  reveal(document.querySelector('.band.agent .peek-wrap:not([hidden])') ?? document.querySelector('.band.agent #agent-body:not([hidden])'), { block: 'nearest' })
+}
+
 /** Envoie une vraie demande à weevboss et la suit. */
 async function ask(snap: Snapshot, text: string) {
+  showBoss()
   setFirst({ at: Date.now(), before: snap.sessions.map((s) => s.id) })
   await api.main(text).catch(() => setFirst(null))
 }
@@ -113,7 +121,9 @@ function prefill(text: string) {
   // React suit la valeur par son setter natif : on passe par lui pour que le champ la voie.
   Object.getOwnPropertyDescriptor(HTMLInputElement.prototype, 'value')?.set?.call(el, text)
   el.dispatchEvent(new Event('input', { bubbles: true }))
-  el.focus()
+  // Sans saut : le champ arrive à l'écran en douceur et s'éclaire (l'exemple prérempli ne passe pas inaperçu).
+  el.focus({ preventScroll: true })
+  reveal(el.closest('form'), { block: 'nearest' })
   // Le début de la phrase à l'écran (sinon le champ montre la fin, coupée).
   el.setSelectionRange(0, 0)
   el.scrollLeft = 0
@@ -122,6 +132,8 @@ function prefill(text: string) {
 /** Parler à weevboss tout de suite : le logo, sans sa bulle d'explication (le geste est appris en le faisant). */
 function talk() {
   markSeen('voice')
+  // Le logo et ce qu'il entend (dans le champ de weevboss) à l'écran : la liste des premiers pas a pu les faire sortir.
+  reveal(document.querySelector('.band.agent'), { block: 'start', flash: false })
   document.querySelector<HTMLButtonElement>('.voice-logo')?.click()
 }
 
@@ -148,9 +160,12 @@ async function playDemo(id: TourId, snap: Snapshot, ui: { caption: (s: string | 
       a.play().catch(() => speak(r.text!, end))
     } else speak(r.text, end)
   }
-  if (id === 'devil') window.dispatchEvent(new Event('weevils:devil-flash'))
-  // Le pont : l'échange se lit en entier, fil ouvert (les deux bulles, celle de l'agent à sa couleur).
-  if (id === 'mail') window.setTimeout(() => ui.openThread(), 400)
+  if (id === 'devil') {
+    window.dispatchEvent(new Event('weevils:devil-flash'))
+    showBoss()
+  }
+  // Le pont : l'échange se lit en entier, fil ouvert en haut de l'écran (les deux bulles, celle de l'agent à sa couleur).
+  if (id === 'mail') ui.openThread()
 }
 
 /** La voix du navigateur, quand le serveur n'en a pas encore. */
@@ -214,7 +229,7 @@ export function useTour(): Tour | null {
 
 export function TourIntro() {
   const tour = useTour()
-  const { snap, setExpanded } = useApp()
+  const { snap } = useApp()
   const t = useT(M)
   const reduce = useReducedMotion()
   const [phase, setPhase] = useState<'scan' | 'first'>('scan')
@@ -303,9 +318,12 @@ export function TourIntro() {
                             type="button"
                             className="tr-alt"
                             onClick={() => {
+                              // Le focus dans le geste même (sinon iOS n'ouvre pas le clavier), puis le champ s'éclaire.
+                              const el = bossInput()
+                              el?.focus({ preventScroll: true })
                               finish()
                               setFirst({ at: Date.now(), before: snap.sessions.map((s) => s.id) })
-                              window.setTimeout(() => bossInput()?.focus(), 80)
+                              flash(el?.closest('form'))
                             }}
                           >
                             <Icon name="chevron" dir="right" /> {t.write}
@@ -322,7 +340,6 @@ export function TourIntro() {
                           className="tr-big"
                           onClick={() => {
                             finish()
-                            setExpanded('agent')
                             void runBrick('claude')
                           }}
                         >
@@ -359,21 +376,51 @@ function Bar({ steps, current }: { steps: TourStep[]; current?: TourId }) {
 
 export function TourBand() {
   const tour = useTour()
-  const { snap, setExpanded, push } = useApp()
+  const { snap, expanded, setExpanded, push } = useApp()
   const flow = useFlow()
-  /** La bande a ouvert le fil pour un branchement : il se referme quand les questions sont finies ou annulées. */
+  /** La bande a ouvert le fil pour un branchement : il se referme quand les questions sont finies ou annulées, une
+   * fois le résultat lu. */
   const openedThread = useRef(false)
   const hadFlow = useRef(false)
+  const [closeLater, setCloseLater] = useState(false)
   useEffect(() => {
     if (flow) hadFlow.current = true
     else if (hadFlow.current) {
       hadFlow.current = false
       if (!openedThread.current) return
       openedThread.current = false
-      const id = window.setTimeout(() => setExpanded(null), 1800)
-      return () => window.clearTimeout(id)
+      setCloseLater(true)
     }
-  }, [flow, setExpanded])
+  }, [flow])
+  // Pas tant que weevboss travaille (il installe, il répond), jamais sur un résultat qui propose de réessayer (ses
+  // boutons ne sont que dans le fil), ni si l'utilisateur a touché le fil entre-temps : il lit, il le fermera.
+  const last = snap.main.at(-1)
+  const retry = !!last?.chips?.length
+  const agentOpen = expanded === 'agent'
+  useEffect(() => {
+    if (!closeLater) return
+    if (retry || !agentOpen) return setCloseLater(false)
+    const band = document.querySelector('.band.agent')
+    const touched = () => setCloseLater(false)
+    band?.addEventListener('pointerdown', touched)
+    const id = snap.mainWorking ? 0 : window.setTimeout(() => {
+      setCloseLater(false)
+      setExpanded(null)
+    }, 4000)
+    return () => {
+      window.clearTimeout(id)
+      band?.removeEventListener('pointerdown', touched)
+    }
+  }, [closeLater, retry, agentOpen, snap.mainWorking, last?.id, setExpanded])
+  // Rouverts d'en bas (la ligne des réglages, une carte d'astuce) : la bande, tout en haut, vient sous les yeux.
+  useEffect(() => {
+    if (!tour?.open || !revealTour) return
+    revealTour = false
+    when(
+      () => !!document.querySelector('.tr-band'),
+      () => reveal(document.querySelector('.tr-band'), { block: 'start' }),
+    )
+  }, [tour?.open])
   // Le job de démo : suivi dans la bande tant qu'il tourne, puis son rapport une demi-minute.
   const demoJob = snap.h24.find((a) => a.demo && (a.runState === 'running' || Date.now() - (a.runStartedAt ?? 0) < 30_000))
   const t = useT(M)
@@ -417,7 +464,8 @@ export function TourBand() {
     return () => window.clearTimeout(id)
   }, [tour?.finished, tour?.open])
 
-  if (!tour || !tour.open || !tour.intro) return null
+  // Fermée (×, fin, autre appareil) : elle se replie en douceur, ce qui est dessous remonte sans saut.
+  const shown = !!tour?.open && !!tour.intro
   const todo = steps.filter((s) => s.state === 'todo')
   const next = todo[0]
 
@@ -433,15 +481,13 @@ export function TourBand() {
     if (s.id === 'first') return talk()
     setBusy(s.id)
     try {
-      if (what === 'try') await playDemo(s.id, snap, { caption: setCaption, openThread: () => setExpanded('agent') })
+      if (what === 'try') await playDemo(s.id, snap, { caption: setCaption, openThread: () => focusBoss() })
       else if (s.id === 'h24') prefill(t.h24Example)
       else {
         const b = s.id === 'phone' && s.facts?.reach === 'local' ? 'reach' : BRICK_OF[s.id]
         if (!b) return
-        if (b !== 'push') {
-          openedThread.current = true
-          setExpanded('agent')
-        }
+        // runBrick ouvre le fil de weevboss en haut de l'écran (focusBoss), sauf les notifications (rien à y lire).
+        if (b !== 'push') openedThread.current = true
         const r = await runBrick(b)
         if (r.note || !r.ok) setNote(r.note ?? t.failed)
       }
@@ -511,6 +557,7 @@ export function TourBand() {
   )
 
   return (
+    <Collapse open={shown}>
     <section className={`band tr-band ${cheer ? 'cheer' : ''}`} aria-label={t.dialog}>
       <div className="in tr-top">
         <button type="button" className="tr-toggle" onClick={() => setOpen((o) => !o)} aria-expanded={open}>
@@ -584,6 +631,7 @@ export function TourBand() {
         )}
       </AnimatePresence>
     </section>
+    </Collapse>
   )
 }
 
@@ -595,11 +643,19 @@ export function TourLine() {
   if (!tour) return null
   const n = tour.steps.filter((s) => s.state === 'ready' || s.state === 'done').length
   return (
-    <Line ch="*" go={null} meta={t.progress(n, tour.steps.length)} onClick={() => void api.tourAct('open').catch(() => undefined)}>
+    <Line ch="*" go={null} meta={t.progress(n, tour.steps.length)} onClick={openTour}>
       {t.dialog}
     </Line>
   )
 }
 
-/** Rouvre les premiers pas (astuces, weevboss). */
-export const openTour = () => void api.tourAct('open').catch(() => undefined)
+/** Rouvert d'ailleurs (bas du flux, carte d'astuce) : TourBand amène la bande sous les yeux quand elle s'ouvre. */
+let revealTour = false
+
+/** Rouvre les premiers pas (réglages, astuces, weevboss). */
+export const openTour = () => {
+  const band = document.querySelector('.tr-band')
+  if (band) reveal(band, { block: 'start' })
+  else revealTour = true
+  void api.tourAct('open').catch(() => (revealTour = false))
+}

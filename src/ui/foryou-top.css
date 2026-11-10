@@ -1,0 +1,221 @@
+/* The top band's two words and the preview of « pour toi » (src/ui/foryou-top.tsx). Only --c, --ink and --dl are
+   used, so the four themes follow by themselves. No border, no radius, no shadow. */
+
+/* Two small words under the logo row: the chosen one in full ink, the other dimmed. No box, no background. */
+.fyt-words {
+  flex: none;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--pad);
+  display: flex;
+  align-items: center;
+  column-gap: 8px;
+}
+
+.fyt-word {
+  font-size: 0.9375rem;
+  font-weight: 400;
+  opacity: 0.6;
+  min-height: 36px;
+  display: inline-flex;
+  align-items: center;
+  color: var(--ink);
+  white-space: nowrap;
+}
+
+/* The weight changes, not the place: the bold word is laid out by the browser, the row keeps its height. */
+.fyt-word.on {
+  font-weight: 750;
+  opacity: 1;
+}
+
+.fyt-sep {
+  opacity: 0.6;
+}
+
+/* Something not seen yet: the app's square dot, after the word. */
+.fyt-dot {
+  flex: none;
+  width: 7px;
+  height: 7px;
+  margin-left: 6px;
+  background: currentColor;
+}
+
+/* Same box as the thread preview (.peek-wrap): switching words moves nothing below. Hidden, never unmounted. */
+.fyt-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.fyt-wrap[hidden] {
+  display: none;
+}
+
+/* Scrolls under the finger without dragging the projects along. At rest it ends exactly under the last strip that fits
+   whole (its height is set by ForYouPeek): nothing is cut, nothing fades. Scrolled, the bottom fades. */
+.fyt-peek {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  cursor: pointer;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.fyt-peek.fyt-scrolled {
+  -webkit-mask-image: linear-gradient(to bottom, #000 0, #000 80%, transparent 100%);
+  mask-image: linear-gradient(to bottom, #000 0, #000 80%, transparent 100%);
+}
+
+.fyt-peek::-webkit-scrollbar {
+  display: none;
+}
+
+.fyt-list {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+}
+
+/* One item: a thin band in its own colour. */
+.fyt-item {
+  flex: none;
+  background: var(--c);
+  color: var(--ink);
+}
+
+/* What needs you now: the inverted band, like everywhere else. */
+.fyt-item.fyt-alert {
+  background: var(--ink);
+  color: var(--c);
+}
+
+.fyt-item > .in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  padding-block: 5px;
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+/* Two lines at most; the cut is made on the text. */
+.fyt-txt {
+  flex: 1;
+  min-width: 0;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.fyt-item.fyt-new .fyt-txt {
+  font-weight: 600;
+}
+
+.fyt-n {
+  font-weight: 750;
+  white-space: nowrap;
+}
+
+/* A media item: a small square of it at the left. A video shows a play glyph on the band's tone. */
+.fyt-thumb {
+  flex: none;
+  width: 34px;
+  height: 34px;
+  object-fit: cover;
+  display: block;
+  background: color-mix(in oklab, var(--c) 87%, var(--ink));
+  background: oklch(from var(--c) calc(l + var(--dl)) calc(c * 1.06) h);
+}
+
+.fyt-play {
+  display: grid;
+  place-items: center;
+  color: var(--ink);
+}
+
+.fyt-play svg {
+  width: 16px;
+  height: 16px;
+}
+
+.fyt-empty {
+  padding-block: 8px;
+  font-size: 0.875rem;
+  opacity: 0.6;
+}
+
+/* A word that can be listened to: four small bars before it, moving only while it is being read aloud. */
+.fyt-wave {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 2px;
+  height: 14px;
+}
+
+.fyt-wave i {
+  width: 3px;
+  height: 6px;
+  background: currentColor;
+  opacity: 0.6;
+}
+
+.fyt-wave i:nth-child(2) {
+  height: 14px;
+}
+
+.fyt-wave i:nth-child(3) {
+  height: 9px;
+}
+
+.fyt-wave.on i {
+  opacity: 1;
+  animation: fyt-wave 0.9s ease-in-out infinite;
+}
+
+.fyt-wave.on i:nth-child(2) {
+  animation-delay: -0.3s;
+}
+
+.fyt-wave.on i:nth-child(3) {
+  animation-delay: -0.55s;
+}
+
+.fyt-wave.on i:nth-child(4) {
+  animation-delay: -0.15s;
+}
+
+@keyframes fyt-wave {
+  0%,
+  100% {
+    transform: scaleY(0.4);
+  }
+  50% {
+    transform: scaleY(1);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .fyt-wave.on i {
+    animation: none;
+  }
+}
+
+.fyt-open { display: flex; align-items: center; gap: 10px; width: 100%; min-width: 0; text-align: left; font: inherit; }
+.fyt-item.notice-shell { min-height: 44px; }
+.fyt-item.notice-shell > .in { min-height: 44px; }
+.fyt-item .notice-close { top: 0; }

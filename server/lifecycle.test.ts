@@ -142,7 +142,7 @@ describe('statut', () => {
     expect(one()).toMatchObject({ status: 'done', live: false, controllable: true })
   })
 
-  it('L6 sans hook : la phase lue dans le transcript, bornée dans le temps', () => {
+  it('L6 sans hook : la phase lue dans le transcript, bornée dans le temps ; plus de processus en plein tour → coupée', () => {
     const t = add(transcript({ phase: 'working', lastActivityAt: NOW - 5 * MIN }))
     w.panes = [pane()]
     expect(one()?.status).toBe('working')
@@ -150,7 +150,10 @@ describe('statut', () => {
     expect(one()?.status).toBe('idle')
     w.panes = []
     t.lastActivityAt = NOW - 31 * MIN
+    expect(one()).toMatchObject({ status: 'interrupted', live: false, interrupted: { at: NOW - 31 * MIN, reason: 'died' } })
+    t.phase = 'idle'
     expect(one()).toMatchObject({ status: 'done', live: false })
+    expect(one()?.interrupted).toBeUndefined()
   })
 
   it('L7 la file d’attente ne compte que pendant le travail', () => {
@@ -328,6 +331,21 @@ describe('notifications', () => {
     expect(send).toHaveBeenCalledWith(expect.objectContaining({ title: tr(P).doneTitle('demo'), body: 'All three buttons are in.' }))
   })
 
+  it('un tour qui finit sur une question : notification « à toi » avec la question, même si des sous-agents tournent', async () => {
+    w.bump()
+    await settle()
+    const t = w.store.get('s1')!
+    w.hook({ session_id: 's1', hook_event_name: 'UserPromptSubmit' })
+    await settle()
+    t.messages.push({ id: 'q', role: 'assistant', text: 'Le pod est prêt. Ouvre ce lien pour valider la facturation : https://www.runpod.io/console/billing', at: Date.now() })
+    t.subagents = [{ id: 'b1', kind: 'agent', label: 'search', activity: 'WebSearch', status: 'working', startedAt: Date.now() }]
+    t.lastActivityAt = Date.now()
+    w.hook({ session_id: 's1', hook_event_name: 'Stop' })
+    await settle()
+    expect(one()).toMatchObject({ status: 'needs_user', ask: { kind: 'link', url: 'https://www.runpod.io/console/billing' } })
+    expect(send).toHaveBeenCalledWith(expect.objectContaining({ title: tr(P).waitingTitle('demo'), body: 'Ouvre ce lien pour valider la facturation : https://www.runpod.io/console/billing', url: '/#s=s1' }))
+  })
+
   it('un tour court (moins de 15 s) ne notifie pas', async () => {
     w.hook({ session_id: 's1', hook_event_name: 'UserPromptSubmit' })
     await settle()
@@ -350,18 +368,18 @@ describe('arrière-plan (sous-agents, workflow, commandes)', () => {
     expect(one()).toMatchObject({ status: 'done', background: 0, workStartedAt: null })
   })
 
-  it('L15 processus mort (pid mort, plus de pane) ou SessionEnd : tout passe « stopped », background 0, terminée', () => {
+  it('L15 processus mort (pid mort, plus de pane) : tout passe « stopped », background 0, coupée (jamais « terminée ») ; /exit : terminée', () => {
     add(transcript({ lastActivityAt: NOW - 5 * MIN, subagents: [sub(), sub({ id: 'a2', status: 'done', endedAt: NOW - 30 * MIN })] }))
     w.hooks.set('s1', { event: 'Stop', at: NOW - 5 * MIN, pid: DEAD })
     const s = one()!
-    expect(s).toMatchObject({ status: 'done', background: 0, live: false })
+    expect(s).toMatchObject({ status: 'interrupted', interrupted: { reason: 'died' }, background: 0, live: false })
     expect(s.subagents.map((x) => [x.id, x.status])).toEqual([
       ['a1', 'stopped'],
       ['a2', 'done'],
     ])
     expect(s.subagents[0].endedAt).toBe(NOW - 5 * MIN)
     w.panes = [pane()]
-    w.hooks.set('s1', { event: 'SessionEnd', at: NOW - MIN, pid: ALIVE })
+    w.hooks.set('s1', { event: 'SessionEnd', at: NOW - MIN, pid: ALIVE, reason: 'prompt_input_exit' })
     expect(one()).toMatchObject({ status: 'done', background: 0 })
   })
 
@@ -369,6 +387,28 @@ describe('arrière-plan (sous-agents, workflow, commandes)', () => {
     add(transcript({ subagents: [sub()] }))
     w.panes = [pane({ screenAttention: 'Do you want to proceed?' })]
     expect(one()).toMatchObject({ status: 'needs_user', background: 1 })
+  })
+
+  it('L16b TLO : le tour finit sur une demande (valider RunPod, coller une adresse) avec 6 agents en arrière-plan → « à toi », action « coller », pas « travaille » ; une réponse de l’utilisateur lève l’attente', () => {
+    const ask = 'J’ai lancé six agents sur la recherche.\n\nValide la facturation RunPod, puis colle-moi l’adresse du pod ici.'
+    add(transcript({ lastActivityAt: NOW - 40 * MIN, messages: [{ id: 'u', role: 'user', text: 'go', at: NOW - 50 * MIN }, { id: 'a', role: 'assistant', text: ask, at: NOW - 40 * MIN }], subagents: Array.from({ length: 6 }, (_, i) => sub({ id: `a${i}` })) }))
+    w.panes = [pane({ createdAt: NOW - 60 * MIN })]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - 40 * MIN, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'needs_user', background: 6, attention: 'Valide la facturation RunPod, puis colle-moi l’adresse du pod ici.', ask: { kind: 'paste' } })
+    // the user répond : l'agent reprend, plus d'attente.
+    const t = w.store.get('s1')!
+    t.messages.push({ id: 'u2', role: 'user', text: 'https://pod.example', at: NOW })
+    t.lastActivityAt = NOW
+    w.hooks.set('s1', { event: 'UserPromptSubmit', at: NOW, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'working' })
+    expect(one()?.ask).toBeUndefined()
+  })
+
+  it('L16c un compte rendu sans demande, arrière-plan en cours : « travaille » comme avant', () => {
+    add(transcript({ messages: [{ id: 'a', role: 'assistant', text: 'Lancé : six agents cherchent, je fais la synthèse quand ils ont fini.', at: NOW - MIN }], subagents: [sub()] }))
+    w.panes = [pane()]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - MIN, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'working' })
   })
 
   it('L17 ménage : une pane sans activité depuis 2 h mais avec un arrière-plan qui tourne n’est pas fermée', async () => {
@@ -433,4 +473,261 @@ describe('arrière-plan (sous-agents, workflow, commandes)', () => {
       fs.rmSync(dir, { recursive: true, force: true })
     }
   })
+})
+
+describe('session coupée en plein travail', () => {
+  const sub = (over: Partial<Subagent> = {}): Subagent => ({ id: 'a1', kind: 'agent', label: 'review', activity: 'Read', status: 'working', startedAt: NOW - 10 * MIN, ...over })
+  const tick = async () => {
+    await (w as any).watchPanes()
+    await (w as any).watchCuts(Date.now())
+  }
+  /** Dépôt git jetable : propre, ou avec un fichier non commité. */
+  function repo(dirty: boolean) {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wv-cut-'))
+    const git = (...a: string[]) => spawnSync('git', ['-C', dir, ...a], { env: { ...process.env, GIT_AUTHOR_NAME: 't', GIT_AUTHOR_EMAIL: 't@t', GIT_COMMITTER_NAME: 't', GIT_COMMITTER_EMAIL: 't@t' } })
+    git('init', '-q')
+    fs.writeFileSync(path.join(dir, 'a.txt'), 'a')
+    git('add', '.')
+    git('commit', '-qm', 'a')
+    if (dirty) fs.writeFileSync(path.join(dir, 'a.txt'), 'b')
+    return dir
+  }
+
+  it('C1 tour arrêté par une erreur d’API (limite d’usage, connexion) : coupée même processus vivant ; un nouveau message efface', () => {
+    const t = add(transcript({ stopError: { at: NOW - MIN, reason: 'quota', text: 'Claude usage limit reached' } }))
+    w.panes = [pane()]
+    w.hooks.set('s1', { event: 'Stop', at: NOW - MIN, pid: ALIVE })
+    expect(one()).toMatchObject({ status: 'interrupted', live: true, interrupted: { at: NOW - MIN, reason: 'quota', detail: 'Claude usage limit reached' } })
+    t.stopError = undefined
+    expect(one()?.status).toBe('idle')
+    // claude -p (un script l'attend, pas une personne) : jamais « coupée ».
+    w.panes = []
+    w.hooks.set('s1', { event: 'Stop', at: NOW - MIN, pid: DEAD })
+    Object.assign(t, { headless: true, phase: 'working', stopError: { at: NOW - MIN, reason: 'auth', text: 'expired' } })
+    expect(one()?.status).toBe('done')
+  })
+
+  it('C2 processus tué en plein tour (kill-server) : coupée ; une fin voulue (/exit, fermer, ménage) : terminée ; SessionEnd « other » : coupée', async () => {
+    const t = add(transcript({ phase: 'working', lastActivityAt: NOW - MIN }))
+    w.hooks.set('s1', { event: 'PostToolUse', at: NOW - MIN, pid: DEAD })
+    expect(one()).toMatchObject({ status: 'interrupted', interrupted: { reason: 'died', at: NOW - MIN } })
+    w.hooks.set('s1', { event: 'SessionEnd', at: NOW, pid: DEAD, reason: 'other' })
+    expect(one()?.status).toBe('interrupted')
+    w.hooks.set('s1', { event: 'SessionEnd', at: NOW, pid: DEAD, reason: 'prompt_input_exit' })
+    expect(one()?.status).toBe('done')
+    w.hooks.set('s1', { event: 'PostToolUse', at: NOW - MIN, pid: DEAD })
+    w.panes = [pane()]
+    await w.close('s1')
+    expect(one()?.status).toBe('done')
+    t.phase = 'idle'
+  })
+
+  it('C3 la pane disparaît pendant qu’elle travaille : coupée (vue au passage, gardée après un redémarrage de weevilsd)', async () => {
+    add(transcript({ lastActivityAt: NOW - MIN }))
+    const p = pane()
+    w.panes = [p]
+    mux.listWv.mockResolvedValue([p])
+    w.hooks.set('s1', { event: 'UserPromptSubmit', at: NOW, pid: ALIVE })
+    await tick()
+    expect(one()?.status).toBe('working')
+    // tmux kill-server : plus de pane, plus de processus. Le transcript dit encore « idle » (dernier tour fini) : seul le passage le voit.
+    mux.listWv.mockResolvedValue([])
+    w.hooks.set('s1', { event: 'UserPromptSubmit', at: NOW, pid: DEAD })
+    await tick()
+    expect(one()).toMatchObject({ status: 'interrupted', interrupted: { reason: 'died', at: NOW } })
+    vi.advanceTimersByTime(MIN)
+    const t = w.store.get('s1')!
+    w = new Weevils()
+    add(t)
+    w.hooks.set('s1', { event: 'UserPromptSubmit', at: NOW, pid: DEAD })
+    expect(one()?.status).toBe('interrupted')
+  })
+
+  it('C4 arrêtée sans fin voulue avec du travail non commité : coupée ; dossier propre : terminée', async () => {
+    for (const dirty of [true, false]) {
+      w = new Weevils()
+      const dir = repo(dirty)
+      try {
+        add(transcript({ cwd: dir, lastActivityAt: NOW - 5 * MIN }))
+        const p = pane({ cwd: dir })
+        mux.listWv.mockResolvedValue([p])
+        w.hooks.set('s1', { event: 'Stop', at: NOW - 5 * MIN, pid: ALIVE })
+        await tick()
+        expect(one()?.status).toBe('idle')
+        mux.listWv.mockResolvedValue([])
+        w.hooks.set('s1', { event: 'Stop', at: NOW - 5 * MIN, pid: DEAD })
+        await tick()
+        expect(one()?.status, dirty ? 'dirty' : 'clean').toBe(dirty ? 'interrupted' : 'done')
+        if (dirty) expect(one()?.interrupted?.reason).toBe('dirty')
+      } finally {
+        fs.rmSync(dir, { recursive: true, force: true })
+      }
+      fs.rmSync(path.join(DATA_DIR, 'state.json'), { force: true })
+    }
+  })
+
+  it('C5 arrière-plan qui tournait quand le processus est mort : coupée', () => {
+    add(transcript({ subagents: [sub()] }))
+    w.hooks.set('s1', { event: 'Stop', at: NOW - MIN, pid: DEAD })
+    expect(one()).toMatchObject({ status: 'interrupted', background: 0, interrupted: { reason: 'died' } })
+  })
+
+  it('C6 reprise en un geste : --resume avec un message de reprise signé weevboss, qui pointe vers le dossier ; plus coupée', async () => {
+    add(transcript({ phase: 'working', lastActivityAt: NOW - MIN }))
+    w.hooks.set('s1', { event: 'PostToolUse', at: NOW - MIN, pid: DEAD })
+    expect(one()?.status).toBe('interrupted')
+    expect(await w.resume('s1')).toEqual({ id: 's1' })
+    const [, dir, tool, , command, id] = mux.spawnWv.mock.calls[0] as [string, string, string, string, string[], string]
+    expect([dir, tool, id]).toEqual([cwd, 'claude', 's1'])
+    expect(command.slice(0, 4)).toEqual([...CLAUDE, '--resume', 's1'])
+    const t = tr(CO)
+    expect(command[4]).toBe(`[from:weevboss] ${t.resumePrompt(t.cutWhy('died'), cwd)}`)
+    expect(command[4]).toContain(cwd)
+    expect(one()).toMatchObject({ status: 'working', live: true })
+    expect(one()?.interrupted).toBeUndefined()
+    // Remort plus tard, en plein tour : de nouveau coupée.
+    vi.advanceTimersByTime(MIN)
+    const tr2 = w.store.get('s1')!
+    tr2.lastActivityAt = Date.now()
+    w.panes = []
+    expect(one()?.status).toBe('interrupted')
+  })
+
+  it('C7 laisser : redevient terminée ; une autre machine : relayé', async () => {
+    add(transcript({ phase: 'working', lastActivityAt: NOW - MIN }))
+    w.hooks.set('s1', { event: 'PostToolUse', at: NOW - MIN, pid: DEAD })
+    expect(await w.dismiss('s1')).toEqual({ ok: true })
+    expect(one()?.status).toBe('done')
+    const call = vi.fn(async () => ({ id: 'r1' }))
+    w.remotes = [{ has: (id: string) => id === 'r1', call } as any]
+    await w.resume('r1')
+    expect(call).toHaveBeenCalledWith('POST', '/api/sessions/r1/resume', {})
+  })
+
+  it('C8 annoncée une fois : notification push et message dans le fil de weevboss ; une coupure ancienne est seulement montrée', async () => {
+    const send = vi.fn(async (_p: unknown) => {})
+    const say = vi.fn()
+    w.push = { enabled: true, send } as any
+    w.setup = { say, messages: () => [], flags: () => undefined } as any
+    add(transcript({ phase: 'working', lastActivityAt: NOW - MIN, messages: [{ id: 'm', role: 'user', text: 'build the page', at: NOW - MIN }] }))
+    add(transcript({ id: 'old', file: '/nowhere/old.jsonl', phase: 'working', lastActivityAt: NOW - 8 * 60 * MIN }))
+    w.hooks.set('s1', { event: 'PostToolUse', at: NOW - MIN, pid: DEAD })
+    w.bump()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(send).toHaveBeenCalledTimes(1)
+    const title = one()!.title
+    expect(send).toHaveBeenCalledWith({ title: tr(P).cutTitle('demo'), body: `${title} · ${tr(CO).cutWhy('died')}`, url: '/#s=s1', tag: 'cut-s1' })
+    expect(say.mock.calls).toEqual([[tr(CO).cutSaid(title, 'demo', tr(CO).cutWhy('died'))]])
+    // L'heure de la coupure se précise (SessionEnd arrivé après, puis vue au passage) : toujours le même épisode.
+    w.hooks.set('s1', { event: 'SessionEnd', at: NOW, pid: DEAD, reason: 'other' })
+    w.cuts.set('s1', { at: NOW + 1000, reason: 'died' })
+    w.bump()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(send).toHaveBeenCalledTimes(1)
+    expect(say).toHaveBeenCalledTimes(1)
+    expect(one('old')?.status).toBe('interrupted')
+    // Reprise, puis nouvelle coupure : annoncée de nouveau.
+    await w.resume('s1')
+    vi.advanceTimersByTime(2 * MIN)
+    const t = w.store.get('s1')!
+    t.lastActivityAt = Date.now()
+    w.panes = []
+    w.bump()
+    await vi.advanceTimersByTimeAsync(250)
+    expect(one()?.status).toBe('interrupted')
+    expect(send).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('unknown foreign panes and live composers', () => {
+  it('never reaps an old pane without a local transcript, including a foreign orchestrator', async () => {
+    w.panes = [pane({ createdAt: NOW - 400 * MIN }), pane({ name: 'wv-foreign-boss', cwd: '/other/home/orchestrateur', createdAt: NOW - 600 * MIN })]
+    await (w as any).reapPanes()
+    expect(mux.killWv).not.toHaveBeenCalled()
+  })
+  it.each(['claude', 'codex'] as const)('a %s composer is never a question; progress remains working', async (tool) => {
+    add(transcript({ tool, phase: 'working' }))
+    mux.listWv.mockResolvedValue([pane({ tool })])
+    mux.capture.mockResolvedValue('Do you want to proceed?\n› nn go\n• Working (36s • esc to interrupt)')
+    await (w as any).watchPanes()
+    expect(one()).toMatchObject({ status: 'working' })
+    expect(one()?.attention).toBeUndefined()
+    expect(one()?.choices).toBeUndefined()
+  })
+  it('returns labeled choices and validates a fresh menu before selecting', async () => {
+    add(transcript({ tool: 'codex' }))
+    const screen = 'Would you like to run this command?\n› 1. Yes, proceed\n2. No, tell Codex what to do differently\nPress enter to confirm or esc to cancel'
+    mux.listWv.mockResolvedValue([pane({ tool: 'codex' })])
+    mux.capture.mockResolvedValue(screen)
+    await (w as any).watchPanes()
+    const s = one()!
+    expect(s.status).toBe('needs_user')
+    expect(s.choices).toHaveLength(2)
+    await w.key('s1', `choice:${s.choices![1].id}`)
+    expect(mux.sendKey.mock.calls).toEqual([[PANE, 'down'], [PANE, 'enter']])
+    mux.capture.mockResolvedValue('› nn go')
+    await expect(w.key('s1', `choice:${s.choices![0].id}`)).rejects.toThrow()
+    expect(mux.sendKey).toHaveBeenCalledTimes(2)
+  })
+})
+
+describe('stable question notification identity', () => {
+  it('background activity and wording refinement keep one event, a new user turn creates another', () => {
+    const t = add(transcript({ messages: [{ id: 'u1', role: 'user', text: 'work', at: NOW - MIN }, { id: 'a1', role: 'assistant', text: 'Which color?', at: NOW - MIN }] }))
+    w.panes = [pane()]
+    const first = one()!
+    expect(first.status).toBe('needs_user')
+    expect(first.noticeId).toBeTruthy()
+    t.lastActivityAt = NOW
+    t.messages[1].text = 'Which color would you prefer?'
+    expect(one()?.noticeId).toBe(first.noticeId)
+    t.messages.push({ id: 'u2', role: 'user', text: 'another task', at: NOW }, { id: 'a2', role: 'assistant', text: 'Which color?', at: NOW })
+    expect(one()?.noticeId).not.toBe(first.noticeId)
+  })
+})
+
+
+describe('session archive', () => {
+  it('persists a reversible archive without touching the agent process or transcript', () => {
+    add(transcript({ phase: 'working' }))
+    w.panes = [pane()]
+    w.archive('s1', true)
+    expect(w.snapshot().sessions.find((s) => s.id === 's1')).toMatchObject({ archived: true, status: 'working' })
+    expect(mux.killWv).not.toHaveBeenCalled()
+    expect(mux.sendText).not.toHaveBeenCalled()
+    expect(mux.sendKey).not.toHaveBeenCalled()
+    const again = new Weevils()
+    again.store.byFile.set('/nowhere/s1.jsonl', transcript({ phase: 'working' }))
+    again.panes = [pane()]
+    expect(again.snapshot().sessions.find((s) => s.id === 's1')?.archived).toBe(true)
+    again.archive('s1', false)
+    expect(again.snapshot().sessions.find((s) => s.id === 's1')?.archived).toBeUndefined()
+    expect(again.panes).toHaveLength(1)
+    expect(again.store.get('s1')).toBeDefined()
+    expect(mux.killWv).not.toHaveBeenCalled()
+  })
+})
+
+it('keeps a newly archived Codex pane archived when its transcript gets linked', () => {
+  w.panes = [pane({ tool: 'codex', sessionId: undefined })]
+  w.archive(PANE, true)
+  add(transcript({ id: 'linked', tool: 'codex', openedAt: NOW - MIN }))
+  ;(w as unknown as { linkCodexPanes(): void }).linkCodexPanes()
+  expect(w.snapshot().sessions.find((s) => s.id === 'linked')?.archived).toBe(true)
+  w.archive('linked', false)
+  expect(w.snapshot().sessions.find((s) => s.id === 'linked')?.archived).toBeUndefined()
+  expect(mux.killWv).not.toHaveBeenCalled()
+})
+
+it.each(['claude', 'codex'] as const)('%s completion reports with confirmations are idle; a real question still asks', (tool) => {
+  const t = add(transcript({ tool, messages: [
+    { id: 'u', role: 'user', text: 'reprends TLO', at: NOW - MIN },
+    { id: 'report', role: 'assistant', text: '[VPS] TLO repris par Codex à 16 h 32 : session liée et lecture des fichiers confirmées.\nPod supprimé, weevboss informé, aucune nouvelle dépense ni publication autorisée.', at: NOW },
+  ] }))
+  w.panes = [pane({ tool })]
+  expect(one()).toMatchObject({ status: 'idle' })
+  expect(one()?.ask).toBeUndefined()
+  expect(one()?.attention).toBeUndefined()
+  t.messages.push({ id: 'question', role: 'assistant', text: 'Quelle option préfères-tu ?', at: NOW })
+  expect(one()).toMatchObject({ status: 'needs_user', attention: 'Quelle option préfères-tu ?' })
 })

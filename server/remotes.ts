@@ -1,3 +1,4 @@
+import { MACHINE } from './config.ts'
 // Fédération : le weevilsd du VPS lit les weevilsd des autres machines (le PC) à travers un tunnel SSH inversé.
 // Côté PC, la requête arrive de 127.0.0.1 sans en-tête de proxy ni Origin, Host 127.0.0.1:<port du tunnel> : elle est de confiance,
 // comme un outil local (server/http.ts).
@@ -24,7 +25,20 @@ export class Remote {
       try {
         const res = await fetch(`${this.url}/api/snapshot`, { signal: AbortSignal.timeout(2500) })
         if (!res.ok) throw new Error(String(res.status))
-        const s = (await res.json()) as Snapshot
+        let s = (await res.json()) as Snapshot
+        const owner = s.machines?.[0]
+        // A reverse tunnel can accidentally lead back to us. Never ingest our own aggregate.
+        if (!owner || owner.id === MACHINE.id) {
+          this.snap = null
+          throw new Error('remote is this machine') // i18n-ignore: internal guard, caught locally and never displayed
+        }
+        // A peer may federate other machines too: only ingest the peer's own records, once.
+        const sessions = [...new Map(s.sessions.filter((x) => x.machineId === owner.id).map((x) => [x.id, x])).values()]
+        const ids = new Set(sessions.map((x) => x.id))
+        s = { ...s, machines: [owner], sessions,
+          h24: [...new Map(s.h24.map((x) => [x.id, x])).values()],
+          ...(s.relay ? { relay: { ...s.relay, plans: s.relay.plans.filter((p) => ids.has(p.sessionId)) } } : {}),
+        }
         const changed = !this.online || s.version !== this.snap?.version
         this.snap = s
         this.online = true

@@ -438,14 +438,14 @@ export function advice({ points, eps, days, mem: m, disk: d, cores, offer: o }: 
 
 // ---------------------------------------------------------------- serveurs à l'écoute
 
-/** Ports exposés en https://<nom>.<EXPOSE_DOMAIN> : un <nom>.caddy par site dans EXPOSE_SITES_DIR. */
-function exposed(): Map<number, string> {
+/** Ports exposés en https://<nom>.<EXPOSE_DOMAIN> : un <nom>.caddy par site dans EXPOSE_SITES_DIR (localhost ou 127.0.0.1). */
+export function exposed(): Map<number, string> {
   const out = new Map<number, string>()
   const dir = EXPOSE_SITES_DIR
   if (!EXPOSE_DOMAIN || !dir) return out
   try {
     for (const f of fs.readdirSync(dir)) {
-      const port = /localhost:(\d+)/.exec(read(path.join(dir, f)))?.[1]
+      const port = /(?:localhost|127\.0\.0\.1):(\d+)/.exec(read(path.join(dir, f)))?.[1]
       if (port && f.endsWith('.caddy')) out.set(Number(port), `https://${f.slice(0, -6)}.${EXPOSE_DOMAIN}`)
     }
   } catch {
@@ -454,7 +454,8 @@ function exposed(): Map<number, string> {
   return out
 }
 
-function servers(): Promise<ServerProc[]> {
+/** Ports à l'écoute (ss -ltnpH), avec le processus et son dossier quand il est à cet utilisateur. */
+export function servers(): Promise<ServerProc[]> {
   return new Promise((resolve) => {
     execFile('ss', ['-ltnpH'], { timeout: 3000 }, (err, stdout) => {
       if (err) return resolve([])

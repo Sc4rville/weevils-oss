@@ -181,7 +181,7 @@ run_systemd() {
   check "secondary: weevilsd and tunnel active, no weevboss, no app build" as_2 'systemctl --user is-active weevilsd weevils-tunnel && grep -qx WEEVILS_ORCHESTRATOR=0 ~/.config/weevils/env && grep -qx WEEVILS_MACHINE=laptop ~/.config/weevils/env && test ! -e weevils/dist/index.html'
   check "main: WEEVILS_REMOTES registered by the secondary" as_test 'grep -qx "WEEVILS_REMOTES=laptop=http://127.0.0.1:4192" ~/.config/weevils/env'
   check "main: the second machine is online in its snapshot" as_test 'for i in $(seq 30); do curl -sf http://127.0.0.1:4179/api/snapshot | jq -e ".machines[] | select(.id==\"laptop\" and .online==true)" && exit 0; sleep 1; done; exit 1'
-  check "secondary: units name the main host given, nothing hardcoded" as_2 'grep -q "ExecStart=.* mainbox$" ~/.config/systemd/user/weevils-tunnel.service && ! grep -rqiE "\bvps\b|yann|scarville" ~/.config/systemd/user/ ~/.config/weevils/'
+  check "secondary: units name the main host given, nothing hardcoded" as_2 'grep -q "ExecStart=.* mainbox$" ~/.config/systemd/user/weevils-tunnel.service && ! grep -rqiE "\bvps\b|user|scarville" ~/.config/systemd/user/ ~/.config/weevils/'
   check "secondary re-run is idempotent (same tunnel port)" as_2 'cd weevils && ./install.sh --yes --secondary mainbox >/dev/null && grep -q "WEEVILS_TUNNEL_PORT=4192" ~/.config/weevils/service.conf'
   check "main: still a single remote entry" as_test '[ "$(grep -c "^WEEVILS_REMOTES=" ~/.config/weevils/env)" = 1 ] && grep -qx "WEEVILS_REMOTES=laptop=http://127.0.0.1:4192" ~/.config/weevils/env'
 

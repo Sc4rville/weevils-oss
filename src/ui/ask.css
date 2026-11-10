@@ -8,6 +8,8 @@
   user-select: text;
   padding: 2px 0 12px;
   touch-action: auto;
+  /* Amenée sous les yeux (reveal), elle s'arrête au-dessus du logo flottant des pages (48 px + 8 px + de l'air). */
+  scroll-margin-bottom: 72px;
 }
 
 .qa .words.qa-bar {
@@ -33,6 +35,7 @@
 }
 
 .qa-ask {
+  scroll-margin-bottom: 72px;
   display: flex;
   align-items: center;
   gap: 8px;
@@ -100,6 +103,15 @@
 
 .page-main.no-foot .page-voice {
   bottom: calc(8px + var(--safe-b));
+}
+
+/* Sous la dernière ligne du fil, la place du logo (48 px + 8 px de marge, + un peu d'air) : en bas du fil, rien n'est caché dessous. */
+.page-main:has(> .page-dock) > .page-body > .fill {
+  min-height: 64px;
+}
+
+.page-main.no-foot:has(> .page-dock) > .page-body > .fill {
+  min-height: calc(64px + var(--safe-b));
 }
 
 .page-voice .voice-logo {

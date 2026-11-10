@@ -14,12 +14,13 @@ vi.mock('../api', () => ({
       calls.subagent.push(`${id}/${subId}`)
       return calls.detail
     },
-    session: async () => new Promise(() => {}),
+    // Le détail ne vient pas (session distante) : la page s'appuie sur l'instantané ; les bandes d'état s'affichent.
+    session: async () => Promise.reject(new Error('absent')),
     transcribeInfo: async () => ({ enabled: false }),
   },
 }))
 
-localStorage.setItem('weevils-lang', 'fr')
+localStorage.setItem('weevils-language', 'fr')
 // happy-dom rejette chaque animation native annulée (AbortError non rattrapé) : motion repasse alors par ses animations JS.
 for (let p: object | null = HTMLElement.prototype; p; p = Object.getPrototypeOf(p)) if (Object.hasOwn(p, 'animate')) delete (p as { animate?: unknown }).animate
 globalThis.fetch = (async () => new Response('{}')) as typeof fetch
@@ -205,7 +206,7 @@ describe('bande d’arrière-plan dans le fil', () => {
   })
 
   it('l’activité d’un outil est traduite comme dans le fil, une phrase reste telle quelle', () => {
-    const s = session([sub('a', { activity: 'Read · /home/me/projects/weevils/server/core.ts' }), sub('b', { activity: 'Page built. Tests pass.' })])
+    const s = session([sub('a', { activity: 'Read · /home/user/projects/weevils/server/core.ts' }), sub('b', { activity: 'Page built. Tests pass.' })])
     render(<Background session={s} />)
     expect(text(rows()[0].querySelector('.meta'))).toBe('travaille · lit · ~/projects/weevils/server/core.ts')
     expect(text(rows()[1].querySelector('.meta'))).toBe('travaille · Page built. Tests pass.')
@@ -240,7 +241,7 @@ describe('bande d’arrière-plan dans le fil', () => {
       subagent: sub('a/1'),
       steps: [
         { at: 1, role: 'assistant', text: 'Je regarde **le serveur**.' },
-        { at: 2, role: 'tool', text: 'Read · /home/me/projects/weevils/server/core.ts' },
+        { at: 2, role: 'tool', text: 'Read · /home/user/projects/weevils/server/core.ts' },
         { at: 3, role: 'result', text: '120 lignes' },
       ],
     }
@@ -304,9 +305,10 @@ describe('ligne de session : compte d’arrière-plan', () => {
 })
 
 describe('page de session : méta et fil', () => {
-  it('« · 2 en arrière-plan » en gras à côté de l’état, et la bande dans le fil', () => {
+  it('« · 2 en arrière-plan » en gras à côté de l’état, et la bande dans le fil', async () => {
     const s = session([sub('a'), sub('b', { kind: 'shell' })])
     render(<PageView page={{ kind: 'session', id: 's1' }} />, [s])
+    await flush() // la bande d'arrière-plan arrive avec le fil (ici : détail absent)
     const strong = [...host.querySelectorAll('.strong')].map(text)
     expect(strong).toContain('· 2 en arrière-plan')
     expect(rows()).toHaveLength(2)

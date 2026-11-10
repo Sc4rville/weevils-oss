@@ -13,6 +13,8 @@ describe('prompts FR/EN', () => {
       expect(md).toContain('{{user}}')
       expect(md).toContain('{{owner}}')
       expect(md).toContain('weevils send')
+      // « pour toi » : les deux verbes, dans la liste des commandes et dans la consigne
+      for (const verb of ['weevils post "', 'weevils show <']) expect(md.split(verb).length, `${l} ${verb}`).toBeGreaterThan(2)
     }
   })
 

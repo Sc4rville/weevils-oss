@@ -58,14 +58,28 @@
 .gauge.none > span {
   width: 0 !important;
 }
+.usage-line .meta .gauge {
+  height: 4px;
+  margin-top: 5px;
+}
 .gauge.big {
   height: 8px;
   margin-top: 6px;
 }
 
 /* ---- Page machine. */
-.ipage > .in {
+.ipage > .in,
+.mx-detail > .in {
   width: 100%;
+}
+
+/* Changement de machine : l'ancienne fiche en retrait le temps que la nouvelle arrive. */
+.mx-detail {
+  transition: opacity 0.2s ease-out;
+}
+.mx-detail.stale {
+  opacity: 0.4;
+  pointer-events: none;
 }
 
 .mx-tabs {

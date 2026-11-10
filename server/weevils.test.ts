@@ -247,3 +247,20 @@ describe('confirmation « Switch model? »', async () => {
     expect(dialogOnScreen(screen)).toBe('Switch model?')
   })
 })
+
+describe('message trop long pour le terminal', async () => {
+  const { fitTerminal, TERMINAL_MAX } = await import('./core.ts')
+  const fs = await import('node:fs')
+  const os = await import('node:os')
+  const path = await import('node:path')
+  it('un manifeste de 40 Ko passe par un fichier : l’agent reçoit le début (signé) et le chemin, jamais « command too long »', () => {
+    const dir = fs.mkdtempSync(path.join(os.tmpdir(), 'wv-long-'))
+    const text = `[from:gepetto] À WEEVBOSS. ${'Nous vivons à une frontière. '.repeat(1400)}FIN`
+    const out = fitTerminal(text, dir)
+    expect(Buffer.byteLength(out)).toBeLessThan(TERMINAL_MAX)
+    expect(out.startsWith('[from:gepetto] À WEEVBOSS.')).toBe(true)
+    const file = /(\/\S+\.md)/.exec(out)![1]
+    expect(fs.readFileSync(file, 'utf8')).toBe(text)
+    expect(fitTerminal('court', dir)).toBe('court')
+  })
+})

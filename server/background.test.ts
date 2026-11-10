@@ -290,7 +290,7 @@ describe('commandes passées en arrière-plan en cours de route, surveillances (
   // Lignes réelles (session cfc800be, 2026-11-10 02:01–02:17), raccourcies.
   const fgBash = (at: number) => toolUse('toolu_01VWZ', 'Bash', { command: 'python3 ~/scratch/essai/drive.py', description: 'Run the install driver', timeout: 600000 }, at)
   const movedResult = (at: number) =>
-    toolResult('toolu_01VWZ', 'Command did not complete within its 600s timeout and was moved to the background (ID: b4tp6nlj1). Output is being written to: /tmp/claude-1000/-home-yann-projects-weevils-content/cfc800be/tasks/b4tp6nlj1.output', at, {
+    toolResult('toolu_01VWZ', 'Command did not complete within its 600s timeout and was moved to the background (ID: b4tp6nlj1). Output is being written to: /tmp/claude-1000/-home-user-projects-weevils-content/cfc800be/tasks/b4tp6nlj1.output', at, {
       stdout: '',
       stderr: '',
       interrupted: false,

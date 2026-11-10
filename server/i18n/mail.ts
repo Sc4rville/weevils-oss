@@ -3,7 +3,6 @@ import { defineMessages } from '../i18n.ts'
 
 export default defineMessages({
   fr: {
-    noTarget: 'Objet sans cible. Mets « [projet] », « [session:xxxxxxxx] », « [weevboss] » ou « [new:projet] » dans l’objet.',
     emptyMessage: 'Message vide.',
     ambiguousSession: (id: string) => `Plusieurs sessions commencent par ${id} : donne plus de caractères.`,
     noSession: (id: string) => `Aucune session ${id}.`,
@@ -27,7 +26,6 @@ export default defineMessages({
     noResult: 'aucun résultat',
   },
   en: {
-    noTarget: 'No target in the subject. Put “[project]”, “[session:xxxxxxxx]”, “[weevboss]” or “[new:project]” in the subject.',
     emptyMessage: 'Empty message.',
     ambiguousSession: (id: string) => `Several sessions start with ${id}: give more characters.`,
     noSession: (id: string) => `No session ${id}.`,

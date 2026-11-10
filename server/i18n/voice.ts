@@ -21,6 +21,8 @@ export default defineMessages({
     missingAudio: 'audio manquant',
     transcriptionOff: 'la dictée n’est pas encore branchée : demande à weevboss de la brancher',
     transcriptionError: (status: number) => `transcription : erreur ${status}`,
+    incomplete: (minutes: number, words: number, file: string) =>
+      `transcription incomplète (${minutes} min de parole, ${words} mot${words > 1 ? 's' : ''} reconnu${words > 1 ? 's' : ''}) : rien n’est envoyé. L’enregistrement est gardé : ${file}`,
     noCartesiaKey: 'clé Cartesia absente',
     noCartesiaVoice: 'aucune voix française Cartesia',
     /** edge-tts (free voice) is not installed: weevboss plugs the voice in. */
@@ -39,6 +41,8 @@ export default defineMessages({
     missingAudio: 'no audio',
     transcriptionOff: 'dictation isn’t plugged in yet: ask weevboss to plug it in',
     transcriptionError: (status: number) => `transcription: error ${status}`,
+    incomplete: (minutes: number, words: number, file: string) =>
+      `incomplete transcription (${minutes} min of speech, ${words} word${words === 1 ? '' : 's'} recognized): nothing was sent. The recording is kept: ${file}`,
     noCartesiaKey: 'no Cartesia key',
     noCartesiaVoice: 'no English Cartesia voice',
     noEdgeTts: 'no voice yet: ask weevboss to plug in the voice',

@@ -1,0 +1,290 @@
+/* ---------- Mes logiciels (src/ui/softwares.tsx) : la grille des repos, en portrait, avec l'aperçu vivant dedans ---------- */
+
+/* Les trois couleurs des phases : fixes, les mêmes sur chaque rectangle et dans chaque thème, lisibles sur l'encre noire comme
+   blanche (luminance entre 0,18 et 0,26 : contraste ≥ 3:1 des deux côtés). Orange : vers une première version ; bleu : une
+   version utilisable ; magenta : de vrais utilisateurs. Aucune n'est le vert fluo, réservé à ce qui tourne. */
+:root {
+  --ph1: #f05a00;
+  --ph2: #2f6bff;
+  --ph3: #e0158f;
+}
+
+/* Graphite : tout en gris sauf ce qui vit. Les phases deviennent gris moyen → encre → le seul bleu (de vrais utilisateurs),
+   sur une piste blanche cernée d'encre (le gris et le bleu ne se liraient pas sur l'encre). */
+:root[data-theme='graphite'] {
+  --ph1: #8a8a8a;
+  --ph2: #141414;
+  --ph3: #0040f0;
+}
+
+/* Zen : les mêmes trois rôles, assourdis comme le reste du thème (terre cuite, bleu ardoise, prune), plus sombres que les
+   pastels des rectangles et lisibles sur l'encre zen #33302b (contraste ≥ 3,7:1). */
+:root[data-theme='zen'] {
+  --ph1: oklch(0.64 0.09 40);
+  --ph2: oklch(0.64 0.07 250);
+  --ph3: oklch(0.64 0.08 335);
+}
+
+[data-theme='graphite'] .sw-seg {
+  background: #fff;
+  outline: 1px solid var(--ink);
+  outline-offset: -1px;
+}
+
+.sw-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+@media (min-width: 700px) {
+  .sw-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+.sw {
+  position: relative;
+  min-width: 0;
+  aspect-ratio: 4 / 5;
+  display: flex;
+  flex-direction: column;
+  gap: 8px;
+  padding: 8px 8px 12px;
+  background: var(--c);
+  color: var(--ink);
+  text-align: left;
+  overflow: hidden;
+}
+
+/* L'aperçu : la capture, ou la sortie qui se tape. Encadré par la couleur du rectangle, pour que deux terminaux voisins ne se fondent pas. */
+.sw-view {
+  position: relative;
+  flex: 1;
+  min-height: 0;
+  display: block;
+  overflow: hidden;
+  background: var(--ink);
+}
+
+.sw-view img {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  object-fit: cover;
+  object-position: top;
+  background: var(--c);
+}
+
+.sw-name {
+  font-weight: 700;
+  font-size: 1.0625rem;
+  line-height: 1.15;
+  padding-inline: 2px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* Terminal : encre, texte de la couleur du rectangle, collé en bas (le texte monte). */
+.sw-term {
+  position: absolute;
+  inset: 0;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding: 6px 7px;
+  color: var(--c);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.5625rem;
+  line-height: 1.35;
+}
+
+.sw-term-line {
+  display: block;
+  white-space: pre;
+  overflow: hidden;
+  text-overflow: clip;
+  min-height: 1.35em;
+}
+
+.sw-cursor {
+  display: inline-block;
+  width: 0.6em;
+  height: 1.1em;
+  vertical-align: text-bottom;
+  background: currentColor;
+  animation: sw-blink 1s steps(1) infinite;
+}
+
+/* Tourne : un carré plein vert fluo dans le coin ; démarre : il clignote ; en échec : un « ! » d'encre sur la couleur. */
+.sw-run {
+  position: absolute;
+  top: 6px;
+  right: 6px;
+  width: 12px;
+  height: 12px;
+  background: var(--fluo);
+}
+
+.sw-run.blink {
+  animation: sw-blink 0.8s steps(1) infinite;
+}
+
+.sw-run.fail {
+  width: 22px;
+  height: 22px;
+  display: grid;
+  place-items: center;
+  background: var(--c);
+  color: var(--ink);
+  font-size: 0.875rem;
+}
+
+@keyframes sw-blink {
+  50% {
+    opacity: 0;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .sw-cursor,
+  .sw-run.blink {
+    animation: none;
+  }
+}
+
+/* Barre d'avancement : trois segments d'encre côte à côte, chacun rempli de la couleur de sa phase. */
+.sw-phase {
+  position: relative;
+  flex: none;
+  display: flex;
+  gap: 2px;
+  height: 9px;
+}
+
+.sw-phase.big {
+  flex: 1;
+  height: 22px;
+  cursor: pointer;
+  touch-action: manipulation;
+  user-select: none;
+  -webkit-user-select: none;
+  -webkit-touch-callout: none;
+}
+
+.sw-phase.big:focus-visible {
+  outline: 3px solid var(--ink);
+  outline-offset: 3px;
+}
+
+.sw-seg {
+  flex: 1;
+  display: block;
+  background: var(--ink);
+}
+
+.sw-seg > span {
+  display: block;
+  height: 100%;
+}
+
+.sw-seg.ph1 > span {
+  background: var(--ph1);
+}
+
+.sw-seg.ph2 > span {
+  background: var(--ph2);
+}
+
+.sw-seg.ph3 > span {
+  background: var(--ph3);
+}
+
+/* Corrigé à la main : un petit carré d'encre au bout de la barre. */
+.sw-mark {
+  flex: none;
+  display: block;
+  width: 9px;
+  height: 9px;
+  background: var(--ink);
+}
+
+/* La page d'un logiciel : la grande barre, les icônes, l'interface, la sortie en direct. */
+.sw-tools {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+  min-height: 60px;
+}
+
+.sw-fix {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  padding-block: 10px;
+}
+
+/* Le petit carré se touche : sa zone de tap dépasse le carré visible. */
+button.sw-mark {
+  box-sizing: content-box;
+  width: 14px;
+  height: 14px;
+  padding: 12px;
+  margin: -12px;
+  background-clip: content-box;
+}
+
+.sw-tools a.key {
+  text-decoration: none;
+  color: inherit;
+}
+
+.sw-reason {
+  padding-bottom: 12px;
+}
+
+/* L'iframe est posée en absolu dans un cadre de hauteur fixe : iOS Safari ignore la hauteur flex d'une iframe. */
+.sw-frame {
+  position: relative;
+  height: 74vh;
+  height: 74dvh;
+}
+
+.sw-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+.sw-shot {
+  display: block;
+}
+
+.sw-shot img {
+  display: block;
+  width: 100%;
+  max-height: 74dvh;
+  object-fit: cover;
+  object-position: top;
+}
+
+.sw-live {
+  margin: 0;
+  padding: 12px var(--pad) 16px;
+  min-height: 34vh;
+  max-height: 60vh;
+  overflow: auto;
+  background: var(--ink);
+  color: var(--c);
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.75rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}

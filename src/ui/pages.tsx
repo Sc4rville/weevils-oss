@@ -1,42 +1,42 @@
-import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import { noticeKey, sessionNoticeKey } from '../../shared/notices.ts'
+import { dismissNotice } from './notice-store'
+import { Notice } from './notice'
+import { useEffect, useMemo, useRef, useState } from 'react'
 import type { SessionDetail, Tool } from '../../shared/api.ts'
 import { api, type FileContent } from '../api'
 import { useApp, type Page } from './app-context'
-import { Collapse, Composer, Line, Messages, StatusChar, Working, type Attachment } from './bits'
+import { Collapse, Composer, Line, Messages, ResumeButton, StatusChar, Working, type Attachment } from './bits'
 import { Background } from './subagents'
+import { SessionArchiveAction } from './session-archive'
+import NM from '../i18n/notices'
+import { SessionQuestion } from './session-question'
 import { ConversationPage, ConversationsPage, ImportPage } from './convs'
 import { Preview, guessPreviewUrl, urlsInMessages, usePreviewState } from './preview'
-import { Settings, effortLabel, shortModel } from './settings'
+import { Settings, effortLabel, modelLabel } from './settings'
 import { ReposPage } from './repos'
+import { SoftwarePage, SoftwaresPage } from './softwares'
 import { CalmConv, CalmGrid } from './calm'
 import { markSeen } from './seen'
-import { mergePending, type Pending } from './pending'
-import { Shell } from './shell'
+import { dropSeed, mergePending, peekSeed, seedPending, type Pending } from './pending'
+import { FootError, Shell, swapPage } from './shell'
 import { CodeFile } from './codeview'
 import { FsFilePage, FsPage, InfraPage, UsagePage } from './infra'
+import { RelayPage, SessionRelay } from './relay'
 import { listFiles } from './repofiles'
 import { useThreadAsk } from './askthread'
 import { ago, durLong, status } from './format'
-import { Icon } from './icons'
 import { useT } from '../i18n'
+import { reveal, useFollow } from './follow'
+import { FollowDown } from './followdown'
 import M from '../i18n/pages'
-
-/** Garde la fin du fil visible quand un message arrive. */
-function useStickToBottom(count: number) {
-  const first = useRef(true)
-  useEffect(() => {
-    const el = document.querySelector<HTMLElement>('.page:last-of-type [data-scroll]')
-    if (!el || count === 0) return
-    const go = (smooth: boolean) => el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
-    go(!first.current)
-    const t = setTimeout(() => go(!first.current), 420)
-    first.current = false
-    return () => clearTimeout(t)
-  }, [count])
-}
+import { MemoryPage } from './memory'
+import { ForYouPage, MediaPage } from './foryou'
+import { AutoPage, AutoRunPage } from './auto-page'
 
 export function PageView({ page }: { page: Page }) {
   switch (page.kind) {
+    case 'archived':
+      return <ArchivedSessions />
     case 'session':
       return <SessionPage id={page.id} />
     case 'files':
@@ -51,6 +51,8 @@ export function PageView({ page }: { page: Page }) {
       return <FsFilePage machine={page.machine} path={page.path} />
     case 'usage':
       return <UsagePage />
+    case 'relay':
+      return <RelayPage />
     case 'new':
       return <NewSessionPage projectId={page.projectId} />
     case 'conversations':
@@ -61,11 +63,39 @@ export function PageView({ page }: { page: Page }) {
       return <ImportPage />
     case 'repos':
       return <ReposPage />
+    case 'softwares':
+      return <SoftwaresPage />
+    case 'software':
+      return <SoftwarePage id={page.id} />
     case 'calm':
       return <CalmGrid />
     case 'calmconv':
       return <CalmConv id={page.id} />
+    case 'memory':
+      return <MemoryPage />
+    case 'foryou':
+      return <ForYouPage who={page.who} />
+    case 'media':
+      return <MediaPage url={page.url} type={page.type} name={page.name} />
+    case 'auto':
+      return <AutoPage id={page.id} />
+    case 'autorun':
+      return <AutoRunPage id={page.id} at={page.at} />
   }
+}
+
+function ArchivedSessions() {
+  const { snap, push } = useApp()
+  const t = useT(NM)
+  const list = snap.sessions.filter((s) => s.archived)
+  return <Shell slot="agent" kicker="weevils" title={t.archived}>
+    {!list.length && <div className="in meta empty">{t.empty}</div>}
+    {list.map((s) => <div key={s.id} className="in archive-entry">
+      <button type="button" className="link" onClick={() => push({ kind: 'session', id: s.id })}>{s.title}</button>
+      <div className="meta">{s.tool} · {status[s.status].label}</div>
+      <SessionArchiveAction session={s} />
+    </div>)}
+  </Shell>
 }
 
 function Missing({ text }: { text?: string }) {
@@ -79,40 +109,16 @@ function Missing({ text }: { text?: string }) {
 
 function ErrorBand({ text }: { text: string }) {
   return (
-    <div className="band invert" role="alert">
+    <Notice eventId={noticeKey("page-error", location.pathname, text)} className="band invert" role="alert">
       <div className="in meta" style={{ paddingBlock: 12 }}>
         ! {text}
       </div>
-    </div>
+    </Notice>
   )
 }
 
 // ---------------------------------------------------------------------------
 // Session : le fil, l'écran du terminal, les touches.
-
-const KEYS: [string, ReactNode][] = [
-  ['1', '1'],
-  ['2', '2'],
-  ['3', '3'],
-  ['up', <Icon key="u" name="arrow" />],
-  ['down', <Icon key="d" name="arrow" dir="down" />],
-  ['enter', <Icon key="e" name="enter" />],
-  ['esc', 'esc'],
-  ['tab', 'tab'],
-]
-
-function Keys({ id, onError }: { id: string; onError: (m: string) => void }) {
-  const t = useT(M)
-  return (
-    <div className="in keys">
-      {KEYS.map(([k, label]) => (
-        <button key={k} className="key" aria-label={t.keyAria(k)} onClick={() => void api.key(id, k).catch((e) => onError((e as Error).message))}>
-          {label}
-        </button>
-      ))}
-    </div>
-  )
-}
 
 function SessionPage({ id }: { id: string }) {
   const { snap, now, replace, colors } = useApp()
@@ -120,11 +126,16 @@ function SessionPage({ id }: { id: string }) {
   const [detail, setDetail] = useState<SessionDetail | null>(null)
   const [missing, setMissing] = useState(false)
   const [err, setErr] = useState<string | null>(null)
-  const [pending, setPending] = useState<Pending[]>([])
+  // Le premier message d'une session qu'on vient de lancer est déjà là (pending.ts : seedPending).
+  const [pending, setPending] = useState<Pending[]>(() => peekSeed(id))
+  useEffect(() => dropSeed(id), [id])
   const [screenText, setScreenText] = useState<string | null>(null)
   const [showScreen, setShowScreen] = useState<boolean | null>(null)
   const [preview, setPreview] = usePreviewState(id)
   const [showSettings, setShowSettings] = useState(false)
+  const screenBand = useRef<HTMLDivElement>(null)
+  /** L'écran du terminal ouvert par une commande (/model, /approvals) : il est amené sous les yeux et mis en avant. */
+  const screenAsked = useRef(false)
 
   // Le détail suit chaque nouvelle version annoncée par le serveur.
   useEffect(() => {
@@ -169,12 +180,40 @@ function SessionPage({ id }: { id: string }) {
   }, [id, s?.hasScreen, screenOpen])
 
   const messages = useMemo(() => mergePending(detail?.messages ?? [], pending), [detail, pending])
-  useStickToBottom(messages.length)
-  const suggestions = useMemo(() => urlsInMessages(messages, snap.config), [messages])
+  const body = useRef<HTMLDivElement>(null)
   const sp = snap.projects.find((p) => p.id === s?.projectId)
   const th = useThreadAsk(messages, { title: s?.title ?? '', tool: s?.tool ?? 'claude', project: sp?.name, projectId: s?.projectId, repo: s?.repo ?? undefined, machine: s?.machineId })
+  // La fin du fil : déjà là à l'ouverture, suivie pendant que la réponse s'écrit, sauf si on remonte relire (src/ui/follow.ts).
+  // Un mot sélectionné (ou une question dictée) et sa réponse sous un message : le suivi attend, rien ne les pousse hors de l'écran.
+  const last = messages.at(-1)
+  const hold = th.hold
+  const follow = useFollow(body, messages.length > 0, 80, `${messages.length}:${last?.id}:${last?.text.length}:${s?.status}`, hold)
+  const suggestions = useMemo(() => urlsInMessages(messages, snap.config), [messages])
+  // Ce qui arrive pendant qu'une sélection tient le fil est signalé (behind) et rejoint en glissant au relâché (useFollow).
+  const toEnd = follow.toEnd
 
-  if (!s) return missing ? <Missing /> : <Shell slot="agent" kicker="weevils" title="…">{null}</Shell>
+  // Réglages ouverts (en bas du fil) : amenés sous les yeux une fois dépliés, même si on relisait plus haut.
+  useEffect(() => {
+    if (!showSettings) return
+    const t = window.setTimeout(() => reveal(document.getElementById('session-settings'), { block: 'nearest' }), 380)
+    return () => window.clearTimeout(t)
+  }, [showSettings])
+  // L'écran du terminal déplié : il s'ouvre vers le bas, on l'amène sous les yeux (mis en avant s'il vient d'une commande).
+  useEffect(() => {
+    if (!screenOpen) return
+    const lit = screenAsked.current
+    screenAsked.current = false
+    const t = window.setTimeout(() => reveal(screenBand.current, { block: 'nearest', flash: lit }), 380)
+    return () => window.clearTimeout(t)
+  }, [screenOpen])
+
+  // Introuvable : le même cadre (le conteneur suivi reste le même s'il apparaît ensuite).
+  if (!s)
+    return (
+      <Shell slot="agent" kicker="weevils" title={missing ? t.notFound : '…'} bodyRef={body}>
+        {missing && <div className="in meta empty">{t.notFound}</div>}
+      </Shell>
+    )
 
   const project = snap.projects.find((p) => p.id === s.projectId)
   const st = status[s.status]
@@ -185,8 +224,10 @@ function SessionPage({ id }: { id: string }) {
     const shown = files.length ? `${text ? `${text} ` : ''}(${t.photos(files.length)})` : text
     const tmp: Pending = { id: `pending-${Date.now()}`, role: 'user', text: shown, at: Date.now(), typed: text, after: detail?.messages.at(-1)?.id }
     setPending((p) => [...p, tmp])
+    toEnd()
     try {
       const r = files.length ? await api.attach(s.id, text, files) : await api.send(s.id, text)
+      if (s.status === 'needs_user' || s.status === 'interrupted') dismissNotice(sessionNoticeKey(s))
       if (r.id !== id) replace({ kind: 'session', id: r.id })
     } catch (e) {
       setPending((p) => p.filter((x) => x.id !== tmp.id))
@@ -210,7 +251,7 @@ function SessionPage({ id }: { id: string }) {
           )}
           {s.tool}{' '}
           <button className="link inline" onClick={() => setShowSettings(true)} aria-label={t.changeModel} aria-controls="session-settings">
-            {[shortModel(s.settings?.model), effortLabel(s.settings?.effort)].filter(Boolean).join(' · ') || t.model}
+            {[modelLabel(s.settings?.model), effortLabel(s.settings?.effort)].filter(Boolean).join(' · ') || t.model}
           </button>
           {' '}· <StatusChar s={s.status} /> {st.label}
           {s.background > 0 && <span className="strong"> · {t.background(s.background)}</span>}
@@ -226,40 +267,67 @@ function SessionPage({ id }: { id: string }) {
           <button className="link" onClick={() => setShowSettings((v) => !v)} aria-pressed={showSettings} aria-controls="session-settings">
             {t.settings}
           </button>
+          {' · '}<SessionArchiveAction key={s.id} session={s} />
         </>
       }
       dock={th.voice}
+      float={<FollowDown show={follow.behind} urgent={s.status === 'needs_user'} body={body} toEnd={toEnd} />}
+      bodyRef={body}
       side={preview.open ? <Preview url={previewUrl} suggestions={suggestions} onUrl={(url) => setPreview({ url })} onClose={() => setPreview({ open: false, full: false })} full={preview.full} onFull={(full) => setPreview({ full })} /> : undefined}
       foot={
-        <Composer
-          placeholder={s.controllable ? (s.live ? t.writeTo(s.tool) : t.resumeWith(s.tool)) : t.readOnly}
-          label={t.composerLabel(s.title)}
-          onSend={send}
-          onAttach={send}
-          voice
-          disabled={!s.controllable}
-        />
+        <>
+          <FootError text={err} />
+          <Composer
+            placeholder={s.controllable ? (s.live ? t.writeTo(s.tool) : t.resumeWith(s.tool)) : t.readOnly}
+            label={t.composerLabel(s.title)}
+            onSend={send}
+            onAttach={send}
+            voice
+            disabled={!s.controllable}
+          />
+        </>
       }
     >
-      {err && <ErrorBand text={err} />}
-
       <div ref={th.ref} className="ask-thread">
-        <Messages messages={messages} author={s.tool} working={s.status === 'working'} after={th.after} />
+        {/* Monté avec le fil chargé : la session s'ouvre posée sur son dernier message, sans tout dérouler. Avant, seulement
+            s'il y a déjà une bulle (premier message d'une session lancée) ; remonté au chargement pour que le lot arrive sans
+            se dérouler lui non plus. */}
+        {(detail || missing || pending.length > 0) && (
+          <Messages key={detail || missing ? 'loaded' : 'early'} messages={messages} author={s.tool} working={s.status === 'working'} after={th.after} />
+        )}
       </div>
 
-      <Background session={s} />
+      {/* Les bandes d'état (question, travail, coupure) arrivent avec le fil : posées avant lui sur une page vide, elles
+          seraient ensuite repoussées d'un coup vers le bas par les messages (ouverture depuis une notification). */}
+      {(detail || missing) && (
+        <>
+        <Background session={s} />
 
-      {s.status === 'needs_user' && (
-        <div className="msg band tone ask">
-          <div className="in">
-            <span className="who">! {t.asks(s.tool)}</span>
-            <div className="text">{s.attention ?? t.waitingForYou}</div>
-            {s.hasScreen && <Keys id={s.id} onError={setErr} />}
-          </div>
-        </div>
+        <SessionQuestion session={s} onError={setErr} />
+
+        {s.status === 'working' && <Working author={s.tool} since={s.workStartedAt} />}
+
+        <SessionRelay session={s} onError={setErr} />
+
+        {s.status === 'interrupted' && (
+          <Notice closable={false} eventId={sessionNoticeKey(s)} about={s.title} className="msg band cut-band">
+            <div className="in">
+              <span className="who">
+                × {st.label}
+                {s.interrupted ? ` · ${t.cutWhy(s.interrupted.reason)}` : ''}
+              </span>
+              {s.interrupted?.detail && <div className="text">{s.interrupted.detail}</div>}
+              <div className="cut-actions">
+                <ResumeButton session={s} stay onError={setErr} />
+                <button className="link" onClick={() => void api.dismiss(s.id).then(() => dismissNotice(sessionNoticeKey(s))).catch((e) => setErr((e as Error).message))}>
+                  {t.dismiss}
+                </button>
+              </div>
+            </div>
+          </Notice>
+        )}
+        </>
       )}
-
-      {s.status === 'working' && <Working author={s.tool} since={s.workStartedAt} />}
 
       <Collapse open={showSettings} id="session-settings">
         <div className="band tone">
@@ -269,19 +337,21 @@ function SessionPage({ id }: { id: string }) {
             settings={s.settings}
             canCommand={s.hasScreen}
             run={(c) => api.command(s.id, c)}
-            onPicker={() => setShowScreen(true)}
+            onPicker={() => {
+              screenAsked.current = true
+              setShowScreen(true)
+            }}
           />
         </div>
       </Collapse>
 
       {s.hasScreen && (
-        <div className="band tone">
+        <div ref={screenBand} className="band tone">
           <Line ch=">_" go={screenOpen ? '−' : '+'} onClick={() => setShowScreen(!screenOpen)} label={screenOpen ? t.hideScreen : t.showScreen}>
             <span className="meta">{t.terminalScreen}</span>
           </Line>
           <Collapse open={screenOpen}>
             <pre className="screen">{screenText ?? t.readingScreen}</pre>
-            <Keys id={s.id} onError={setErr} />
             <div style={{ height: 10 }} />
           </Collapse>
         </div>
@@ -372,6 +442,7 @@ function FilesPage({ projectId, repo, dir = '' }: { projectId: string; repo?: st
           </Line>
         )
       })}
+      {entries && entries.leaves.length > 500 && <div className="in meta empty">{t.moreFiles(entries.leaves.length - 500)}</div>}
       {entries && entries.folders.length + entries.leaves.length === 0 && <div className="in meta empty">{t.emptyDir}</div>}
     </Shell>
   )
@@ -409,6 +480,7 @@ function NewSessionPage({ projectId }: { projectId: string }) {
   const [repo, setRepo] = useState<string | undefined>(any ? undefined : project?.repos[0])
   const [err, setErr] = useState<string | null>(null)
   const created = useRef(false)
+  const repoLabel = useRef<HTMLDivElement>(null)
   useEffect(() => {
     if (!any) return
     setAllRepos(null)
@@ -422,12 +494,16 @@ function NewSessionPage({ projectId }: { projectId: string }) {
     if (created.current) return
     if (any && !repo) {
       setErr(t.pickRepoFirst)
+      // Le choix qui manque est amené sous les yeux.
+      reveal(repoLabel.current, { block: 'start' })
       throw new Error('repo')
     }
     created.current = true
     setErr(null)
     try {
       const r = await api.create({ projectId: any ? (repo ?? '') : projectId, repo, tool, text, machineId: repo ? project.where[repo] : undefined })
+      seedPending(r.id, text)
+      swapPage()
       replace({ kind: 'session', id: r.id })
     } catch (e) {
       created.current = false
@@ -440,9 +516,13 @@ function NewSessionPage({ projectId }: { projectId: string }) {
       slot={colors[projectId] ?? 'agent'}
       kicker={project.name}
       title={t.newSessionTitle}
-      foot={<Composer placeholder={t.firstMessage} label={t.firstMessageLabel} onSend={create} />}
+      foot={
+        <>
+          <FootError text={err} />
+          <Composer placeholder={t.firstMessage} label={t.firstMessageLabel} onSend={create} />
+        </>
+      }
     >
-      {err && <ErrorBand text={err} />}
       <div className="in label">{t.tool}</div>
       {(['claude', 'codex'] as Tool[]).map((x) => (
         <Line key={x} className={tool === x ? 'invert' : ''} ch={tool === x ? '>' : ' '} go={null} onClick={() => setTool(x)} label={`${x}${tool === x ? t.chosen : ''}`}>
@@ -472,7 +552,9 @@ function NewSessionPage({ projectId }: { projectId: string }) {
       )}
       {(project.repos.length > 1 || any) && (
         <>
-          <div className="in label">{t.repo}</div>
+          <div ref={repoLabel} className="in label">
+            {t.repo}
+          </div>
           {any && !allRepos && <div className="in meta empty">…</div>}
           {project.repos.map((r) => (
             <Line key={r} className={repo === r ? 'invert' : ''} ch={repo === r ? '>' : '/'} go={null} meta={any ? undefined : project.where[r]} onClick={() => setRepo(r)}>

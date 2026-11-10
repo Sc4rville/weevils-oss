@@ -1,0 +1,109 @@
+/* The memory page (src/ui/memory.tsx): memories as band lines, the open one big, in place. */
+
+/* « + » : the field grows with what is typed. */
+.mem-add textarea {
+  overflow: hidden;
+  line-height: 1.3;
+}
+
+/* A memory, closed: the sentence in full (three lines at most), no arrow (it opens in place). */
+.row.mem-row > .in {
+  align-items: baseline;
+  min-height: 0;
+  padding-block: 14px;
+}
+
+.mem-text {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.0625rem;
+  font-weight: 600;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-box-orient: vertical;
+  -webkit-line-clamp: 3;
+  line-clamp: 3;
+  overflow: hidden;
+}
+
+/* Open: the sentence becomes the title of its band, and its own field. */
+.in.mem-edit {
+  display: flex;
+  align-items: flex-start;
+  gap: 10px;
+  padding-top: 14px;
+  padding-bottom: 4px;
+}
+
+.mem-close {
+  width: 22px;
+  flex: none;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1.25;
+  min-height: 44px;
+  align-self: flex-start;
+}
+
+.mem-edit textarea {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.22;
+  resize: none;
+  overflow: hidden;
+  padding-block: 4px;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.mem-item.open .qa {
+  padding-left: 32px;
+}
+
+/* Origin and date on the left, « forget » on the right. */
+.in.mem-foot {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 48px;
+  padding-left: calc(var(--pad) + 32px);
+  padding-bottom: 6px;
+}
+
+.mem-from {
+  flex: 1;
+  min-width: 0;
+  overflow-wrap: anywhere;
+}
+
+.mem-del {
+  flex: none;
+  min-height: 44px;
+  /* Its words end on the right text margin; nothing ever runs past it. */
+  padding-inline: 10px 0;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+/* Armed: one more tap forgets. The black box ends on the margin, its words inside it. */
+.mem-del.on {
+  padding-inline: 10px;
+  background: var(--ink);
+  color: var(--c);
+}
+
+/* A refused write's reason, under its field. */
+.mem-note {
+  padding-block: 12px;
+}
+
+/* No frame around the fields, as for every input: the band is enough, the caret shows where one writes. */
+.mem-add textarea:focus-visible,
+.mem-edit textarea:focus-visible {
+  outline: none;
+}

@@ -41,6 +41,20 @@ WV_SAFE=${WV_SAFE:-$(sed -n 's/^[[:space:]]*WEEVILS_SAFE[[:space:]]*=[[:space:]]
 if [ "${WV_SAFE:-}" = 1 ]; then claude_flags=(); codex_flags=()
 else claude_flags=(--dangerously-skip-permissions); codex_flags=(--dangerously-bypass-approvals-and-sandbox); fi
 
+# Serveur tmux dédié, comme weevilsd (server/mux.ts) : un « tmux kill-server » lancé ailleurs ne ferme pas les sessions.
+# Les sessions d'avant, restées sur le serveur par défaut, sont encore listées et rejointes.
+sock=${WEEVILS_TMUX_SOCKET:-$(sed -n 's/^[[:space:]]*WEEVILS_TMUX_SOCKET[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([A-Za-z0-9_.-]*\).*/\1/p' "${WEEVILS_CONFIG:-$HOME/.config/weevils/env}" 2>/dev/null | tail -1 || true)}
+sock=${sock:-weevils}
+wt() { tmux -L "$sock" "$@"; }
+# Rejoint une session wv-* sur le serveur où elle vit ; depuis une autre pane tmux, en imbriqué si ce n'est pas le même serveur.
+join() {
+  if wt has-session -t "=$1" 2>/dev/null; then
+    if [ -n "${TMUX:-}" ] && [ "${TMUX%%,*}" = "$(wt display-message -p '#{socket_path}' 2>/dev/null)" ]; then exec tmux -L "$sock" switch-client -t "=$1"; fi
+    exec env -u TMUX tmux -L "$sock" attach -t "=$1"
+  fi
+  if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t "=$1"; else exec tmux attach -t "=$1"; fi
+}
+
 host=''
 case "${1:-}" in
   # Ancien alias retiré : refuser plutôt que lancer un agent local avec « vps … » pour message.
@@ -63,24 +77,27 @@ fi
 tool=claude
 case "${1:-}" in
   ls)
-    tmux list-sessions -F '#{session_name}  #{@wv_tool}  #{@wv_cwd}' 2>/dev/null | grep '^wv-' || echo "$m_none"
+    { wt list-sessions -F '#{session_name}  #{@wv_tool}  #{@wv_cwd}' 2>/dev/null; tmux list-sessions -F '#{session_name}  #{@wv_tool}  #{@wv_cwd}' 2>/dev/null; } | grep '^wv-' || echo "$m_none"
     exit 0 ;;
   a|attach)
-    name=${2:-$(tmux list-sessions -F '#{session_created} #{session_name}' 2>/dev/null | grep ' wv-' | sort -n | tail -1 | cut -d' ' -f2)}
+    name=${2:-$({ wt list-sessions -F '#{session_created} #{session_name}' 2>/dev/null; tmux list-sessions -F '#{session_created} #{session_name}' 2>/dev/null; } | grep ' wv-' | sort -n | tail -1 | cut -d' ' -f2)}
     [ -n "$name" ] || { echo "$m_none"; exit 1; }
-    if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t "=$name"; else exec tmux attach -t "=$name"; fi ;;
+    join "$name" ;;
   claude|codex)
     tool=$1; shift ;;
 esac
 
 dir=$(basename "$PWD")
+# tmux turns « . » and « : » into « _ » in a session name: done here, the name stays the one we target.
 short=$(od -An -N3 -tx1 /dev/urandom | tr -d ' \n')
-name="wv-${dir:0:18}-$short"
+dir=${dir:0:18}
+name="wv-${dir//[.:]/_}-$short"
 title=${1:-$m_title}
 
 # Rien ne doit interrompre la session (mise à jour, conseils, télémétrie) : mêmes variables que weevilsd.
 # L'agent part sans TMUX ni TMUX_PANE (comme dans weevilsd, server/mux.ts) : son « TMUX_TMPDIR=… tmux kill-server » de test
-# viserait sinon le serveur tmux de weevils et fermerait toutes les sessions.
+# viserait sinon le serveur tmux de weevils et fermerait toutes les sessions. Et ce serveur est dédié (-L) : un simple
+# « tmux kill-server » vise le serveur par défaut.
 notmux=(env -u TMUX -u TMUX_PANE)
 quiet=(-e CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 -e DISABLE_AUTOUPDATER=1 -e DISABLE_BUG_COMMAND=1 -e DISABLE_ERROR_REPORTING=1 -e DISABLE_TELEMETRY=1 -e DISABLE_COST_WARNINGS=1 -e DISABLE_TIPS=1)
 # Pas de dialogue de confiance : le dossier courant est marqué sûr dans ~/.claude.json avant de lancer claude.
@@ -90,13 +107,13 @@ if command -v jq >/dev/null && [ "$tool" = claude ]; then
 fi
 if [ "$tool" = claude ]; then
   id=$(cat /proc/sys/kernel/random/uuid)
-  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" "${notmux[@]}" claude "${claude_flags[@]}" --session-id "$id" "$@"
-  tmux set-option -t "=$name:" @wv_session_id "$id"
+  wt new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" "${notmux[@]}" claude "${claude_flags[@]}" --session-id "$id" "$@"
+  wt set-option -t "=$name:" @wv_session_id "$id"
 else
-  tmux new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" "${notmux[@]}" codex "${codex_flags[@]}" "$@"
+  wt new-session -d -s "$name" -x 120 -y 40 -c "$PWD" "${quiet[@]}" "${notmux[@]}" codex "${codex_flags[@]}" "$@"
 fi
-tmux set-option -t "=$name:" @wv_tool "$tool"
-tmux set-option -t "=$name:" @wv_title "${title:0:60}"
-tmux set-option -t "=$name:" @wv_cwd "$PWD"
+wt set-option -t "=$name:" @wv_tool "$tool"
+wt set-option -t "=$name:" @wv_title "${title:0:60}"
+wt set-option -t "=$name:" @wv_cwd "$PWD"
 
-if [ -n "${TMUX:-}" ]; then exec tmux switch-client -t "=$name"; else exec tmux attach -t "=$name"; fi
+join "$name"

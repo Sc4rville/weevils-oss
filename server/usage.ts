@@ -6,12 +6,12 @@
 
 import fs from 'node:fs'
 import path from 'node:path'
-import type { QuotaInfo, QuotaWindow, UsageRow } from '../shared/infra.ts'
+import type { QuotaInfo, QuotaWindow, TokenRate, UsageModel, UsageRow } from '../shared/infra.ts'
 import { CLAUDE_DIR, CODEX_DIR, HOME, MACHINE, ORCH_DIR, PROJECT_ROOTS } from './config.ts'
 import { tr } from './i18n.ts'
 import M from './i18n/infra.ts'
 
-const CACHE_MS = 180_000
+const CACHE_MS = 90_000
 const CODEX_HOME = process.env.CODEX_HOME ?? path.join(HOME, '.codex')
 
 const readJson = (f: string): any => {
@@ -62,8 +62,14 @@ export function claudeWindows(d: any): QuotaWindow[] {
 }
 
 let claudeCache: QuotaInfo | null = null
-async function claudeQuota(): Promise<QuotaInfo> {
+export async function claudeQuota(): Promise<QuotaInfo> {
   const now = Date.now()
+  // Simulation (tests of the Codex relay on a throwaway server): a file shaped like the API's answer.
+  const fake = process.env.WEEVILS_FAKE_CLAUDE_USAGE
+  if (fake) {
+    const d = readJson(fake)
+    return d ? { ok: true, plan: 'fake', windows: claudeWindows(d), source: fake, at: now } : { ok: false, windows: [], source: fake, at: now, error: tr(M).noToken }
+  }
   if (claudeCache && now - claudeCache.at < CACHE_MS) return claudeCache
   const source = 'api.anthropic.com/api/oauth/usage'
   const o = readJson(path.join(HOME, '.claude', '.credentials.json'))?.claudeAiOauth
@@ -175,14 +181,61 @@ interface FileState {
   offset: number
   seen: Set<string>
   agg: Map<string, Agg>
+  /** Par modèle : clé « outil:modèle ». */
+  models: Map<string, UsageModel>
+  /** Les réponses des dernières minutes : [heure, tokens], pour le débit en direct. */
+  recent: [number, number][]
   sid?: string
   cwd?: string
+  model?: string
 }
+
+const RATE_SPAN = 10 * 60_000
+const RATE_STEP = 15_000
 
 let dayStart = 0
 let files = new Map<string, FileState>()
 
 const modelFactor = (m: string) => (/haiku/i.test(m) ? 1 / 3 : /opus|fable/i.test(m) ? 5 / 3 : 1)
+
+/** Ce qu'une ligne de transcript a consommé : jetons, poids (≈ coût relatif), modèle, et l'id du message (claude : une
+ *  réponse est écrite sur plusieurs lignes avec le même usage, à ne compter qu'une fois). null : pas une ligne d'usage. */
+export interface LineUsage {
+  id?: string
+  at: number
+  tokens: number
+  weight: number
+  model?: string
+  sid?: string
+  cwd?: string
+}
+export function usageOfLine(o: any, tool: 'claude' | 'codex'): LineUsage | null {
+  const at = time(o?.timestamp) ?? 0
+  if (tool === 'claude') {
+    const u = o?.message?.usage
+    if (!u || o.type !== 'assistant') return null
+    const inp = Number(u.input_tokens ?? 0)
+    const out = Number(u.output_tokens ?? 0)
+    const cw = Number(u.cache_creation_input_tokens ?? 0)
+    const cr = Number(u.cache_read_input_tokens ?? 0)
+    const model = String(o.message?.model ?? '')
+    return {
+      id: o.message?.id ?? o.uuid,
+      at,
+      tokens: inp + out + cw + cr,
+      weight: (inp + 5 * out + 1.25 * cw + 0.1 * cr) * modelFactor(model),
+      model,
+      ...(o.sessionId ? { sid: String(o.sessionId) } : {}),
+      cwd: String(o.cwd ?? ''),
+    }
+  }
+  const u = o?.payload?.info?.last_token_usage
+  if (!u) return null
+  const inp = Number(u.input_tokens ?? 0)
+  const cached = Number(u.cached_input_tokens ?? 0)
+  const out = Number(u.output_tokens ?? 0)
+  return { at, tokens: Number(u.total_tokens ?? inp + out), weight: inp - cached + 0.1 * cached + 5 * out }
+}
 
 function scan(file: string, tool: 'claude' | 'codex') {
   let st: fs.Stats
@@ -192,7 +245,7 @@ function scan(file: string, tool: 'claude' | 'codex') {
     return
   }
   if (st.mtimeMs < dayStart) return
-  const s: FileState = files.get(file) ?? { offset: 0, seen: new Set(), agg: new Map() }
+  const s: FileState = files.get(file) ?? { offset: 0, seen: new Set(), agg: new Map(), models: new Map(), recent: [] }
   files.set(file, s)
   if (st.size <= s.offset) return
   const fd = fs.openSync(file, 'r')
@@ -204,11 +257,15 @@ function scan(file: string, tool: 'claude' | 'codex') {
   if (end < 0) return
   s.offset += Buffer.byteLength(text.slice(0, end + 1))
   for (const line of text.slice(0, end).split('\n')) {
-    if (tool === 'codex' && line.includes('"session_meta"')) {
+    if (tool === 'codex' && (line.includes('"session_meta"') || line.includes('"turn_context"'))) {
       try {
-        const p = JSON.parse(line).payload
-        s.sid = p?.id ?? s.sid
-        s.cwd = p?.cwd ?? s.cwd
+        const o = JSON.parse(line)
+        const p = o.payload
+        if (o.type === 'session_meta') {
+          s.sid = p?.id ?? s.sid
+          s.cwd = p?.cwd ?? s.cwd
+        }
+        s.model = p?.model ?? s.model
       } catch {
         /* ignorée */
       }
@@ -221,43 +278,74 @@ function scan(file: string, tool: 'claude' | 'codex') {
     } catch {
       continue
     }
-    const at = time(o.timestamp) ?? 0
-    if (at < dayStart) continue
-    let sid: string
-    let weight: number
-    let tokens: number
-    let cwd: string
-    if (tool === 'claude') {
-      const u = o.message?.usage
-      const id = o.message?.id ?? o.uuid
-      if (!u || o.type !== 'assistant' || s.seen.has(id)) continue
-      s.seen.add(id)
-      sid = String(o.sessionId ?? path.basename(file, '.jsonl'))
-      cwd = String(o.cwd ?? '')
-      const inp = Number(u.input_tokens ?? 0)
-      const out = Number(u.output_tokens ?? 0)
-      const cw = Number(u.cache_creation_input_tokens ?? 0)
-      const cr = Number(u.cache_read_input_tokens ?? 0)
-      tokens = inp + out + cw + cr
-      weight = (inp + 5 * out + 1.25 * cw + 0.1 * cr) * modelFactor(String(o.message?.model ?? ''))
-    } else {
-      const u = o.payload?.info?.last_token_usage
-      if (!u) continue
-      sid = s.sid ?? path.basename(file, '.jsonl').slice(-36)
-      cwd = s.cwd ?? ''
-      const inp = Number(u.input_tokens ?? 0)
-      const cached = Number(u.cached_input_tokens ?? 0)
-      const out = Number(u.output_tokens ?? 0)
-      tokens = Number(u.total_tokens ?? inp + out)
-      weight = inp - cached + 0.1 * cached + 5 * out
+    const u = usageOfLine(o, tool)
+    if (!u || u.at < dayStart) continue
+    if (u.id !== undefined) {
+      if (s.seen.has(u.id)) continue
+      s.seen.add(u.id)
     }
+    const { at, tokens, weight } = u
+    const sid = tool === 'claude' ? (u.sid ?? path.basename(file, '.jsonl')) : (s.sid ?? path.basename(file, '.jsonl').slice(-36))
+    const cwd = tool === 'claude' ? (u.cwd ?? '') : (s.cwd ?? '')
+    const model = tool === 'claude' ? (u.model ?? '') : (s.model ?? '')
     const a = s.agg.get(sid) ?? { tool, cwd, weight: 0, tokens: 0, last: 0 }
     a.weight += weight
     a.tokens += tokens
     a.last = Math.max(a.last, at)
     if (cwd) a.cwd = cwd
     s.agg.set(sid, a)
+    if (at > Date.now() - RATE_SPAN) s.recent.push([at, tokens])
+    if (model && !model.startsWith('<')) {
+      const k = `${tool}:${model}`
+      const m = s.models.get(k) ?? { tool, model, machine: MACHINE.id, weight: 0, tokens: 0 }
+      m.weight += weight
+      m.tokens += tokens
+      s.models.set(k, m)
+    }
   }
+}
+
+/** Jetons d'une session entière (tous les jours), lus dans son transcript : une tâche auto, un passage. Incrémental
+ *  (relit seulement la fin depuis le dernier appel) ; 0 sans fichier lisible. */
+const totals = new Map<string, { offset: number; seen: Set<string>; tokens: number }>()
+export function sessionTokens(file: string, tool: 'claude' | 'codex' = 'claude'): number {
+  let size: number
+  try {
+    size = fs.statSync(file).size
+  } catch {
+    return 0
+  }
+  let s = totals.get(file)
+  if (!s || size < s.offset) totals.set(file, (s = { offset: 0, seen: new Set(), tokens: 0 }))
+  if (size > s.offset) {
+    const fd = fs.openSync(file, 'r')
+    const buf = Buffer.alloc(size - s.offset)
+    fs.readSync(fd, buf, 0, buf.length, s.offset)
+    fs.closeSync(fd)
+    const text = buf.toString('utf8')
+    const end = text.lastIndexOf('\n')
+    if (end >= 0) {
+      s.offset += Buffer.byteLength(text.slice(0, end + 1))
+      for (const line of text.slice(0, end).split('\n')) {
+        if (tool === 'claude' ? !line.includes('"usage"') : !line.includes('"token_count"')) continue
+        let o: any
+        try {
+          o = JSON.parse(line)
+        } catch {
+          continue
+        }
+        const u = usageOfLine(o, tool)
+        if (!u) continue
+        if (u.id !== undefined) {
+          if (s.seen.has(u.id)) continue
+          s.seen.add(u.id)
+        }
+        s.tokens += u.tokens
+      }
+    }
+  }
+  if (totals.size > 64) for (const k of [...totals.keys()].slice(0, totals.size - 64)) if (k !== file) totals.delete(k)
+  return s.tokens
 }
 
 function listJsonl(dir: string, depth: number, out: string[]) {
@@ -288,7 +376,12 @@ const repoOf = (cwd: string) => {
   return path.basename(cwd) || '?'
 }
 
-export function today(lookup: (id: string) => { title: string; projectId: string } | undefined): UsageRow[] {
+let lastRefresh = 0
+/** Relit la fin des transcripts du jour (incrémental), au plus une fois toutes les 2 s. */
+function refresh() {
+  const now = Date.now()
+  if (now - lastRefresh < 2000) return
+  lastRefresh = now
   const d = new Date()
   d.setHours(0, 0, 0, 0)
   if (d.getTime() !== dayStart) {
@@ -301,6 +394,25 @@ export function today(lookup: (id: string) => { title: string; projectId: string
   const codex: string[] = []
   listJsonl(CODEX_DIR, 3, codex)
   for (const f of codex) scan(f, 'codex')
+  for (const s of files.values()) if (s.recent.length && s.recent[0][0] < now - RATE_SPAN) s.recent = s.recent.filter(([at]) => at >= now - RATE_SPAN)
+}
+
+/** Le débit en direct, toutes sessions de cette machine : tokens par tranche de 15 s sur les 10 dernières minutes. */
+export function rate(): TokenRate {
+  refresh()
+  const end = Math.floor(Date.now() / RATE_STEP) * RATE_STEP + RATE_STEP
+  const buckets = new Array<number>(RATE_SPAN / RATE_STEP).fill(0)
+  for (const s of files.values())
+    for (const [at, tokens] of s.recent) {
+      const i = buckets.length - 1 - Math.floor((end - 1 - at) / RATE_STEP)
+      if (i >= 0 && i < buckets.length) buckets[i] += tokens
+    }
+  return { step: RATE_STEP, end, buckets }
+}
+
+export function today(lookup: (id: string) => { title: string; projectId: string } | undefined): { rows: UsageRow[]; models: UsageModel[] } {
+  lastRefresh = 0
+  refresh()
   const by = new Map<string, Agg>()
   for (const s of files.values())
     for (const [sid, a] of s.agg) {
@@ -312,7 +424,17 @@ export function today(lookup: (id: string) => { title: string; projectId: string
         cur.last = Math.max(cur.last, a.last)
       }
     }
-  return [...by]
+  const models = new Map<string, UsageModel>()
+  for (const s of files.values())
+    for (const [k, m] of s.models) {
+      const cur = models.get(k)
+      if (!cur) models.set(k, { ...m })
+      else {
+        cur.weight += m.weight
+        cur.tokens += m.tokens
+      }
+    }
+  const rows = [...by]
     .map(([id, a]) => {
       const known = lookup(id)
       const repo = repoOf(a.cwd)
@@ -320,4 +442,5 @@ export function today(lookup: (id: string) => { title: string; projectId: string
     })
     .filter((r) => r.weight > 0)
     .sort((a, b) => b.weight - a.weight)
+  return { rows, models: [...models.values()].map((m) => ({ ...m, weight: Math.round(m.weight) })).filter((m) => m.weight > 0) }
 }

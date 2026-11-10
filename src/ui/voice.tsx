@@ -1,3 +1,5 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice, useNotice } from './notice'
 import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useRef, useState, type MouseEvent } from 'react'
 import { api } from '../api'
@@ -8,6 +10,7 @@ import M from '../i18n/voice'
 import { tapHint } from './hints'
 import { askSetup } from './setup'
 import { useApp } from './app-context'
+import { ITEM_SAYS, LOGO_SAYS } from './foryou-voice'
 
 /**
  * Le logo de weevboss est le bouton vocal, en trois taps qui s'enchaînent vite :
@@ -50,10 +53,24 @@ function reportMarks() {
   for (const k of Object.keys(marks)) delete marks[k]
 }
 
+/** Le logo va parler : les messages vocaux de « pour toi » (src/ui/foryou-voice.ts, leur propre élément audio) se taisent. */
+const announce = () => window.dispatchEvent(new Event(LOGO_SAYS))
+
+/** Un message vocal de « pour toi » démarre : le logo se tait, et sa lecture en cours se termine proprement (son état suit). */
+function quietLogo() {
+  if (!player || player.paused) return
+  player.pause()
+  const end = player.onended
+  player.onended = null
+  end?.call(player, new Event('ended'))
+}
+if (typeof window !== 'undefined') window.addEventListener(ITEM_SAYS, quietLogo)
+
 /** Le son arrive en flux : l'élément audio commence à jouer au premier morceau, sans attendre le fichier entier. */
 export async function say(text: string, onEnd: () => void, oral = false, voice?: string) {
   if (!player) return onEnd()
   const p = player
+  announce()
   try {
     const q = new URLSearchParams({ text: text.slice(0, 1500), oral: oral ? '1' : '0', ...(voice ? { voice } : {}) })
     p.src = `/api/speak/stream?${q}`
@@ -85,6 +102,7 @@ async function loadCue() {
 }
 function playCue() {
   if (!player || !cueUrl) return
+  announce()
   player.src = cueUrl
   player.onplaying = () => mark('cue')
   player.onended = null
@@ -97,6 +115,10 @@ const hush = () => {
     player.onended = null
   }
 }
+
+/** Logos qui écoutent, transcrivent ou parlent : tant qu'il y en a un, les questions du weevil attendent (src/ui/weevil.tsx). */
+const busyLogos = new Set<object>()
+export const voiceBusy = () => busyLogos.size > 0
 
 /** Durée d'affichage d'un message d'état du logo, avant son fondu (0,35 s) : moins de 3 s en tout. */
 const NOTE_MS = 2200
@@ -124,8 +146,30 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
     const t = setTimeout(() => setErr(null), NOTE_MS)
     return () => clearTimeout(t)
   }, [err])
+  const busyKey = useRef({})
+  useEffect(() => {
+    const k = busyKey.current
+    // « ready » (dictée transcrite, en attente d'un tap pour l'envoyer) n'écoute ni ne parle : souvent envoyée autrement.
+    if (phase === 'rec' || phase === 'wait' || speaking) busyLogos.add(k)
+    else busyLogos.delete(k)
+    return () => void busyLogos.delete(k)
+  }, [phase, speaking])
   const [reply, setReply] = useState(false)
   const rec = useRef<MediaRecorder | null>(null)
+  // Démonté en pleine écoute (feuille fermée) : le micro se coupe et plus rien ne part au serveur.
+  const alive = useRef(true)
+  useEffect(() => {
+    alive.current = true
+    return () => {
+      alive.current = false
+      const r = rec.current
+      if (!r || r.state === 'inactive') return
+      r.ondataavailable = null
+      r.onstop = null
+      r.stop()
+      r.stream.getTracks().forEach((tr) => tr.stop())
+    }
+  }, [])
   const chunks = useRef<Blob[]>([])
   const sendAfter = useRef(false)
   const lastReply = useRef(replyKey)
@@ -178,6 +222,7 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
     sendAfter.current = false
     try {
       const stream = await navigator.mediaDevices.getUserMedia({ audio: true })
+      if (!alive.current) return void stream.getTracks().forEach((tr) => tr.stop())
       const type = MIME.find((t) => MediaRecorder.isTypeSupported(t))
       const r = new MediaRecorder(stream, type ? { mimeType: type } : undefined)
       chunks.current = []
@@ -262,6 +307,7 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
     }
   }
 
+  const { hidden: errorHidden } = useNotice(noticeKey('error:voice', err))
   const label = phase === 'idle' ? t.dictate : phase === 'rec' ? t.stopAndTranscribe : phase === 'wait' ? t.sendWhenReady : t.send
   return (
     <div className="voice">
@@ -269,8 +315,8 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
         <WeevbossLogo className="voice-svg" />
       </button>
       <AnimatePresence>
-        {err && (
-          <motion.span
+        {err && !errorHidden && (
+          <motion.div
             key={err}
             className="voice-err"
             role="status"
@@ -279,9 +325,8 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
             exit={{ opacity: 0, rotate: -8, y: -4 }}
             transition={{ duration: 0.35, ease: 'easeOut' }}
           >
-            <span aria-hidden>! </span>
-            {err}
-          </motion.span>
+            <Notice eventId={noticeKey("error:voice", err)} className="voice-error-notice" role="status"><span aria-hidden>! </span>{err}</Notice>
+          </motion.div>
         )}
       </AnimatePresence>
     </div>

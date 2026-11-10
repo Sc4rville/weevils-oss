@@ -411,7 +411,8 @@
 }
 
 /* La bande de premiers pas suit la bande de weevboss ouverte en plein écran : cachée tant que le fil occupe tout. */
-.band.agent.open ~ .tr-band {
+.band.agent.open ~ .tr-band,
+.band.agent.open ~ .clip > .tr-band {
   display: none;
 }
 

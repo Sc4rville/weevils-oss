@@ -24,7 +24,8 @@ French design brief), this file wins.
   straight full-width bands (AI OS, Slava Kornilov) and the varying thickness (a cycling app) — not their stacked
   cards nor their rounded corners.
 - **At the top**: the main agent, the central place to monitor and prompt everything.
-- **At the bottom**: a sticky band with the agents that run 24/7 and what is around them.
+- **At the bottom**: a sticky band, « auto », with what runs on its own (timers, long jobs) and the background tasks
+  weevils proposes from what it knows of the user, accepted with one tap and run while the agents sleep.
 - **Every conversation/session opens as a chat** and you interact with it directly (like a cloud console where you
   click a resource to drive it).
 

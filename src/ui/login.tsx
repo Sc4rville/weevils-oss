@@ -1,3 +1,5 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 import { useState, type FormEvent } from 'react'
 import { api } from '../api'
 import { Icon } from './icons'
@@ -52,11 +54,11 @@ export function Login({ onDone }: { onDone: () => void }) {
           </div>
         </form>
         {err && (
-          <div className="band invert" role="alert">
+          <Notice eventId={noticeKey('error:login', location.pathname, location.hash, err)} className="band invert" role="alert">
             <div className="in meta" style={{ paddingBlock: 12 }}>
               ! {err}
             </div>
-          </div>
+          </Notice>
         )}
       </section>
     </main>

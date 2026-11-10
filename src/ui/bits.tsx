@@ -1,17 +1,24 @@
+import { SessionMenu } from './session-archive'
+import { sessionNoticeKey } from '../../shared/notices.ts'
+import { dismissNotice } from './notice-store'
 import { AnimatePresence, motion, type Transition } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
+import { createContext, useContext, useEffect, useMemo, useRef, useState, type FormEvent, type ReactNode } from 'react'
 import { api } from '../api'
+import { useCaptureSuggestion } from './capture-suggestion'
 import type { Author, Message, Session } from '../../shared/api.ts'
 import { useApp } from './app-context'
-import { dur, inline, isCommand, plain, segments, status, step, userText } from './format'
+import { chipLabel, chipLabels, type ChipId, dur, inline, isCommand, plain, segments, status, step, userText, userPhotos, userCaption } from './format'
 import { copyText, useLongPress } from './copy'
 import { markSeen } from './hints'
+import { flash, reveal } from './follow'
 import C from '../i18n/copy'
 import { getLang, tr, useT } from '../i18n'
 import M from '../i18n/bits'
 import D from '../i18n/devil'
+import RM from '../i18n/relay'
 import { isUnread, useSeen } from './seen'
-import { G, Icon } from './icons'
+import { AutoMark, G, Icon } from './icons'
+import { autoOfSession } from './auto-model'
 
 /** Ressort commun : léger dépassement, pour que les bandes aient de l'inertie. */
 export const spring: Transition = { type: 'spring', stiffness: 420, damping: 32, mass: 0.9 }
@@ -52,9 +59,11 @@ export function Appear({ children }: { children: ReactNode }) {
   )
 }
 
-export function StatusChar({ s }: { s: Session['status'] }) {
+/** auto: the session runs for an automation; working, it shows AutoMark instead of the green star. */
+export function StatusChar({ s, auto = false }: { s: Session['status']; auto?: boolean }) {
+  if (auto && s === 'working') return <AutoMark />
   return (
-    <span className={s === 'working' ? 'spin fluo' : undefined}>
+    <span className={s === 'working' ? 'spin fluo' : s === 'interrupted' ? 'alert' : undefined}>
       <G c={status[s].ch} />
     </span>
   )
@@ -64,14 +73,22 @@ export function StatusChar({ s }: { s: Session['status'] }) {
 function Clamp({ text }: { text: string }) {
   const t = useT(M)
   const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
   const long = text.length > 420
   return (
     <>
-      <div className={`text ${long && !open ? 'clamp' : ''}`}>
+      <div ref={box} className={`text ${long && !open ? 'clamp' : ''}`}>
         <Rich text={text} code={false} />
       </div>
       {long && (
-        <button className="link small" onClick={() => setOpen((v) => !v)}>
+        <button
+          className="link small"
+          onClick={() => {
+            setOpen((v) => !v)
+            // Déplié : la suite (ou, replié, le message) sous les yeux, du plus petit défilement.
+            requestAnimationFrame(() => reveal(box.current, { block: 'nearest', flash: false }))
+          }}
+        >
           {open ? t.showLess : t.readAll}
         </button>
       )}
@@ -96,8 +113,9 @@ export function ToolIcon({ tool, size = 15 }: { tool: string; size?: number }) {
 }
 
 export function SessionRow({ session }: { session: Session }) {
-  const { push, now } = useApp()
+  const { push, now, snap } = useApp()
   const t = useT(M) // libellé d'état et durée suivent la langue
+  const rt = useT(RM)
   useSeen()
   const unread = isUnread(session)
   const st = status[session.status]
@@ -106,17 +124,18 @@ export function SessionRow({ session }: { session: Session }) {
   // Un seul texte, en entier : la question qui t'attend, sinon l'activité en cours quand ça travaille, sinon le titre.
   const act = waiting && session.attention ? session.attention : session.status === 'working' ? session.now : undefined
   const text = act || session.title
-  const when = dur(now - (session.status === 'done' ? session.lastActivityAt : ref))
-  return (
+  const cut = session.status === 'interrupted'
+  const when = dur(now - (cut ? (session.interrupted?.at ?? session.lastActivityAt) : session.status === 'done' ? session.lastActivityAt : ref))
+  const row = (
     <button
-      className={`row ${waiting ? 'tone' : ''} ${session.status === 'working' ? 'live' : ''} ${unread ? 'unread' : ''}`}
+      className={`row ${waiting ? 'tone' : ''} ${cut ? 'cut' : ''} ${session.status === 'working' ? 'live' : ''} ${unread ? 'unread' : ''}`}
       onClick={() => push({ kind: 'session', id: session.id })}
       aria-label={t.rowAria(session.tool, session.title, st.label, act, session.background > 0 ? `${when}, ${t.background(session.background)}` : when)}
       title={act ? session.title : undefined}
     >
       <span className="in line" aria-hidden>
         <span className="st">
-          <StatusChar s={session.status} />
+          <StatusChar s={session.status} auto={!!autoOfSession(snap, session.id)} />
         </span>
         <span className="tool-ic">
           <ToolIcon tool={session.tool} />
@@ -125,9 +144,84 @@ export function SessionRow({ session }: { session: Session }) {
           {unread && <span className="dot" aria-hidden />}
           {text}
           {session.background > 0 && <span className="bg strong"> · {t.background(session.background)}</span>}
+          {/* Session Codex ouverte en relais d'une session Claude arrêtée par sa limite d'usage. */}
+          {session.relayOf && (
+            <span className="relay-sign" title={rt.signAria}>
+              ⇄ {rt.sign}
+            </span>
+          )}
         </span>
         <span className="act">{when}</span>
       </span>
+    </button>
+  )
+  return <div className="session-item">
+    {waiting && session.ask ? <div className="cut-wrap ask-wrap">{row}<AskButton session={session} /></div>
+      : cut ? <div className="cut-wrap">{row}<ResumeButton session={session} /></div> : row}
+    <SessionMenu session={session} />
+  </div>
+}
+
+/** L'action rapide d'une session qui attend : ouvrir son lien, lui coller le presse-papiers, ou lui répondre. */
+export function AskButton({ session }: { session: Session }) {
+  const { push } = useApp()
+  const t = useT(M)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const ask = session.ask!
+  const label = ask.kind === 'link' ? t.askLink : ask.kind === 'paste' ? t.askPaste : t.askReply
+  const go = async () => {
+    setErr(null)
+    if (ask.kind === 'link' && ask.url) return void window.open(ask.url, '_blank', 'noopener')
+    if (ask.kind !== 'paste') return push({ kind: 'session', id: session.id })
+    setBusy(true)
+    try {
+      // Dans le geste : iOS propose « Coller », rien n'est lu sans l'accord de l'utilisateur.
+      const text = (await navigator.clipboard.readText()).trim()
+      if (!text) throw new Error(t.clipboardEmpty)
+      const r = await api.send(session.id, text)
+      dismissNotice(sessionNoticeKey(session))
+      push({ kind: 'session', id: r.id })
+    } catch (e) {
+      // Presse-papiers refusé ou vide : la conversation s'ouvre, on y colle soi-même.
+      setErr((e as Error).message)
+      push({ kind: 'session', id: session.id })
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button className="resume ask" onClick={() => void go()} disabled={busy} aria-label={err ?? t.askAria(label, ask.text)} title={err ?? ask.text}>
+      {label}
+    </button>
+  )
+}
+
+/** Relance une session coupée (--resume et un message qui la renvoie à son travail), puis ouvre son fil. */
+export function ResumeButton({ session, onError, stay }: { session: Session; onError?: (e: string) => void; stay?: boolean }) {
+  const { push } = useApp()
+  const t = useT(M)
+  const [busy, setBusy] = useState(false)
+  const [err, setErr] = useState<string | null>(null)
+  const go = async () => {
+    setBusy(true)
+    setErr(null)
+    onError?.('')
+    try {
+      const r = await api.resume(session.id)
+      dismissNotice(sessionNoticeKey(session))
+      if (!stay) push({ kind: 'session', id: r.id })
+    } catch (e) {
+      const m = (e as Error).message
+      setErr(m)
+      onError?.(m)
+    } finally {
+      setBusy(false)
+    }
+  }
+  return (
+    <button className="resume" onClick={() => void go()} disabled={busy} aria-label={err ?? t.resumeAria(session.title)} title={err ?? undefined}>
+      {busy ? <span className="spin"><Icon name="star" /></span> : err ? <G c="!" /> : null} {t.resume}
     </button>
   )
 }
@@ -233,6 +327,9 @@ export function Composer({
   anyFile = false,
   draft,
   formRef,
+  sayErrors = false,
+  horizontal = false,
+  captureSuggestions = false,
 }: {
   placeholder: string
   label: string
@@ -251,6 +348,12 @@ export function Composer({
   draft?: { text: string; n: number; reset?: boolean }
   /** Pour envoyer depuis l'extérieur (troisième tap sur le logo). */
   formRef?: React.RefObject<HTMLFormElement | null>
+  /** Un envoi refusé dit pourquoi sur la ligne au-dessus du champ (sinon l'appelant l'affiche lui-même). */
+  sayErrors?: boolean
+  /** Native one-line horizontal editor, isolated from page swipe gestures. */
+  horizontal?: boolean
+  /** Offer pasted/authorized clipboard images before attaching them. */
+  captureSuggestions?: boolean
 }) {
   const t = useT(M)
   // Le texte en cours survit à un rechargement (mise à jour automatique de l'app, public/sw.js) : gardé dans l'onglet,
@@ -271,7 +374,7 @@ export function Composer({
       /* stockage indisponible */
     }
   }, [key, text])
-  const field = useRef<HTMLInputElement>(null)
+  const field = useRef<HTMLInputElement | HTMLTextAreaElement>(null)
   const [busy, setBusy] = useState(false)
   const [files, setFiles] = useState<Attachment[]>([])
   const [rec, setRec] = useState<'off' | 'on' | 'wait'>('off')
@@ -279,6 +382,7 @@ export function Composer({
   const recorder = useRef<MediaRecorder | null>(null)
   const chunks = useRef<Blob[]>([])
   const picker = useRef<HTMLInputElement>(null)
+  const capture = useCaptureSuggestion(captureSuggestions && !!onAttach && !disabled)
   const canVoice = voice && typeof MediaRecorder !== 'undefined' && !!navigator.mediaDevices?.getUserMedia
   useEffect(() => {
     if (draft?.reset) setText('')
@@ -287,6 +391,7 @@ export function Composer({
 
   const submit = async (e: FormEvent) => {
     e.preventDefault()
+    const form = e.currentTarget
     const typed = text.trim()
     if ((!typed && !files.length) || busy) return
     const sent = files
@@ -301,19 +406,23 @@ export function Composer({
       if (field.current) field.current.value = ''
     }
     clear()
-    setTimeout(clear, 0)
+    const later = setTimeout(clear, 0)
     try {
       if (sent.length && onAttach) await onAttach(typed, sent)
       else await onSend(typed)
-    } catch {
+    } catch (e) {
+      clearTimeout(later) // un refus immédiat : le second vidage ne doit pas effacer le texte rendu
       setText(typed) // on rend le texte en cas d'échec, rien n'est perdu
       setFiles(sent)
+      // Et on dit pourquoi (diable occupé, serveur injoignable…), sur la ligne au-dessus du champ.
+      if (sayErrors) setErr((e as Error).message || tr(M).sendFailed)
+      flash(form)
     } finally {
       setBusy(false)
     }
   }
 
-  const pick = async (list: FileList | null) => {
+  const pick = async (list: FileList | readonly File[] | null) => {
     if (!list?.length) return
     setBusy(true)
     try {
@@ -384,23 +493,64 @@ export function Composer({
         <span className="prompt" aria-hidden>
           {busy ? <span className="spin"><Icon name="star" /></span> : prompt}
         </span>
-        <input
-          ref={field}
-          value={text}
-          onChange={(e) => setText(e.target.value)}
-          onFocus={onFocus}
-          placeholder={rec === 'on' ? t.listening : rec === 'wait' ? t.transcribing : placeholder}
-          aria-label={label}
-          enterKeyHint="send"
-          autoComplete="off"
-          disabled={disabled}
-        />
+        {horizontal ? (
+          <textarea
+            ref={(node) => { field.current = node }}
+            className="horizontal-editor"
+            rows={1}
+            wrap="off"
+            value={text.replace(/\r?\n/g, ' ')}
+            onChange={(e) => setText(e.target.value.replace(/\r?\n/g, ' '))}
+            onFocus={onFocus}
+            onPaste={(e) => {
+              if (!captureSuggestions || !onAttach || disabled) return
+              const file = [...e.clipboardData.files].find((f) => f.type.startsWith('image/'))
+              if (file) { e.preventDefault(); capture.offer(file) }
+            }}
+            onKeyDown={(e) => {
+              if (e.key !== 'Enter' || e.nativeEvent.isComposing || e.keyCode === 229) return
+              e.preventDefault()
+              if (!e.shiftKey) e.currentTarget.form?.requestSubmit()
+            }}
+            onTouchStart={(e) => e.stopPropagation()}
+            onTouchMove={(e) => e.stopPropagation()}
+            onTouchEnd={(e) => e.stopPropagation()}
+            onPointerDown={(e) => e.stopPropagation()}
+            placeholder={rec === 'on' ? t.listening : rec === 'wait' ? t.transcribing : placeholder}
+            aria-label={label}
+            enterKeyHint="send"
+            autoComplete="off"
+            disabled={disabled}
+          />
+        ) : (
+          <input
+            ref={(node) => { field.current = node }}
+            value={text}
+            onChange={(e) => setText(e.target.value)}
+            onFocus={onFocus}
+            placeholder={rec === 'on' ? t.listening : rec === 'wait' ? t.transcribing : placeholder}
+            aria-label={label}
+            enterKeyHint="send"
+            autoComplete="off"
+            disabled={disabled}
+          />
+        )}
         {onAttach && !disabled && (
           <>
             <input ref={picker} type="file" accept={anyFile ? undefined : 'image/*'} multiple hidden onChange={(e) => void pick(e.target.files)} />
-            <button type="button" className="tool-btn" onClick={() => picker.current?.click()} aria-label={anyFile ? t.attachAny : t.attachPhoto}>
-              <Icon name="plus" />
-            </button>
+            {capture.candidate ? (
+              <button type="button" className="tool-btn capture-offer" disabled={busy} aria-label={t.attachClipboardImage} onClick={() => {
+                const file = capture.candidate?.file
+                capture.clear()
+                if (file) void pick([file])
+              }}>
+                <img src={capture.candidate.url} alt="" />
+              </button>
+            ) : (
+              <button type="button" className="tool-btn" onClick={() => picker.current?.click()} aria-label={anyFile ? t.attachAny : t.attachPhoto}>
+                <Icon name="plus" />
+              </button>
+            )}
           </>
         )}
         {canVoice && !disabled && (
@@ -440,11 +590,18 @@ export function Prose({ text }: { text: string }) {
 function Snippet({ code }: { code: string }) {
   const t = useT(M)
   const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
   const n = code.split('\n').length
+  const toggle = () => {
+    // Le code s'ouvre vers le bas (le fil ne le repousse pas, src/ui/follow.ts) ; une fois déplié, on l'amène sous les
+    // yeux s'il dépasse : son début d'abord quand il est plus grand que le fil.
+    if (!open) window.setTimeout(() => reveal(box.current, { block: 'nearest', flash: false }), 400)
+    setOpen((v) => !v)
+  }
   return (
-    <div className="snippet">
+    <div ref={box} className="snippet">
       <div className="snippet-head">
-        <button className="link" onClick={() => setOpen((v) => !v)} aria-expanded={open}>
+        <button className="link" onClick={toggle} aria-expanded={open}>
           <Icon name={open ? 'minus' : 'plus'} /> {t.code(n)}
         </button>
         <CopyButton text={code} />
@@ -482,6 +639,15 @@ export function CopyButton({ text }: { text: string }) {
 }
 
 /** Texte de message : les URL deviennent des liens (navigateur), les `commandes` ont leur bouton copier. */
+/** Ce qu'une puce de branchement écrite dans un message devient à sa place : un bouton (fourni par le fil de weevboss),
+ * sinon (null, ou hors de ce fil) son libellé, pour que la phrase reste lisible. */
+export const ChipSlot = createContext<((b: ChipId) => ReactNode) | null>(null)
+
+function InlineChip({ brick }: { brick: ChipId }) {
+  const slot = useContext(ChipSlot)
+  return slot?.(brick) ?? <span className="chip-label">{chipLabel(brick)}</span>
+}
+
 export function Rich({ text, code = true }: { text: string; code?: boolean }) {
   const parts = useMemo(() => inline(text, code), [text, code])
   return (
@@ -489,6 +655,8 @@ export function Rich({ text, code = true }: { text: string; code?: boolean }) {
       {parts.map((p, i) =>
         p.kind === 'text' ? (
           p.s
+        ) : p.kind === 'chip' ? (
+          <InlineChip key={i} brick={p.brick} />
         ) : p.kind === 'url' ? (
           <a key={i} className="url" href={p.href} target="_blank" rel="noopener noreferrer" onClick={(e) => e.stopPropagation()}>
             {p.label}
@@ -629,7 +797,23 @@ export function useAuthors() {
 export const authorTone = (a: Author) => (a.color ? { className: 'tone orch ext', style: { '--who': a.color } as React.CSSProperties } : { className: 'tone orch', style: undefined })
 
 /** after(id) : ce qui s'affiche sous un message (la barre de questions d'askthread.tsx), id = data-mid du message. */
-export function Messages({ messages, author, working = false, after }: { messages: Message[]; author: string; working?: boolean; after?: (id: string) => ReactNode }) {
+/** pendingLabel : la mention des bulles envoyées pas encore arrivées dans le fil (ids « pending-… », src/ui/pending.ts). */
+export function Messages({
+  messages,
+  author,
+  working = false,
+  after,
+  chip,
+  pendingLabel,
+}: {
+  messages: Message[]
+  author: string
+  working?: boolean
+  after?: (id: string) => ReactNode
+  /** Une puce de branchement écrite dans le message id : son bouton, à sa place dans la phrase (null : son libellé). */
+  chip?: (brick: ChipId, id: string) => ReactNode
+  pendingLabel?: string
+}) {
   const t = useT(M)
   const td = useT(D)
   const [all, setAll] = useState(false)
@@ -654,11 +838,26 @@ export function Messages({ messages, author, working = false, after }: { message
             <Bubble
               className={`msg band ${g.m.role === 'user' ? 'tone' : g.m.role === 'orchestrator' ? authorTone(authorOf(g.m.author)).className : ''} ${g.m.devil && g.m.role === 'assistant' ? 'devil' : ''} ${g.m.demo ? 'demo' : ''}`}
               style={g.m.role === 'orchestrator' ? authorTone(authorOf(g.m.author)).style : undefined}
-              who={`${g.m.role === 'user' ? t.you : g.m.role === 'orchestrator' ? authorOf(g.m.author).name : g.m.devil ? td.devil : author}${g.m.demo ? ` · ${t.demo}` : ''}`}
-              copy={g.m.role === 'user' ? userText(g.m.text) : g.m.text}
+              who={`${g.m.role === 'user' ? t.you : g.m.role === 'orchestrator' ? authorOf(g.m.author).name : g.m.devil ? td.devil : author}${g.m.demo ? ` · ${t.demo}` : ''}${pendingLabel && g.m.id.startsWith('pending-') ? ` · ${pendingLabel}` : ''}`}
+              copy={g.m.role === 'user' ? userText(g.m.text) : chipLabels(g.m.text)}
               mid={g.m.id}
             >
-              {g.m.role === 'user' ? <Clamp text={userText(g.m.text)} /> : g.m.role === 'orchestrator' ? <Clamp text={g.m.text} /> : <Prose text={g.m.text} />}
+              {g.m.role === 'user' ? (
+                <>
+                  <Clamp text={userCaption(g.m.text)} />
+                  {userPhotos(g.m.text).map((file) => (
+                    <a key={file} className="user-photo" href={`/api/attachments?path=${encodeURIComponent(file)}`} target="_blank" rel="noopener noreferrer">
+                      <img src={`/api/attachments?path=${encodeURIComponent(file)}`} alt={file.split('/').at(-1) ?? ''} loading="lazy" />
+                    </a>
+                  ))}
+                </>
+              ) : g.m.role === 'orchestrator' ? (
+                <Clamp text={g.m.text} />
+              ) : (
+                <ChipSlot.Provider value={chip ? (b) => chip(b, g.m.id) : null}>
+                  <Prose text={g.m.text} />
+                </ChipSlot.Provider>
+              )}
             </Bubble>
             {after?.(g.m.id)}
           </Appear>
@@ -669,14 +868,15 @@ export function Messages({ messages, author, working = false, after }: { message
 }
 
 /** L'agent travaille : une ligne vivante en bas du fil. */
-export function Working({ author, since }: { author: string; since?: number | null }) {
+/** mark: the sign of life in place of the green star (AutoMark for an automation). */
+export function Working({ author, since, mark }: { author: string; since?: number | null; mark?: ReactNode }) {
   const { now } = useApp()
   const t = useT(M)
   return (
     <motion.div className="msg band working" initial={{ opacity: 0, height: 0 }} animate={{ opacity: 1, height: 'auto' }} exit={{ opacity: 0, height: 0 }} transition={spring}>
       <div className="in">
         <span className="who">
-          <span className="spin fluo"><Icon name="star" /></span> {t.working(author)}{since ? ` · ${dur(now - since)}` : ''}
+          {mark ?? <span className="spin fluo"><Icon name="star" /></span>} {t.working(author)}{since ? ` · ${dur(now - since)}` : ''}
           <span className="dots" aria-hidden>
             <i />
             <i />

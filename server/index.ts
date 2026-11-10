@@ -1,3 +1,5 @@
+import { rawEngineeringNotice } from '../shared/feed-text.ts'
+import FY from './i18n/foryou.ts'
 // weevilsd : API + flux temps réel pour l'app, et récepteur local des hooks Claude Code.
 // Lancer : node server/index.ts (Node 22, TypeScript natif).
 
@@ -6,35 +8,81 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import http from 'node:http'
 import path from 'node:path'
-import { CONFIG_DIR, DATA_DIR, DIST_DIR, HOOK_PORT, HOST, MACHINE, ORCHESTRATOR, PORT, PUBLIC_URL } from './config.ts'
+import { CODEX_DIR, CONFIG_DIR, CONFIG_FILE, DATA_DIR, DIST_DIR, HOOK_PORT, HOST, INBOX_DIR, KILL_AFTER_MS, MACHINE, ORCHESTRATOR, PORT, PROJECT_ROOTS, PUBLIC_URL } from './config.ts'
 import { openaiKey, transcribe } from './transcribe.ts'
 import { addChunk, clip, cue, finishUpload, logMarks, newShortcutToken, shortcutAuthed, shortcutToken, speakStream, voiceTurn } from './voicepipe.ts'
 import { cartesia, cartesiaVoices } from './fast.ts'
-import { Weevils } from './core.ts'
+import { Weevils, isTestBrief } from './core.ts'
 import { setLang, tr } from './i18n.ts'
 import M from './i18n/api.ts'
 import P from './i18n/push.ts'
 import V from './i18n/voice.ts'
 import S from './i18n/setup.ts'
-import { tipRoutes } from './tips.ts'
+import { LoadSampler, tipRoutes } from './tips.ts'
 import { Hints, hintRoutes } from './hints.ts'
+import { softwareRoutes } from './softwares.ts'
 import { browserSafe, isLocal, trustedFrom } from './http.ts'
 import { startMailBridge } from './mailbridge.ts'
+import { resetAuthors } from './authors.ts'
 import { explain, grepRepo, readExplain } from './explain.ts'
 import { brief, detail as infraDetail, listDir, readAny, startInfra } from './infra.ts'
-import { quotas, today as usageToday } from './usage.ts'
-import type { InfraDetail, MachineBrief, MachineFacts, Reach, UsageRow } from '../shared/infra.ts'
+import { claudeQuota, quotas, rate as tokenRate, today as usageToday } from './usage.ts'
+import { Relay, defaultDeps } from './relay.ts'
+import type { InfraDetail, MachineBrief, MachineFacts, Reach, TokenRate, UsageToday } from '../shared/infra.ts'
 import { facts } from './discover.ts'
-import { Setup, installPlan, writeConfig } from './setup.ts'
+import { Setup, installPlan, which, writeConfig } from './setup.ts'
 import { TourKeeper } from './tour.ts'
 import { DEMOS, isTourId } from '../shared/tour.ts'
-import { isBrick, isSetupKey, type Device } from '../shared/setup.ts'
+import { isBrick, isSecretName, isSetupKey, type Device } from '../shared/setup.ts'
+import { Memory, memoryRoutes } from './memory.ts'
+import { Flyers, weevilRoutes } from './weevil.ts'
+import { Optimizers, optimizerRoutes } from './optimizers.ts'
+import { ForYou, foryouRoutes, type MachineState } from './foryou.ts'
+import { serveAttachment } from './attachments.ts'
+import { MediaShelf } from './foryou-media.ts'
+import { Curator } from './foryou-curator.ts'
+import { Voices, voiceParam } from './foryou-voice.ts'
+import type { MachineLoad } from '../shared/tips.ts'
 
 const w = new Weevils()
 w.start()
 startInfra()
 // Pont e-mail (agents externes) : sur la machine de l'orchestrateur, seulement si WEEVILS_MAIL_ADDRESS / _PASSWORD sont remplis.
 let mailBridge = ORCHESTRATOR ? startMailBridge(w, DATA_DIR) : null
+const restartMail = () => {
+  mailBridge?.stop()
+  mailBridge = ORCHESTRATOR ? startMailBridge(w, DATA_DIR) : null
+  mailSeen = mailKeys()
+}
+// Le pont et les auteurs suivent le fichier de config à chaud : un mot de passe ou un auteur saisi (dans l'app, par
+// « weevils config set » ou à la main) les met en route sans redémarrer weevils.
+const MAIL_KEY = /^\s*(WEEVILS_(?:MAIL|AUTHOR)_[A-Z0-9_]*)\s*=\s*(.*?)\s*$/
+const mailKeys = () => JSON.stringify(Object.entries(process.env).filter(([k]) => /^WEEVILS_(MAIL|AUTHOR)_/.test(k)).sort())
+let mailSeen = mailKeys()
+let mailFileKeys = new Set<string>()
+const readMailKeys = () => {
+  const fresh = new Map<string, string>()
+  try {
+    for (const line of fs.readFileSync(CONFIG_FILE, 'utf8').split('\n')) {
+      const m = MAIL_KEY.exec(line)
+      if (m) fresh.set(m[1], m[2].replace(/^["']|["']$/g, ''))
+    }
+  } catch {
+    return
+  }
+  for (const k of mailFileKeys) if (!fresh.has(k)) delete process.env[k]
+  for (const [k, v] of fresh) process.env[k] = v
+  mailFileKeys = new Set(fresh.keys())
+}
+readMailKeys()
+mailSeen = mailKeys()
+fs.watchFile(CONFIG_FILE, { interval: 3000 }, () => {
+  readMailKeys()
+  if (mailKeys() === mailSeen) return
+  resetAuthors()
+  console.log('[mail]', 'config changée : pont relu')
+  restartMail()
+})
 
 // ---------------------------------------------------------------- secret partagé (ce soir) → passkey (demain)
 
@@ -71,11 +119,10 @@ const setup = new Setup({
   shortcut: () => !!shortcutToken(),
   seen: () => hints.get().seen,
   hasHistory: () => w.snapshot().main.some((m) => m.role === 'user'),
-  startMail: () => {
-    mailBridge?.stop()
-    mailBridge = ORCHESTRATOR ? startMailBridge(w, DATA_DIR) : null
-  },
+  startMail: restartMail,
   handoff: (text, brief) => w.sendMain(text, brief),
+  memory: () => w.memory,
+  bossId: () => w.bossConversation(),
 })
 w.setup = setup
 const tour = new TourKeeper({
@@ -88,6 +135,78 @@ const tour = new TourKeeper({
   refreshH24: () => w.refreshH24(),
 })
 w.tour = tour
+
+// ---------------------------------------------------------------- mémoire, questions du weevil, auto (machine principale)
+
+const memory = new Memory()
+memory.onChange(() => w.bump())
+const flyers = new Flyers(w, memory)
+const optimizers = new Optimizers(w, memory)
+if (ORCHESTRATOR) {
+  w.memory = memory
+  w.optimizers = optimizers
+  optimizers.start()
+}
+
+// ---------------------------------------------------------------- « pour toi » (machine principale, server/foryou.ts)
+
+/** Niveau et disque de chaque machine, pour les alertes du flux : demandés en arrière-plan, jamais sur le chemin d'une requête. */
+const machineStates = async (): Promise<MachineState[]> => {
+  const here = brief()
+  const disk = await fs.promises.statfs(DATA_DIR).then((d) => (d.blocks ? Math.round((1 - d.bavail / d.blocks) * 100) : undefined)).catch(() => undefined)
+  const far = await Promise.all(
+    w.remotes.filter((r) => r.online).map(async (r): Promise<MachineState | null> => {
+      const m = await r.call<{ machines: MachineBrief[] }>('GET', '/api/infra/brief?local=1').then((d) => d.machines[0]).catch(() => null)
+      return m ? { id: r.snap?.machines[0]?.id ?? r.id, name: r.snap?.machines[0]?.name ?? r.id, level: m.level } : null
+    }),
+  )
+  return [{ id: here.id, name: here.name, level: here.level, disk }, ...far.filter((m): m is MachineState => !!m)]
+}
+// La charge de cette machine telle que GET /api/tips la lit (tips-state.json, écrit chaque minute), relue de temps en temps.
+let tipLoad: { at: number; loads: MachineLoad[] } = { at: 0, loads: [] }
+// La voix de chacun dans le flux : weevboss garde celle de l'app, chaque auteur extérieur a la sienne (server/foryou-voice.ts).
+const voices = new Voices({ bossVoice: () => w.voiceId ?? cartesia()?.voice })
+const foryou = ORCHESTRATOR
+  ? new ForYou(w, {
+      shelf: new MediaShelf({ file: path.join(DATA_DIR, 'foryou-media.json'), roots: [...PROJECT_ROOTS, INBOX_DIR, DATA_DIR] }),
+      isTestBrief,
+      optimizers: () => ({ accept: (id) => optimizers.accept(id) === true, refuse: (id) => optimizers.refuse(id) }),
+      tips: (snap, now) => {
+        if (now - tipLoad.at > 5 * 60_000) tipLoad = { at: now, loads: [new LoadSampler().local()] }
+        return { snap, now, loads: tipLoad.loads, dictation: !!openaiKey(), reapMs: KILL_AFTER_MS }
+      },
+      quotas,
+      machines: machineStates,
+      mail: () => mailBridge,
+      voiceOf: (who) => voices.of(who),
+    })
+  : null
+w.foryou = foryou
+// Ce qui est écrit ou compté dans le flux (point de weevboss, idées, « tu savais que », jalons, barres du jour) : une
+// seule boucle, sur son propre minuteur, jamais sur le chemin d'une requête (server/foryou-curator.ts).
+if (foryou) {
+  const curator = new Curator(foryou, {
+    deployment: () => {
+      try { return JSON.parse(fs.readFileSync(path.join(import.meta.dirname, '../dist/build.json'), 'utf8')) } catch { return null }
+    },
+    memory: () => w.memory,
+    repoDir: (repo) => w.repoDir(repo),
+    advice: async () => (await infraDetail()).advice,
+  })
+  foryou.curator = curator
+  curator.start()
+}
+// ---------------------------------------------------------------- relais Codex pendant la limite de Claude (chaque machine, pour ses sessions)
+
+let codexSeen = { at: 0, ok: false }
+const codexReady = () => {
+  if (Date.now() - codexSeen.at > 30_000) codexSeen = { at: Date.now(), ok: !!which('codex') && fs.existsSync(path.join(path.dirname(CODEX_DIR), 'auth.json')) }
+  return codexSeen.ok
+}
+const relay = new Relay(w.relayHost(), defaultDeps(claudeQuota, codexReady))
+w.relay = relay
+relay.start()
+
 const asDevice = (d: any): Device => ({
   os: ['ios', 'android', 'mac', 'windows', 'linux'].includes(d?.os) ? d.os : 'other',
   mobile: !!d?.mobile,
@@ -261,8 +380,10 @@ const routes: [string, RegExp, Handler][] = [
     // Les autres machines suivent : leurs erreurs et leurs écrans remontent dans l'app. Relayé quand l'app parle
     // (passe par le proxy) ou quand la langue change : deux machines qui se lisent l'une l'autre ne se renvoient
     // pas la requête sans fin (le relais arrive en local et ne change plus rien).
-    const changed = setLang(body.lang)
-    if (changed || !isLocal(req)) for (const r of w.remotes) if (r.online) void r.call('POST', '/api/prefs', { lang: body.lang }).catch(() => undefined)
+    // chosen : langue choisie dans les réglages de l'app ; sinon celle du navigateur, qui ne fixe la langue qu'une fois.
+    const chosen = body.chosen === true
+    const changed = setLang(body.lang, chosen)
+    if (changed || !isLocal(req)) for (const r of w.remotes) if (r.online) void r.call('POST', '/api/prefs', { lang: body.lang, chosen }).catch(() => undefined)
     json(res, 200, { ok: true })
   }],
   ['GET', /^\/api\/snapshot$/, (_req, res) => json(res, 200, w.snapshot())],
@@ -331,12 +452,19 @@ const routes: [string, RegExp, Handler][] = [
     const b = await readBody(req)
     if (!isBrick(b.brick)) return json(res, 400, { error: tr(S).badBrick })
     const flow = await setup.ask(b.brick, b.device ? asDevice(b.device) : undefined)
-    json(res, 200, { ok: true, flow })
+    json(res, 200, { ok: true, flow, said: setup.lastSaid ?? undefined })
   }],
   ['POST', /^\/api\/setup\/apply$/, async (req, res) => {
     const b = await readBody(req, 64 << 10)
     if (!isBrick(b.brick) || typeof b.values !== 'object' || !b.values) return json(res, 400, { error: tr(S).badBrick })
     await setup.apply(b.brick, Object.fromEntries(Object.entries(b.values as Record<string, unknown>).map(([k, v]) => [k, String(v ?? '')])))
+    json(res, 200, { ok: true, said: setup.lastSaid ?? undefined })
+  }],
+  // Un secret demandé par un agent : la valeur ne fait que passer (jamais renvoyée, jamais journalisée).
+  ['POST', /^\/api\/setup\/key$/, async (req, res) => {
+    const b = await readBody(req, 16 << 10)
+    if (!isSecretName(b.name) || typeof b.value !== 'string') return json(res, 400, { error: tr(S).badKey })
+    setup.saveKey(b.name, b.value)
     json(res, 200, { ok: true })
   }],
   ['POST', /^\/api\/setup\/done$/, async (req, res) => {
@@ -374,7 +502,11 @@ const routes: [string, RegExp, Handler][] = [
   }],
   ['GET', /^\/api\/setup\/link$/, async (req, res) => json(res, 200, { link: loginLink(req) })],
   // ---- Voix rapide : son en flux, accroches en cache, enregistrement envoyé en morceaux, mesures.
-  ['GET', /^\/api\/speak\/stream$/, async (_req, res, url) => speakStream(res, url.searchParams.get('text') ?? '', url.searchParams.get('oral') === '1', url.searchParams.get('voice') || undefined)],
+  ['GET', /^\/api\/speak\/stream$/, async (_req, res, url) => {
+    const text = url.searchParams.get('text') ?? ''
+    if (rawEngineeringNotice('', text)) return json(res, 400, { error: tr(FY).technicalPost })
+    return speakStream(res, text, url.searchParams.get('oral') === '1', voiceParam(url.searchParams.get('voice')))
+  }],
   ['GET', /^\/api\/voice\/cue$/, async (_req, res) => {
     const mp3 = await cue(w.voiceId, w.speakerLang())
     res.writeHead(200, { 'content-type': 'audio/mpeg', 'content-length': mp3.length, 'cache-control': 'no-store' })
@@ -442,6 +574,9 @@ const routes: [string, RegExp, Handler][] = [
     const body = await readBody(req)
     json(res, 200, await w.commandMain(String(body.command ?? '')))
   }],
+  ['GET', /^\/api\/attachments$/, (_req, res, url) => {
+    serveAttachment(res, url.searchParams.get('path') ?? '', [INBOX_DIR, path.join(DATA_DIR, 'inbox')])
+  }],
   ['POST', /^\/api\/main\/attach$/, async (req, res) => {
     const body = await readBody(req, 48 << 20)
     const files = Array.isArray(body.files) ? body.files.filter((f: any) => typeof f?.data === 'string').map((f: any) => ({ name: String(f.name ?? ''), type: String(f.type ?? ''), data: String(f.data) })) : []
@@ -497,7 +632,45 @@ const routes: [string, RegExp, Handler][] = [
     const body = await readBody(req)
     json(res, 200, await w.newRepo(String(body.name ?? '').trim(), String(body.description ?? '')))
   }],
+  ['POST', /^\/api\/sessions\/([^/]+)\/archive$/, async (req, res, _u, [id]) => {
+    const body = await readBody(req)
+    json(res, 200, w.archive(decodeURIComponent(id), body.archived !== false))
+  }],
   ['POST', /^\/api\/sessions\/([^/]+)\/close$/, async (_req, res, _u, [id]) => json(res, 200, await w.close(decodeURIComponent(id)))],
+  // Session coupée en plein travail : la reprendre (--resume + message de reprise) ou la laisser.
+  ['POST', /^\/api\/sessions\/([^/]+)\/resume$/, async (_req, res, _u, [id]) => json(res, 200, await w.resume(decodeURIComponent(id)))],
+  ['POST', /^\/api\/sessions\/([^/]+)\/dismiss$/, async (_req, res, _u, [id]) => json(res, 200, await w.dismiss(decodeURIComponent(id)))],
+  // ---- Relais Codex pendant la limite de Claude (server/relay.ts) : réglage, plan demandé pour une session, décision sur un plan.
+  ['POST', /^\/api\/relay$/, async (req, res) => {
+    const body = await readBody(req)
+    relay.set({ mode: body.mode, switchAt: body.switchAt, tz: body.tz })
+    // Les autres machines suivent le réglage (pas le fuseau : relayé seulement quand l'app parle, jamais en boucle).
+    if (!isLocal(req) && (body.mode !== undefined || body.switchAt !== undefined)) for (const r of w.remotes) if (r.online) void r.call('POST', '/api/relay', { mode: body.mode, switchAt: body.switchAt }).catch(() => undefined)
+    json(res, 200, { ok: true })
+  }],
+  ['POST', /^\/api\/sessions\/([^/]+)\/relay$/, async (_req, res, _u, [raw]) => {
+    const id = decodeURIComponent(raw)
+    const remote = w.remoteFor(id)
+    json(res, 200, remote ? await remote.call('POST', `/api/sessions/${encodeURIComponent(id)}/relay`, {}) : relay.request(id))
+  }],
+  ['POST', /^\/api\/relay\/plans\/([^/]+)$/, async (req, res, _u, [raw]) => {
+    const id = decodeURIComponent(raw)
+    const body = await readBody(req)
+    const call = { action: String(body.action ?? ''), text: typeof body.text === 'string' ? body.text : undefined }
+    if (id === 'all') {
+      // A successful reply means every participating machine accepted its decision.
+      // Skip machines with no request; never disguise a real failure as success.
+      const pending = (plans: ReturnType<typeof relay.view>['plans']) => plans.some((p) => !p.resolved && (p.state === 'ready' || p.state === 'failed' || p.state === 'preparing'))
+      const decisions: Promise<unknown>[] = []
+      if (pending(relay.view().plans)) decisions.push(relay.decide('all', call.action, call.text))
+      if (!isLocal(req)) for (const r of w.remotes) if (r.online && pending(r.snap?.relay?.plans ?? [])) decisions.push(r.call('POST', '/api/relay/plans/all', call))
+      if (!decisions.length) decisions.push(relay.decide('all', call.action, call.text))
+      await Promise.all(decisions)
+      return json(res, 200, { ok: true })
+    }
+    const remote = w.remoteFor(id)
+    json(res, 200, remote ? await remote.call('POST', `/api/relay/plans/${encodeURIComponent(id)}`, call) : await relay.decide(id, call.action, call.text))
+  }],
   // ---- Coin infrastructure : machines, système de fichiers complet, abonnements.
   ['GET', /^\/api\/infra\/brief$/, async (_req, res, url) => {
     const here = brief()
@@ -542,15 +715,42 @@ const routes: [string, RegExp, Handler][] = [
     json(res, 200, remote ? await remote.call('GET', `/api/fs/file?path=${encodeURIComponent(p)}`) : readAny(p))
   }],
   ['GET', /^\/api\/usage$/, async (_req, res) => json(res, 200, await quotas())],
+  ['GET', /^\/api\/usage\/rate$/, async (_req, res, url) => {
+    const r = tokenRate()
+    if (url.searchParams.has('local')) return json(res, 200, r)
+    // Les autres machines s'ajoutent tranche par tranche (alignées sur l'heure de fin).
+    const far = await Promise.all(w.remotes.filter((x) => x.online).map((x) => x.call<TokenRate>('GET', '/api/usage/rate?local=1').catch(() => null)))
+    for (const f of far) {
+      if (!f || f.step !== r.step) continue
+      const shift = Math.round((r.end - f.end) / r.step)
+      f.buckets.forEach((v, i) => {
+        const j = i - shift
+        if (j >= 0 && j < r.buckets.length) r.buckets[j] += v
+      })
+    }
+    json(res, 200, r)
+  }],
   ['GET', /^\/api\/usage\/today$/, async (_req, res, url) => {
     const sessions = new Map(w.snapshot().sessions.map((s) => [s.id, s]))
-    const rows = usageToday((id) => sessions.get(id))
-    if (url.searchParams.has('local')) return json(res, 200, { rows })
-    const far = await Promise.all(w.remotes.filter((r) => r.online).map((r) => r.call<{ rows: UsageRow[] }>('GET', '/api/usage/today?local=1').then((d) => d.rows).catch(() => [])))
-    json(res, 200, { rows: [...rows, ...far.flat()].sort((a, b) => b.weight - a.weight) })
+    const { rows, models } = usageToday((id) => sessions.get(id))
+    if (url.searchParams.has('local')) return json(res, 200, { rows, models })
+    const far = await Promise.all(w.remotes.filter((r) => r.online).map((r) => r.call<UsageToday>('GET', '/api/usage/today?local=1').catch(() => ({ rows: [] }) as UsageToday)))
+    json(res, 200, {
+      rows: [...rows, ...far.flatMap((d) => d.rows)].sort((a, b) => b.weight - a.weight),
+      models: [...models, ...far.flatMap((d) => d.models ?? [])],
+    })
   }],
   ...tipRoutes(w, json, readBody, () => !!openaiKey()),
   ...hintRoutes(hints, json, readBody),
+  // La mémoire vit sur la machine principale seulement (404 ailleurs, comme weevils memory le dit).
+  ...(ORCHESTRATOR ? memoryRoutes(memory, json, readBody) : []),
+  ...weevilRoutes(flyers, json, readBody),
+  // The automation page reads the timers and jobs here too (GET /api/auto/timer:…, job:…).
+  ...optimizerRoutes(optimizers, json, readBody, { detail: (id) => w.h24Detail(id), run: (id, at) => w.h24Run(id, at) }),
+  // Le flux « pour toi » vit sur la machine principale seulement.
+  ...(foryou ? foryouRoutes(foryou, json, readBody) : []),
+  // ---- Mes logiciels : détectés sur chaque machine, aperçu vivant, lancés d'un tap (server/softwares.ts).
+  ...softwareRoutes(w, json, readBody),
   ['POST', /^\/api\/github\/pin$/, async (req, res) => {
     const body = await readBody(req)
     w.pinRepo(String(body.repo ?? ''), !!body.pinned)

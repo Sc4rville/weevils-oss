@@ -1,0 +1,451 @@
+/* « auto » (src/ui/h24.tsx, src/ui/auto-page.tsx): the drawer and the page of an automation, made of the feed's own
+   bands. Inside a band nothing has a background, a border or a tag; the only layer is the flat fill that says how far
+   it is to the next trigger (or through the run). */
+
+.h24 {
+  --st-paused: color-mix(in oklab, var(--ink) 55%, transparent);
+  --st-failed: var(--alert);
+}
+
+/* ---------- A large word, a fine activity line, then the drawer ---------- */
+:root[data-theme] { --automated-size: clamp(2.5rem, calc((100vw - 86px) / 5.6), 6.75rem); --rail: max(96px, calc(var(--automated-size) + 44px)); }
+:root[data-theme='light'] { --automated-ink: #ce005f; }
+:root[data-theme='dark'] { --automated-ink: #ceff39; }
+:root[data-theme='zen'] { --automated-ink: #9223d8; }
+:root[data-theme='graphite'] { --automated-ink: #165cdb; }
+.h24.band { overflow: hidden; }
+.h24-top { flex: none; }
+.h24-top > .in { display: flex; align-items: center; gap: 6px; }
+.h24-top .h24-head { flex: 1; min-width: 0; width: auto; }
+.h24-heading { display: flex; flex-direction: column; align-items: stretch; justify-content: center; gap: 4px; height: var(--rail); padding: 10px 0 4px; }
+.h24-title { flex: none; color: var(--automated-ink, #ce005f); font-size: var(--automated-size); font-weight: 500; letter-spacing: -0.045em; line-height: 1; white-space: nowrap; }
+.h24 .h24-grip { top: 5px; width: 24px; height: 2px; background: currentColor; opacity: 0.3; }
+.h24 .auto-sum { flex: none; height: 16px; display: flex; align-items: center; gap: 5px; overflow: hidden; white-space: nowrap; font-size: 0.75rem; line-height: 1; }
+.h24-status { display: flex; align-items: center; gap: 6px; min-width: 0; }
+.h24-activity { flex: none; width: 4px; height: 4px; display: block; }
+.h24-activity i { display: block; width: 100%; height: 100%; background: var(--automated-ink); opacity: 0.35; }
+.h24-activity[data-busy='true'] i { animation: automated-progress 1.6s ease-in-out infinite; }
+@keyframes automated-progress { 0%, 100% { opacity: 1; } 50% { opacity: 0.25; } }
+@media (prefers-reduced-motion: reduce) { .h24-activity[data-busy='true'] i { animation: none; } }
+.h24-body[hidden] { display: none; }
+.h24-tools { padding-block: 8px; }
+.h24-create { display: flex; align-items: center; gap: 10px; min-height: 44px; font-size: 1rem; }
+.h24-create .ic, .h24-create .auto-mark { width: 22px; height: 22px; }
+
+.auto-sum > .txt {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auto-sum .auto-mark {
+  flex: none;
+  width: 12px;
+  height: 12px;
+}
+
+/* « +1 »: never the part that gets cut. */
+.auto-sum > .more {
+  flex: none;
+}
+
+/* ---------- A band: one automation (or a proposal), one tap ---------- */
+
+.auto-band {
+  overflow: hidden;
+}
+
+/* The whole band is the button; ✓ and × sit above it. */
+.auto-hit {
+  position: absolute;
+  inset: 0;
+  z-index: 1;
+  width: 100%;
+}
+
+.auto-band > .in {
+  position: relative;
+  z-index: 2;
+  pointer-events: none;
+  display: grid;
+  grid-template-columns: 22px minmax(0, 1fr) auto;
+  column-gap: 10px;
+  align-items: center;
+  min-height: 52px;
+  padding-block: 12px 13px;
+}
+
+.auto-band .chars {
+  pointer-events: auto;
+  margin-block: -8px;
+  margin-right: -10px;
+}
+
+.auto-band .st {
+  grid-row: 1;
+  width: 22px;
+  text-align: center;
+  font-size: 1.375rem;
+  line-height: 1;
+}
+
+.auto-band .st > * {
+  vertical-align: middle;
+}
+
+.auto-name {
+  font-size: 1.375rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.1;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.auto-band .act {
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+  white-space: nowrap;
+}
+
+/* Lines under the name: in the text column, out to the right edge. */
+.auto-band .sub {
+  grid-column: 2 / 4;
+  min-width: 0;
+  margin-top: 3px;
+}
+
+.auto-band .sub.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* A proposal: its name over the whole width, its reason on one line (all of it on its page), its terms with ✓ and ×. */
+.auto-prop .auto-name {
+  grid-column: 2 / 4;
+}
+
+.auto-band .sub.why {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.auto-prop .sub.terms {
+  grid-column: 2;
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+.auto-prop > .in > .chars {
+  grid-column: 3;
+  margin-block: -12px -13px;
+}
+
+.auto-band.paused > .in {
+  opacity: 0.55;
+}
+
+/* The proposal's glyph turns into the automation's when it is accepted (one slide): both in one cell, cross-fading. */
+.auto-glyph {
+  display: inline-grid;
+  place-items: center;
+  vertical-align: middle;
+}
+
+.auto-glyph > * {
+  grid-area: 1 / 1;
+  line-height: 0;
+}
+
+.auto-glyph .alert,
+.auto-band .st .alert {
+  color: var(--alert);
+}
+
+/* ---------- The fill: a flat, darker (lighter in the dark) layer of the band's colour, from the left ---------- */
+
+.auto-fill {
+  position: absolute;
+  inset: 0;
+  z-index: 0;
+  transform-origin: left center;
+  background: oklch(from var(--c) calc(l + var(--dl) * 1.6) calc(c * 1.08) h);
+  pointer-events: none;
+}
+
+.auto-fill.paused {
+  opacity: 0.35;
+}
+
+/* Along the bottom edge, as long as the fill: the rail. A block of a deeper tone keeps travelling through it toward
+   its edge (the fill is fed); magenta while it runs. Never behind the text. */
+.auto-rail {
+  position: absolute;
+  left: 0;
+  bottom: 0;
+  height: 3px;
+  z-index: 1;
+  overflow: hidden;
+  pointer-events: none;
+  background: oklch(from var(--c) calc(l + var(--dl) * 2.6) calc(c * 1.12) h);
+}
+
+.auto-rail > i {
+  position: absolute;
+  top: 0;
+  bottom: 0;
+  width: 34%;
+  background: var(--ink);
+  opacity: 0.35;
+  animation: auto-sweep 3.3s linear infinite;
+}
+
+.auto-rail.run {
+  background: var(--auto-fluo);
+}
+
+.auto-rail.run > i {
+  animation-duration: 1.9s;
+}
+
+@keyframes auto-sweep {
+  from {
+    left: -34%;
+  }
+  to {
+    left: 100%;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-rail > i {
+    display: none;
+  }
+}
+
+/* Past its usual length: the rail breathes. */
+.auto-rail.over {
+  animation: auto-over 1.2s ease-in-out infinite;
+}
+
+@keyframes auto-over {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.4;
+  }
+}
+
+/* While a proposal round runs: a band that fills itself, no text. */
+.auto-round .dots {
+  color: var(--auto-fluo);
+}
+
+/* ---------- The page: the flow band ---------- */
+
+.auto-flow {
+  height: 172px;
+  overflow: hidden;
+  flex: none;
+}
+
+.auto-flow > .in {
+  position: relative;
+  z-index: 1;
+  padding-top: 18px;
+}
+
+/* No run yet (a proposal, a first wait): no strip to make room for, the band is as tall as its words. */
+.auto-flow.still {
+  height: auto;
+}
+
+.auto-flow.still > .in {
+  padding-bottom: 22px;
+}
+
+.auto-flow .name {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.auto-flow .name .of {
+  margin-left: 8px;
+  font-size: 1.5rem;
+  font-weight: 400;
+  opacity: 0.6;
+}
+
+.auto-flow .meta {
+  margin-top: 4px;
+}
+
+.auto-flow .auto-rail {
+  height: 5px;
+}
+
+/* A run that just ended: the full fill, shrinking into its tick. */
+.auto-land {
+  z-index: 0;
+}
+
+/* The runs, oldest left: one tick each, its height its length; red when it failed; the next one faint. */
+.auto-ticks {
+  position: absolute;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  z-index: 1;
+  height: 62px;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  display: flex;
+  align-items: flex-end;
+  gap: 3px;
+  padding: 0 var(--pad) 14px;
+}
+
+.auto-ticks {
+  cursor: pointer;
+}
+
+.auto-ticks > span {
+  flex: none;
+  width: 6px;
+  background: var(--ink);
+}
+
+.auto-ticks > .bad {
+  background: var(--alert);
+}
+
+.auto-ticks > .next {
+  height: 6px;
+  opacity: 0.3;
+}
+
+/* The run in progress: its tick grows, in the colour of what runs on its own. */
+.auto-ticks > .live {
+  background: var(--auto-fluo);
+}
+
+/* ---------- The page: the same six facts for every automation ---------- */
+
+/* Always the text column's width: the facts start at the page's left edge, whatever their length. */
+.auto-kpis {
+  display: grid;
+  grid-template-columns: minmax(0, 1fr) minmax(0, 1fr);
+  column-gap: 18px;
+  width: 100%;
+  box-sizing: border-box;
+  padding-block: 6px 10px;
+}
+
+.auto-kpi {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  justify-content: flex-start;
+  min-width: 0;
+  padding: 8px 0;
+  text-align: left;
+}
+
+.auto-kpi .k {
+  display: flex;
+  align-items: center;
+  gap: 6px;
+}
+
+.auto-kpi .k .ic {
+  width: 14px;
+  height: 14px;
+  vertical-align: middle;
+}
+
+/* One step under a band's name: the facts read as one quiet block. Two lines at most, never cut mid-phrase. */
+.auto-kpi .v {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: break-word;
+  margin-top: 1px;
+  font-size: 1.125rem;
+  font-weight: 650;
+  line-height: 1.25;
+}
+
+.auto-kpi .v.dim {
+  opacity: 0.5;
+}
+
+/* ---------- The page: the voice, in the foot (the field's own colour), its own strip above the field: never over a line ---------- */
+
+.auto-voice {
+  display: flex;
+  align-items: flex-end;
+  padding: 6px calc(var(--pad) - 6px) 8px;
+}
+
+.auto-voice .voice-logo {
+  height: 48px;
+  min-height: 0;
+}
+
+/* ---------- The page: outputs ---------- */
+
+/* Screenshots: edge to edge, no frame. */
+.auto-shot {
+  display: block;
+  width: 100%;
+  height: auto;
+}
+
+.auto-shot + .auto-shot {
+  margin-top: 3px;
+}
+
+/* ---------- What the last rewrite changed: a flash of ink, flat ---------- */
+
+.auto-chg {
+  animation: auto-chg 1.6s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+@keyframes auto-chg {
+  0%,
+  30% {
+    background: var(--ink);
+    color: var(--c, var(--bg));
+    outline: 3px solid var(--ink);
+  }
+  100% {
+    background: transparent;
+    outline: 3px solid transparent;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .auto-chg {
+    animation-duration: 0.01s;
+  }
+}
+
+/* Conversation choices use the same full-width rows as the rest of Auto. */
+.auto-suggestions .stack-text > .ellipsis:first-child {
+  white-space: normal;
+  overflow: visible;
+}

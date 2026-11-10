@@ -1,15 +1,20 @@
+import { dismissNotice } from './notice-store'
+import { noticeKey, sessionNoticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 import { motion } from 'motion/react'
-import { useEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react'
+import { useEffect, useLayoutEffect, useMemo, useRef, useState, type CSSProperties, type TouchEvent } from 'react'
 import type { Message, SessionDetail } from '../../shared/api.ts'
 import { api } from '../api'
 import { useT } from '../i18n'
+import { useFollow } from './follow'
 import M from '../i18n/calm'
-import { useApp } from './app-context'
+import { isSettled, stableOrder, useApp } from './app-context'
 import { Collapse, Composer, Messages, Working, type Attachment } from './bits'
-import { ago, plain } from './format'
+import { ago, plain, status } from './format'
 import { Preview, guessPreviewUrl, urlsInMessages, usePreviewState } from './preview'
 import { Settings } from './settings'
-import { usePageChrome } from './shell'
+import { SidePane, usePageChrome, useSplit } from './shell'
+import { FollowDown } from './followdown'
 import { markSeen } from './seen'
 import { Icon } from './icons'
 import { useViewHint } from './hints'
@@ -44,19 +49,6 @@ export function usePinch(onPinch: () => void) {
   }
 }
 
-function useStickToBottom(count: number, ref: React.RefObject<HTMLElement | null>) {
-  const first = useRef(true)
-  useEffect(() => {
-    const el = ref.current
-    if (!el || count === 0) return
-    const go = (smooth: boolean) => el.scrollTo({ top: el.scrollHeight, behavior: smooth ? 'smooth' : 'auto' })
-    go(!first.current)
-    const t = setTimeout(() => go(!first.current), 420)
-    first.current = false
-    return () => clearTimeout(t)
-  }, [count, ref])
-}
-
 const color = (slot: string) => ({ '--c': `var(--${slot})` }) as CSSProperties
 
 // ---------------------------------------------------------------------------
@@ -69,8 +61,15 @@ export function CalmGrid() {
   usePageChrome('calm', page)
   const pinch = usePinch(home)
   useViewHint('calm')
-  const rank = (s: { status: string }) => (s.status === 'needs_user' ? 0 : s.status === 'working' ? 1 : s.status === 'idle' ? 2 : 3)
-  const sessions = useMemo(() => [...snap.sessions].sort((a, b) => rank(a) - rank(b) || b.lastActivityAt - a.lastActivityAt), [snap.sessions])
+  const rank = (s: { status: string }) => (s.status === 'needs_user' || s.status === 'interrupted' ? 0 : s.status === 'working' ? 1 : s.status === 'idle' ? 2 : 3)
+  // Une case ne change pas de place parce qu'une autre conversation écrit : le rang d'abord, puis l'ordre déjà affiché ;
+  // seule une nouvelle se place par activité. Rien ne bouge sous le doigt ; un changement de rang glisse (layout).
+  const shown = useRef<string[]>([])
+  const sessions = useMemo(() => stableOrder(snap.sessions, (s) => s.id, rank, (a, b) => b.lastActivityAt - a.lastActivityAt, shown.current, !isSettled()), [snap.sessions])
+  const order = sessions.map((s) => s.id).join('|')
+  useLayoutEffect(() => {
+    shown.current = order ? order.split('|') : []
+  }, [order])
   const last = snap.main.filter((m) => m.role !== 'event').at(-1)
   const names = new Map(snap.projects.map((p) => [p.id, p.name]))
 
@@ -88,13 +87,13 @@ export function CalmGrid() {
             <span className="meta">{snap.mainWorking ? t.working : last ? plain(last.text).split('\n')[0] : ''}</span>
           </button>
           {sessions.map((s) => (
-            <button key={s.id} className="calm-cell" style={color(colors[s.projectId] ?? 'p0')} onClick={() => push({ kind: 'calmconv', id: s.id })}>
+            <motion.button layout="position" transition={soft} key={s.id} className="calm-cell" style={color(colors[s.projectId] ?? 'p0')} onClick={() => push({ kind: 'calmconv', id: s.id })}>
               <span className="calm-title">{s.title}</span>
               <span className="meta">
-                {names.get(s.projectId) ?? s.projectId} · {s.status === 'working' ? (s.now ?? t.working) : s.status === 'needs_user' ? t.yourTurn : ago(now - s.lastActivityAt)}
+                {names.get(s.projectId) ?? s.projectId} · {s.status === 'working' ? (s.now ?? t.working) : s.status === 'needs_user' ? t.yourTurn : s.status === 'interrupted' ? <span className="alert-pill">× {status.interrupted.label}</span> : ago(now - s.lastActivityAt)}
                 {s.background > 0 && <span className="strong"> · {t.background(s.background)}</span>}
               </span>
-            </button>
+            </motion.button>
           ))}
         </div>
         <div className="fill" />
@@ -146,16 +145,20 @@ export function CalmConv({ id }: { id: string }) {
   const title = main ? 'weevboss' : (s?.title ?? '')
   const settings = main ? snap.mainSettings : s?.settings
   const canCommand = main ? snap.mainHasScreen : !!s?.hasScreen
-  useStickToBottom(messages.length, body)
+  const last = messages.at(-1)
+  const follow = useFollow(body, messages.length > 0, 80, `${messages.length}:${last?.id}:${last?.text.length}:${working}`)
+  const [split, unsplit] = useSplit(!!preview.open)
 
   const send = async (text: string, files: Attachment[] = []) => {
     setErr(null)
+    follow.toEnd()
     try {
       if (main) {
         if (files.length) await api.mainAttach(text, files)
         else await api.main(text)
       } else if (s) {
         const r = files.length ? await api.attach(s.id, text, files) : await api.send(s.id, text)
+        if (s.status === 'needs_user' || s.status === 'interrupted') dismissNotice(sessionNoticeKey(s))
         if (r.id !== id) replace({ kind: 'calmconv', id: r.id })
       }
     } catch (e) {
@@ -170,7 +173,7 @@ export function CalmConv({ id }: { id: string }) {
   return (
     <motion.div
       ref={page}
-      className={preview.open ? 'page calm split' : 'page calm'}
+      className={split ? 'page calm split' : 'page calm'}
       {...pinch}
       initial={{ opacity: 0, scale: 0.985 }}
       animate={{ opacity: 1, scale: 1 }}
@@ -208,23 +211,25 @@ export function CalmConv({ id }: { id: string }) {
         <div className="page-main">
           <div ref={body} className="page-body" data-scroll>
             {err && (
-              <div className="in meta" role="alert">
+              <Notice eventId={noticeKey('error:calm', location.pathname, location.hash, err)} className="in meta" role="alert">
                 ! {err}
-              </div>
+              </Notice>
             )}
             <Messages messages={messages} author={author} working={!!working} />
             {working && <Working author={author} since={s?.workStartedAt} />}
             <div className="fill" />
           </div>
+          <div className="page-float">
+            <FollowDown show={follow.behind} urgent={s?.status === 'needs_user'} body={body} toEnd={follow.toEnd} />
+          </div>
           <div className="page-foot">
             <Composer placeholder={t.writeTo(author)} label={t.messageTo(title)} onSend={send} onAttach={send} voice anyFile={main} disabled={!main && s ? !s.controllable : false} />
           </div>
         </div>
-        {preview.open && (
-          <aside className="page-side">
-            <Preview url={previewUrl} suggestions={suggestions} onUrl={(url) => setPreview({ url })} onClose={() => setPreview({ open: false })} />
-          </aside>
-        )}
+        <SidePane
+          side={preview.open ? <Preview url={previewUrl} suggestions={suggestions} onUrl={(url) => setPreview({ url })} onClose={() => setPreview({ open: false })} /> : undefined}
+          onGone={unsplit}
+        />
       </div>
     </motion.div>
   )

@@ -13,11 +13,15 @@ for (const k of Object.keys(process.env))
   if ((/^WEEVILS_/.test(k) && !/^WEEVILS_(LIVE_|TEST_ROOT)/.test(k)) || /^(OPENAI_API_KEY|CARTESIA_|DEVIL_|ANTHROPIC_)/.test(k)) delete process.env[k]
 Object.assign(process.env, {
   HOME: home,
+  TMUX_TMPDIR: home,
   WEEVILS_CONFIG: '/dev/null',
   WEEVILS_MACHINE: 'test',
   WEEVILS_ORCHESTRATOR: '0',
   WEEVILS_LANG: 'en',
 })
+delete process.env.TMUX
+delete process.env.TMUX_PANE
+delete process.env.INVOCATION_ID
 delete process.env.CODEX_HOME
 delete process.env.WEEVILS_PROJECTS
 // Le HOME jetable part avec le fichier de test.

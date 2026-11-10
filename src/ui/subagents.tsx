@@ -1,14 +1,17 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 // Le travail d'arrière-plan d'une session, dans son fil : une ligne par sous-agent, étape de workflow ou commande
 // lancée en arrière-plan (nom, ce qu'il fait, état, durée), dépliable pour voir ses derniers pas.
 
 import { useIsPresent } from 'motion/react'
-import { useEffect, useState } from 'react'
+import { useEffect, useRef, useState } from 'react'
 import type { Session, Subagent, SubagentDetail } from '../../shared/api.ts'
 import { api } from '../api'
 import { useT } from '../i18n'
 import M from '../i18n/pages'
 import { useApp } from './app-context'
 import { Collapse, Line } from './bits'
+import { reveal } from './follow'
 import { activityText, dur, plain, step } from './format'
 import { G, Icon } from './icons'
 
@@ -66,13 +69,17 @@ const KIND_GLYPH: Record<Subagent['kind'], string | null> = { agent: '&', step: 
 
 const POLL_MS = 3000
 
+/** Ce qu'on vient de déplier dans le fil : une fois posé (fin du dépliage), amené sous les yeux s'il dépasse de l'écran. */
+const revealOpened = (el: Element | null) => window.setTimeout(() => reveal(el, { block: 'nearest', flash: false }), 380)
+
 /** Les derniers pas d'un sous-agent : lus à l'ouverture, relus toutes les 3 s tant qu'il travaille et que la ligne est dépliée.
  *  Au repli, le bloc garde ses anciennes props pendant l'animation de sortie : useIsPresent coupe la relecture dès le geste. */
-function SubDetailView({ sessionId, a }: { sessionId: string; a: Subagent }) {
+function SubDetailView({ sessionId, a, onFirst }: { sessionId: string; a: Subagent; onFirst?: () => void }) {
   const [detail, setDetail] = useState<SubagentDetail | null>(null)
   const [err, setErr] = useState<string | null>(null)
   const working = a.status === 'working'
   const open = useIsPresent()
+  const first = useRef(onFirst)
   useEffect(() => {
     if (!open) return
     let off = false
@@ -83,6 +90,8 @@ function SubDetailView({ sessionId, a }: { sessionId: string; a: Subagent }) {
           if (off) return
           setDetail(d)
           setErr(null)
+          first.current?.()
+          first.current = undefined
         })
         .catch((e) => !off && setErr((e as Error).message))
     void load()
@@ -95,7 +104,7 @@ function SubDetailView({ sessionId, a }: { sessionId: string; a: Subagent }) {
 
   return (
     <div className="in sub-detail" data-testid="sub-detail">
-      {err && !detail && <div className="meta">! {err}</div>}
+      {err && !detail && <Notice eventId={noticeKey("error:subagent", err)} className="meta" role="alert">! {err}</Notice>}
       {!detail && !err && <div className="meta">…</div>}
       {detail?.steps.map((s, i) =>
         s.role === 'assistant' ? (
@@ -119,11 +128,12 @@ function SubDetailView({ sessionId, a }: { sessionId: string; a: Subagent }) {
 function SubRow({ sessionId, a, now }: { sessionId: string; a: Subagent; now: number }) {
   const t = useT(M)
   const [open, setOpen] = useState(false)
+  const box = useRef<HTMLDivElement>(null)
   const d = dur((a.endedAt ?? now) - a.startedAt)
   const state = t.subStatus(a.status)
   const kg = KIND_GLYPH[a.kind]
   return (
-    <div className={`sub ${a.status}`} data-kind={a.kind} data-status={a.status}>
+    <div ref={box} className={`sub ${a.status}`} data-kind={a.kind} data-status={a.status}>
       <button className={`row sub-row ${a.status === 'working' ? 'live' : ''}`} onClick={() => setOpen((v) => !v)} aria-expanded={open} aria-label={t.subAria(a.label, state, d, open)}>
         <span className="in" aria-hidden>
           <span className="st">
@@ -150,7 +160,7 @@ function SubRow({ sessionId, a, now }: { sessionId: string; a: Subagent; now: nu
         </span>
       </button>
       <Collapse open={open}>
-        <SubDetailView sessionId={sessionId} a={a} />
+        <SubDetailView sessionId={sessionId} a={a} onFirst={() => revealOpened(box.current)} />
       </Collapse>
     </div>
   )
@@ -195,13 +205,22 @@ export function Background({ session: s }: { session: Session }) {
   const { now } = useApp()
   const t = useT(M)
   const [choice, setChoice] = useState<boolean | null>(null)
+  const band = useRef<HTMLDivElement>(null)
   const active = s.subagents.filter((a) => a.status === 'working').length
   if (s.subagents.length === 0) return null
   const open = choice ?? (active > 0 || s.background > 0)
   const items = groupSubagents(s.subagents)
   return (
-    <div className="band tone subs" data-testid="background">
-      <Line ch={active > 0 ? <span className="spin fluo"><Icon name="star" /></span> : '&'} go={open ? '−' : '+'} onClick={() => setChoice(!open)} label={t.subagentsLabel(active)}>
+    <div ref={band} className="band tone subs" data-testid="background">
+      <Line
+        ch={active > 0 ? <span className="spin fluo"><Icon name="star" /></span> : '&'}
+        go={open ? '−' : '+'}
+        onClick={() => {
+          setChoice(!open)
+          if (!open) revealOpened(band.current)
+        }}
+        label={t.subagentsLabel(active)}
+      >
         <span className="strong">{t.subagents}</span> · {t.active(active)} · {t.finished(s.subagents.length - active)}
       </Line>
       <Collapse open={open}>

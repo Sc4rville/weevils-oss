@@ -1,4 +1,4 @@
-import { useEffect, useMemo, useState, type FormEvent } from 'react'
+import { useEffect, useMemo, useRef, useState, type FormEvent } from 'react'
 import type { Message, Project, Session } from '../../shared/api.ts'
 import { useT } from '../i18n'
 import M from '../i18n/preview'
@@ -92,7 +92,12 @@ export function Preview({ url, suggestions, onUrl, onClose, full, onFull }: { ur
   const t = useT(M)
   const [draft, setDraft] = useState(url)
   const [gen, setGen] = useState(0)
+  const input = useRef<HTMLInputElement>(null)
   useEffect(() => setDraft(url), [url])
+  // Ouvert sans adresse : le champ attend la saisie (rien d'autre à faire dans ce volet).
+  useEffect(() => {
+    if (!url) input.current?.focus({ preventScroll: true })
+  }, []) // eslint-disable-line react-hooks/exhaustive-deps
   const others = useMemo(() => suggestions.filter((s) => s !== url).slice(0, 3), [suggestions, url])
 
   const go = (e: FormEvent) => {
@@ -110,6 +115,7 @@ export function Preview({ url, suggestions, onUrl, onClose, full, onFull }: { ur
           <Icon name="close" />
         </button>
         <input
+          ref={input}
           value={draft}
           onChange={(e) => setDraft(e.target.value)}
           placeholder="https://"
@@ -144,6 +150,7 @@ export function Preview({ url, suggestions, onUrl, onClose, full, onFull }: { ur
         </div>
       )}
       {/* L'iframe est posée en absolu dans un cadre flex : iOS Safari ignore la hauteur flex d'une iframe et la réduit à presque rien. */}
+      {!url && <div className="preview-hints meta">{t.noUrl}</div>}
       <div className="preview-body">
         {url && (
           <iframe

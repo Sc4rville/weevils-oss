@@ -37,8 +37,11 @@ export const REMOTES = process.env.WEEVILS_REMOTES
 export const CLAUDE_DIR = path.join(HOME, '.claude', 'projects')
 export const CODEX_DIR = path.join(process.env.CODEX_HOME ?? path.join(HOME, '.codex'), 'sessions')
 export const DATA_DIR = path.join(HOME, '.local', 'share', 'weevils')
-/** Journaux des jobs longs (<nom>.log) : chacun s'affiche comme une activité 24/7 tant qu'il s'écrit. */
+/** Journaux des jobs longs (<nom>.log) : chacun s'affiche comme une activité 24/7 tant qu'il s'écrit. LOGS_DIR est celui
+ * où weevils écrit (job de démo) ; sans WEEVILS_LOGS_DIR, le rail lit aussi ~/logs, où les agents lancent leurs jobs
+ * (nohup … > ~/logs/<nom>.log). */
 export const LOGS_DIR = process.env.WEEVILS_LOGS_DIR?.trim() || path.join(DATA_DIR, 'jobs')
+export const LOGS_DIRS = process.env.WEEVILS_LOGS_DIR?.trim() ? [LOGS_DIR] : [path.join(HOME, 'logs'), LOGS_DIR]
 /** Fichiers joints à weevboss (photos, PDF…), déposés en <date>-<nom>. Même dossier par défaut que ceux des sessions. */
 export const INBOX_DIR = process.env.WEEVILS_INBOX_DIR?.trim() || path.join(DATA_DIR, 'inbox')
 export const DIST_DIR = path.resolve(import.meta.dirname, '..', 'dist')

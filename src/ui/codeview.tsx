@@ -1,10 +1,13 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 import { Fragment, memo, useCallback, useEffect, useLayoutEffect, useMemo, useRef, useState } from 'react'
 import type { FileContent } from '../api'
 import { useApp } from './app-context'
 import { Shell } from './shell'
 import { AskPanel, AskVoice, useAsk } from './ask'
 import { around, lineRange, selText, spanLines, spanWords, wordAt, type Sel } from './codesel'
-import { caretAt, rangeOf } from './textpick'
+import { anchorRow, caretAt, rangeOf } from './textpick'
+import { reveal } from './follow'
 import { useT } from '../i18n'
 import M from '../i18n/pages'
 import './codeview.css'
@@ -115,6 +118,13 @@ export function CodeFile({ projectId, repo, path, machine, line, file, err, kick
   spotRef.current = spot
   /** Pendant un geste, la barre reste où elle était : rien ne bouge sous le doigt. Elle rejoint la sélection au lâcher. */
   const frozen = useRef<number | null>(null)
+  /** Au lâcher, la ligne touchée reste à sa place à l'écran pendant que la barre change de ligne (recalé après le rendu). */
+  const settle = useRef<(() => void) | null>(null)
+  useLayoutEffect(() => {
+    const fix = settle.current
+    settle.current = null
+    fix?.()
+  })
   useEffect(() => {
     const el = box.current
     if (!el) return
@@ -165,6 +175,9 @@ export function CodeFile({ projectId, repo, path, machine, line, file, err, kick
       g = null
       setDragging(false)
       if (was.mode === 'off') return
+      const fix = anchorRow(el.querySelector(`[data-l="${was.at.line}"]`))
+      settle.current = fix
+      requestAnimationFrame(() => settle.current === fix && (settle.current = null))
       live.current.reset()
       setSpot(null)
       if (was.mode !== 'pending') return
@@ -193,11 +206,13 @@ export function CodeFile({ projectId, repo, path, machine, line, file, err, kick
     }
   }, [lines])
 
-  // ---- Arrivée depuis « où c'est utilisé » : la ligne visée, au centre, un éclair de couleur.
-  const goLine = useCallback((n: number) => {
+  // ---- Arrivée depuis « où c'est utilisé » : la ligne visée, au centre, un éclair de couleur. À l'ouverture la page
+  // arrive déjà sur la ligne (sans défilement) ; dans le même fichier, un glissé doux montre dans quel sens on va.
+  const goLine = useCallback((n: number, smooth = false) => {
     const row = box.current?.querySelector<HTMLElement>(`[data-l="${n}"]`)
     if (!row) return
-    row.scrollIntoView({ block: 'center' })
+    if (smooth) reveal(row, { block: 'center', flash: false })
+    else row.scrollIntoView({ block: 'center' })
     setFlash(null)
     requestAnimationFrame(() => setFlash(n))
   }, [])
@@ -212,7 +227,7 @@ export function CodeFile({ projectId, repo, path, machine, line, file, err, kick
         a={a}
         text={sel ? selText(lines, sel) : null}
         held={dragging}
-        onHit={(h) => (h.path === path ? goLine(h.line - 1) : push({ kind: 'file', projectId, repo, path: h.path, line: h.line }))}
+        onHit={(h) => (h.path === path ? goLine(h.line - 1, true) : push({ kind: 'file', projectId, repo, path: h.path, line: h.line }))}
         hitLabel={(h) => `${h.path === path ? '' : h.path}:${h.line}`}
       />
     ) : null
@@ -226,11 +241,11 @@ export function CodeFile({ projectId, repo, path, machine, line, file, err, kick
       dock={file && !file.binary ? <AskVoice a={a} /> : undefined}
     >
       {err && (
-        <div className="band invert" role="alert">
+        <Notice eventId={noticeKey('error:codeview', location.pathname, location.hash, err)} className="band invert" role="alert">
           <div className="in meta" style={{ paddingBlock: 12 }}>
             ! {err}
           </div>
-        </div>
+        </Notice>
       )}
       {file?.binary && <div className="in meta empty">{t.binary}</div>}
       {file && !file.binary && (

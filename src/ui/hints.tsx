@@ -2,6 +2,7 @@ import { AnimatePresence, motion } from 'motion/react'
 import { useEffect, useLayoutEffect, useRef, useState, useSyncExternalStore, type CSSProperties, type RefObject } from 'react'
 import { useT } from '../i18n'
 import M from '../i18n/hints'
+import { FOCUS_BOSS } from './follow'
 import './hints.css'
 
 // First-tap hints. The first time someone taps an element (the voice logo, the star, the +…), a short bubble
@@ -138,6 +139,15 @@ const hide = () => {
   shown = null
   emit()
 }
+
+// Le fil de weevboss s'ouvre en haut (focusBoss) et l'écran défile : une bulle posée sur un élément pointerait dans le
+// vide. Elle repart en bas de l'écran (fondu), le temps d'être lue.
+if (typeof window !== 'undefined')
+  window.addEventListener(FOCUS_BOSS, () => {
+    if (!shown?.anchor) return
+    shown = { ...shown, anchor: null, at: Date.now() }
+    emit()
+  })
 const subscribe = (l: () => void) => {
   listeners.add(l)
   return () => listeners.delete(l)

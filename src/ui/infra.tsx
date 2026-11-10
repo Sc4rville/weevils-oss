@@ -1,10 +1,13 @@
-import { useEffect, useMemo, useState, type ReactNode } from 'react'
-import type { FsListing, InfraDetail, InfraPoint, Level, QuotaInfo, QuotaWindow, UsageInfo, UsageRow } from '../../shared/infra.ts'
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
+import { useEffect, useMemo, useRef, useState, type ReactNode } from 'react'
+import type { FsListing, InfraDetail, InfraPoint, Level, QuotaInfo, QuotaWindow, UsageInfo, UsageToday } from '../../shared/infra.ts'
 import { api, type FileContent } from '../api'
 import { intlLocale, useT } from '../i18n'
 import M from '../i18n/infra'
 import { useApp } from './app-context'
 import { Line, SessionRow } from './bits'
+import { modelLabel } from './settings'
 import { CodeFile } from './codeview'
 import { durLong } from './format'
 import { Icon } from './icons'
@@ -105,7 +108,7 @@ const money = (n: number, cur: string | null) => `${Math.round(n * 100) / 100} $
 const dayName = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(intlLocale(), { weekday: 'short' })
 
 export function InfraPage({ machine, projectId }: { machine?: string; projectId?: string }) {
-  const { snap, push, home, setExpanded } = useApp()
+  const { snap, push } = useApp()
   const t = useT(M)
   const fromProject = projectId ? snap.sessions.find((s) => s.projectId === projectId)?.machineId : undefined
   const [id, setId] = useState(machine ?? fromProject ?? snap.machines[0]?.id ?? '')
@@ -124,7 +127,11 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
     }
   }, [id])
   const m = snap.machines.find((x) => x.id === id)
-  const x = d?.id === id ? d : null
+  // Changement de machine : la fiche précédente reste affichée, en retrait, jusqu'à l'arrivée de la nouvelle (pas de
+  // page vide puis tout d'un coup).
+  const x = d
+  const stale = !!d && d.id !== id
+  const page = useRef<HTMLDivElement>(null)
   const f = x?.facts
   const sessions = snap.sessions.filter((s) => s.machineId === id && s.status !== 'done')
   const pct = (a: number, b: number) => (b ? Math.round((a / b) * 100) : 0)
@@ -133,28 +140,37 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
   const direct = f?.ip && f.publicIp && f.sshPort ? `ssh ${f.sshPort !== 22 ? `-p ${f.sshPort} ` : ''}${f.user}@${f.ip}` : ''
   const offer = x?.offer
   // La première ligne sous le titre : qui l'héberge (ou quel matériel), l'offre, où.
-  const headline = f ? [f.provider ?? f.hardware, offer?.plan, place].filter(Boolean).join(' · ') : ''
+  const headline = f && !stale ? [f.provider ?? f.hardware, offer?.plan, place].filter(Boolean).join(' · ') : ''
+  // Une relecture (toutes les 20 s) qui échoue alors que la fiche est là : un mot dans l'en-tête, pas une bande en haut
+  // de page, hors de vue si on a défilé.
+  const failed = err && x && !stale ? `! ${t.notFresh}` : ''
   return (
-    <Shell slot="agent" kicker="weevils" title={m?.name ?? id} meta={headline || (m?.online === false ? t.offline : undefined)}>
-      <div className="ipage">
+    <Shell slot="agent" kicker="weevils" title={m?.name ?? id} meta={[headline || (m?.online === false ? t.offline : ''), failed].filter(Boolean).join(' · ') || undefined}>
+      <div ref={page} className="ipage">
         {snap.machines.length > 1 && (
           <div className="in mx-tabs">
             {snap.machines.map((y) => (
-              <button key={y.id} className={`mx-tab ${y.id === id ? 'on' : ''} ${y.online === false ? 'off' : ''}`} onClick={() => setId(y.id)} aria-pressed={y.id === id}>
+              <button key={y.id} className={`mx-tab ${y.id === id ? 'on' : ''} ${y.online === false ? 'off' : ''}`} onClick={() => {
+                  if (y.id === id) return
+                  setId(y.id)
+                  const sc = page.current?.closest('[data-scroll]')
+                  if (sc && sc.scrollTop > 0) sc.scrollTo({ top: 0, behavior: matchMedia('(prefers-reduced-motion: reduce)').matches ? 'auto' : 'smooth' })
+                }}
+                aria-pressed={y.id === id}>
                 {y.name}
               </button>
             ))}
           </div>
         )}
-        {err && (
-          <div className="band invert" role="alert">
+        {err && (!x || stale) && (
+          <Notice eventId={noticeKey('error:infra', location.pathname, location.hash, err)} className="band invert" role="alert">
             <div className="in meta" style={{ paddingBlock: 12 }}>
               ! {err}
             </div>
-          </div>
+          </Notice>
         )}
-        {x && f && (
-          <>
+        {x && f && !(stale && err) && (
+          <div className={`mx-detail ${stale ? 'stale' : ''}`} aria-busy={stale}>
             <div className="in label">{t.machineLabel}</div>
             <Kv k={f.provider ? t.host : t.hardware} v={f.provider ?? f.hardware} />
             <Kv k={t.offer} v={offer?.plan ? `${offer.plan}${offer.price != null ? ` · ${t.perMonth(money(offer.price, offer.currency))}` : ''}` : null} onClick={offer?.url ? () => window.open(offer.url!, '_blank', 'noopener') : undefined} />
@@ -223,17 +239,7 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
                 {a}
               </div>
             ))}
-          </>
-        )}
-
-        {/* L'abonnement (quotas Claude et Codex, ce qui consomme) : sur la machine principale, celle qui sert l'app. */}
-        {id === snap.machines[0]?.id && (
-          <>
-            <div className="in label">{t.usageTitle}</div>
-            <Line ch="%" meta={t.usageMeta} onClick={() => push({ kind: 'usage' })}>
-              {t.usageLine}
-            </Line>
-          </>
+          </div>
         )}
 
         {sessions.length > 0 && <div className="in label">{t.sessions}</div>}
@@ -241,8 +247,8 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
           <SessionRow key={s.id} session={s} />
         ))}
 
-        {x && x.servers.length > 0 && <div className="in label">{t.servers}</div>}
-        {x?.servers.map((s) =>
+        {x && !stale && x.servers.length > 0 && <div className="in label">{t.servers}</div>}
+        {!stale && x?.servers.map((s) =>
           s.url ? (
             <Line key={s.port} ch="#" meta={s.url.replace(/^https:\/\//, '')} onClick={() => window.open(s.url, '_blank', 'noopener')} go="↑">
               <span className="strong">{s.port}</span> {s.name} {s.dir}
@@ -259,11 +265,7 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
           ch="+"
           go="→"
           meta={t.addMeta}
-          onClick={() => {
-            home()
-            setExpanded('agent')
-            askSetup('machine')
-          }}
+          onClick={() => askSetup('machine')}
         >
           <span className="strong">{t.addLine}</span>
         </Line>
@@ -314,11 +316,11 @@ export function FsPage({ machine, path }: { machine: string; path: string }) {
           </div>
         )}
         {(err || l?.error) && (
-          <div className="band invert" role="alert">
+          <Notice eventId={noticeKey('error:infra', location.pathname, location.hash, err ?? l?.error)} className="band invert" role="alert">
             <div className="in meta" style={{ paddingBlock: 12 }}>
               ! {err ?? l?.error}
             </div>
-          </div>
+          </Notice>
         )}
         {l && here === '/' && (
           <Line ch="/" meta={l.home} onClick={() => push({ kind: 'fs', machine, path: l.home })}>
@@ -380,7 +382,7 @@ function Quota({ name, q }: { name: string; q: QuotaInfo | undefined }) {
         {q?.plan ? ` · ${q.plan}` : ''}
       </div>
       {!q && <div className="in meta empty">…</div>}
-      {q && !q.ok && <div className="in meta empty">! {q.error ?? t.unavailable}</div>}
+      {q && !q.ok && <Notice eventId={noticeKey("error:usage", q.error ?? t.unavailable)} className="in meta empty" role="alert">! {q.error ?? t.unavailable}</Notice>}
       {q?.windows.map((w) => (
         <div key={`${w.kind}${w.label ?? ''}`} className={`in stat ${w.kind === 'model' ? 'minor' : ''}`}>
           <div className="stat-h">
@@ -396,22 +398,87 @@ function Quota({ name, q }: { name: string; q: QuotaInfo | undefined }) {
   )
 }
 
+/** Quotas Claude et Codex, relus toutes les minutes tant que la page est ouverte (le serveur garde 90 s en cache). */
+function useQuotas() {
+  const [u, setU] = useState<UsageInfo | null>(null)
+  useEffect(() => {
+    const load = () => {
+      if (document.visibilityState === 'visible') void api.usage().then(setU).catch(() => undefined)
+    }
+    load()
+    const iv = setInterval(load, 60_000)
+    document.addEventListener('visibilitychange', load)
+    return () => {
+      clearInterval(iv)
+      document.removeEventListener('visibilitychange', load)
+    }
+  }, [])
+  return u
+}
+
+const pick = (q: QuotaInfo | undefined, kind: QuotaWindow['kind']) => (q?.ok ? q.windows.find((w) => w.kind === kind)?.percent : undefined)
+
+/** L'entrée « abonnement » de la bande du bas : semaine et 5 h de Claude, Codex, et une barre pour le plus proche de la limite. */
+export function UsageLine() {
+  const t = useT(M)
+  const { push } = useApp()
+  const u = useQuotas()
+  const cw = pick(u?.claude, 'week')
+  const c5 = pick(u?.claude, 'session')
+  const xw = pick(u?.codex, 'week') ?? pick(u?.codex, 'session')
+  const parts = [
+    cw != null || c5 != null ? ['claude', cw != null ? t.weekBrief(cw) : '', c5 != null ? t.fiveBrief(c5) : ''].filter(Boolean).join(' ') : '',
+    xw != null ? `codex ${t.pct(xw)}` : '',
+  ].filter(Boolean)
+  const top = Math.max(-1, ...[u?.claude, u?.codex].flatMap((q) => (q?.ok ? q.windows.filter((w) => w.kind !== 'model').map((w) => w.percent) : [])))
+  return (
+    <Line
+      ch="%"
+      className="usage-line"
+      meta={
+        u ? (
+          <>
+            {parts.join(' · ') || '!'}
+            {top >= 0 && <Gauge pct={top} level={quotaLevel(top)} />}
+          </>
+        ) : (
+          '…'
+        )
+      }
+      onClick={() => push({ kind: 'usage' })}
+    >
+      {t.usageTitle}
+    </Line>
+  )
+}
+
+/** « claude-opus-5-5 » → « opus 5.5 » ; les autres noms tels quels. */
+const modelName = (m: string) => modelLabel(m) ?? m
+
 export function UsagePage() {
   const { snap, push, colors } = useApp()
   const t = useT(M)
-  const [u, setU] = useState<UsageInfo | null>(null)
-  const [rows, setRows] = useState<UsageRow[] | null>(null)
+  const u = useQuotas()
+  const [today, setToday] = useState<UsageToday | null>(null)
   useEffect(() => {
-    void api
-      .usage()
-      .then(setU)
-      .catch(() => undefined)
-    void api
-      .usageToday()
-      .then((r) => setRows(r.rows))
-      .catch(() => setRows([]))
+    const load = () => void api.usageToday().then(setToday).catch(() => setToday((d) => d ?? { rows: [] }))
+    load()
+    const iv = setInterval(load, 60_000)
+    return () => clearInterval(iv)
   }, [])
+  const rows = today?.rows ?? null
   const total = rows?.reduce((s, r) => s + r.weight, 0) ?? 0
+  const byModel = useMemo(() => {
+    const m = new Map<string, { tool: string; weight: number; tokens: number }>()
+    for (const r of today?.models ?? []) {
+      const k = `${r.tool}:${modelName(r.model)}`
+      const p = m.get(k) ?? { tool: r.tool, weight: 0, tokens: 0 }
+      p.weight += r.weight
+      p.tokens += r.tokens
+      m.set(k, p)
+    }
+    return [...m].sort((a, b) => b[1].weight - a[1].weight)
+  }, [today])
   const byProject = useMemo(() => {
     const m = new Map<string, { weight: number; tokens: number }>()
     for (const r of rows ?? []) {
@@ -430,6 +497,19 @@ export function UsagePage() {
       <div className="ipage">
         <Quota name="Claude" q={u?.claude} />
         <Quota name="Codex" q={u?.codex} />
+
+        {byModel.length > 0 && <div className="in label">{t.byModel}</div>}
+        {byModel.map(([k, p]) => (
+          <div key={k} className="in stat share">
+            <div className="stat-h">
+              <span className="strong">{k.slice(k.indexOf(':') + 1)}</span>
+              <span className="meta">
+                {p.tool} · {t.share(share(p.weight), p.tokens)}
+              </span>
+            </div>
+            <Gauge pct={share(p.weight)} level="ok" className="big" />
+          </div>
+        ))}
 
         <div className="in label">{t.byProject}</div>
         {!rows && <div className="in meta empty">{t.reading}</div>}

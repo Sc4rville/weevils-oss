@@ -1,0 +1,17 @@
+/* Débit de tokens en direct (src/ui/rate.tsx) : tout en haut à droite de la bande weevboss, sous la barre d'état. */
+.token-meter {
+  position: absolute;
+  top: calc(var(--safe-t) + 4px);
+  right: var(--pad);
+  z-index: 2;
+  padding: 2px 0;
+  color: var(--ink);
+  font-weight: 800;
+  font-size: 1rem;
+  line-height: 1.2;
+  font-variant-numeric: tabular-nums;
+  transition: opacity 0.8s ease;
+}
+.token-meter.idle {
+  opacity: 0.45;
+}

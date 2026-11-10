@@ -36,6 +36,11 @@ export default defineMessages({
     subAria: (label: string, state: string, d: string, open: boolean) => `${label}, ${state}, ${d}, ${open ? 'replier' : 'déplier'}`,
     asks: (tool: string) => `${tool} te demande`,
     waitingForYou: 'la session attend ta réponse',
+    /** Session coupée en plein travail : pourquoi, et les deux gestes. */
+    cutWhy: (reason: string) =>
+      ({ died: 'processus arrêté', dirty: 'arrêtée avec du travail non commité', quota: 'limite d’usage atteinte', auth: 'connexion expirée', api: 'erreur de l’API' })[reason] ?? 'arrêtée',
+    resume: 'reprendre',
+    dismiss: 'laisser',
     showScreen: 'voir l’écran du terminal',
     hideScreen: 'masquer l’écran du terminal',
     terminalScreen: 'écran du terminal',
@@ -64,6 +69,12 @@ export default defineMessages({
     chosen: ', choisi',
     machine: 'machine',
     repo: 'repo',
+    /** Bouton flottant (lecteur d'écran) : du nouveau est arrivé en bas du fil pendant qu'on relisait plus haut. */
+    newBelow: 'du nouveau en bas : y aller',
+    /** Idem, quand la session attend une réponse. */
+    waitsBelow: 'la session attend ta réponse, en bas : y aller',
+    /** Dossier trop long : la liste s'arrête, le reste est compté. */
+    moreFiles: (n: number) => `+ ${n} ${n > 1 ? 'autres fichiers non affichés' : 'autre fichier non affiché'}`,
   },
   en: {
     notFound: 'not found',
@@ -91,6 +102,10 @@ export default defineMessages({
     subAria: (label: string, state: string, d: string, open: boolean) => `${label}, ${state}, ${d}, ${open ? 'collapse' : 'expand'}`,
     asks: (tool: string) => `${tool} is asking`,
     waitingForYou: 'the session is waiting for your answer',
+    cutWhy: (reason: string) =>
+      ({ died: 'process stopped', dirty: 'stopped with uncommitted work', quota: 'usage limit reached', auth: 'login expired', api: 'API error' })[reason] ?? 'stopped',
+    resume: 'resume',
+    dismiss: 'dismiss',
     showScreen: 'show the terminal screen',
     hideScreen: 'hide the terminal screen',
     terminalScreen: 'terminal screen',
@@ -116,5 +131,8 @@ export default defineMessages({
     chosen: ', selected',
     machine: 'machine',
     repo: 'repo',
+    newBelow: 'new below: go there',
+    waitsBelow: 'the session is waiting for your answer, below: go there',
+    moreFiles: (n: number) => `+ ${n} more ${n === 1 ? 'file' : 'files'} not shown`,
   },
 })

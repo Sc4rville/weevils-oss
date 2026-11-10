@@ -3,9 +3,13 @@
 # Elle appelle le weevilsd local : une requête née sur la machine est de confiance, pas de code à fournir.
 #
 #   weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
+#   weevils resume <id>                  relance une session coupée en plein travail (état « interrupted »)
 #   weevils new <projet> "message" [codex]   weevils projects
 #   weevils setup [install | ask <brique> | mark <id>]      weevils config set <CLÉ> <valeur>
 #   weevils tour open|close                                 rouvre ou ferme les premiers pas dans l'app
+#   weevils memory [add "souvenir" | rm <id>]   (ce que weevils retient de l'utilisateur, ~/.config/weevils/memory.json)
+#   weevils post "texte" [--action "libellé::quoi faire"]…   un mot dans « pour toi », avec des boutons si besoin
+#   weevils show <fichier> ["légende"]                       une image ou une vidéo dans « pour toi »
 set -euo pipefail
 base="http://127.0.0.1:${WEEVILS_PORT:-4179}"
 from=${WEEVILS_FROM:-weevils}
@@ -25,24 +29,42 @@ wv_lang() {
 if [ "$(wv_lang)" = fr ]; then
   # i18n-ignore : messages français, l'anglais est juste en dessous (même chose dans la branche else)
   usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
-weevils new <projet> "message" [codex]   weevils projects
+weevils resume <id>                  weevils new <projet> "message" [codex]   weevils projects
 weevils setup [install | ask <brique> | mark <id>]   weevils config set <CLÉ> <valeur>
-weevils tour open|close' # i18n-ignore
+weevils tour open|close
+weevils memory [add "souvenir" | rm <id>]
+weevils post "texte" [--action "libellé::quoi faire"]…   weevils show <fichier> ["légende"]' # i18n-ignore
   a_id='id de session' a_msg='message' a_project='projet' a_first='premier message' # i18n-ignore
   export WVM_NOT_FOUND='session introuvable : ' WVM_AMBIGUOUS='plusieurs sessions commencent par {} : {}' # i18n-ignore
   export WVM_NO_SESSIONS='aucune session ouverte' WVM_NO_MESSAGES='(aucun message)' WVM_USER='utilisateur' # i18n-ignore
   export WVM_ERROR='erreur' WVM_NEW='nouvelle session ' WVM_BACKGROUND='en arrière-plan' # i18n-ignore
-  m_sent='reçu par %s' m_not_sent='NON reçu par %s : %s' # i18n-ignore
+  m_sent='reçu par %s' m_not_sent='NON reçu par %s : %s' m_resumed='%s relancée' # i18n-ignore
+  export WVM_CUT='coupée en plein travail' # i18n-ignore
+  export WVM_NO_MEMORY='(rien en mémoire)' WVM_NO_MEMORY_HERE='pas de mémoire sur cette machine (elle vit sur la machine principale)' # i18n-ignore
+  export WVM_MEM_NOT_FOUND='souvenir introuvable : ' WVM_MEM_ADDED='retenu ' WVM_MEM_REMOVED='oublié ' # i18n-ignore
+  m_mem_empty='souvenir vide : weevils memory add "souvenir"' m_mem_no_id='quel souvenir ? weevils memory rm <id>' # i18n-ignore
+  m_post_empty='rien à poster : weevils post "texte" [--action "libellé::quoi faire"]' m_posted='posté dans « pour toi »' # i18n-ignore
+  m_action_bad='une action s’écrit "libellé::quoi faire"' # i18n-ignore
+  m_show_no_file='quel fichier ? weevils show <fichier> ["légende"]' m_shown='affiché dans « pour toi »' # i18n-ignore
 else
   usage='weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
-weevils new <project> "message" [codex]  weevils projects
+weevils resume <id>                  weevils new <project> "message" [codex]  weevils projects
 weevils setup [install | ask <brick> | mark <id>]   weevils config set <KEY> <value>
-weevils tour open|close'
+weevils tour open|close
+weevils memory [add "memory" | rm <id>]
+weevils post "text" [--action "label::what to do"]…      weevils show <file> ["caption"]'
   a_id='session id' a_msg='message' a_project='project' a_first='first message'
   export WVM_NOT_FOUND='no such session: ' WVM_AMBIGUOUS='several sessions start with {}: {}'
   export WVM_NO_SESSIONS='no open sessions' WVM_NO_MESSAGES='(no messages)' WVM_USER='user'
   export WVM_ERROR='error' WVM_NEW='new session ' WVM_BACKGROUND='in background'
-  m_sent='received by %s' m_not_sent='NOT received by %s: %s'
+  m_sent='received by %s' m_not_sent='NOT received by %s: %s' m_resumed='%s restarted'
+  export WVM_CUT='cut off mid-work'
+  export WVM_NO_MEMORY='(nothing remembered yet)' WVM_NO_MEMORY_HERE='no memory on this machine (it lives on the main machine)'
+  export WVM_MEM_NOT_FOUND='no such memory: ' WVM_MEM_ADDED='remembered ' WVM_MEM_REMOVED='forgotten '
+  m_mem_empty='empty memory: weevils memory add "memory"' m_mem_no_id='which memory? weevils memory rm <id>'
+  m_post_empty='nothing to post: weevils post "text" [--action "label::what to do"]' m_posted='posted in "for you"'
+  m_action_bad='an action is written "label::what to do"'
+  m_show_no_file='which file? weevils show <file> ["caption"]' m_shown='shown in "for you"'
 fi
 
 json() { local code=$1; shift; "$py" -c "import json,sys,os; E=os.environ; d=json.load(sys.stdin); $code" "$@"; }
@@ -60,17 +82,30 @@ else: print(E['WVM_AMBIGUOUS'].format(want, ', '.join(h[:12] for h in hits)), fi
 " "$1"
 }
 
+# POST /api/foryou/<what> with a JSON body; prints <done>, or the server's reason (else the code) on one line.
+for_you() {
+  local out code body
+  out=$(printf '%s' "$3" | curl -s -m 30 -w '\n%{http_code}' -H 'content-type: application/json' --data-binary @- "$base/api/foryou/$1") || true
+  code=${out##*$'\n'} body=${out%$'\n'*}
+  [ "$code" = 200 ] && { echo "$2"; return 0; }
+  printf '%s' "$body" | json "print(d.get('error') or '')" 2>/dev/null | grep . >&2 || echo "$WVM_ERROR $code" >&2
+  exit 1
+}
+
 case "${1:-}" in
   sessions)
     curl -sf -m 8 "$base/api/snapshot" | json "
 names={p['id']:p['name'] for p in d['projects']}
 # Une session dont des sous-agents, un workflow ou des commandes tournent encore est « working » : elle reste listée.
+# Une session coupée en plein travail (« interrupted ») est listée en premier : elle attend une reprise (weevils resume).
 rows=[s for s in d['sessions'] if s['status']!='done' or s.get('background')]
+rows.sort(key=lambda s: s['status']!='interrupted')
 if not rows: print(E['WVM_NO_SESSIONS'])
 for s in rows:
     now=(' · '+s['now']) if s.get('now') else ''
     bg=(f\" · {s['background']} {E['WVM_BACKGROUND']}\") if s.get('background') else ''
-    print(f\"{s['id'][:8]}  {names.get(s['projectId'],s['projectId']):<14} {s['tool']:<6} @{s['machineId']:<4} {s['status']:<10} {s['title']}{now}{bg}\")
+    cut=(f\" · {E['WVM_CUT']} ({s['interrupted']['reason']})\") if s.get('interrupted') else ''
+    print(f\"{s['id'][:8]}  {names.get(s['projectId'],s['projectId']):<14} {s['tool']:<6} @{s['machineId']:<4} {s['status']:<11} {s['title']}{now}{bg}{cut}\")
 " ;;
   projects)
     curl -sf -m 8 "$base/api/snapshot" | json "
@@ -98,6 +133,12 @@ for m in msgs[-n:]:
       | curl -s -m 40 -w '\n%{http_code}' -H 'content-type: application/json' --data-binary @- "$base/api/sessions/$id/send")
     code=${out##*$'\n'}
     if [ "$code" = 200 ]; then printf "$m_sent\n" "${id:0:8}"
+    else printf "$m_not_sent\n" "${id:0:8}" "$(printf '%s' "${out%$'\n'*}" | "$py" -c 'import json,sys,os; print(json.load(sys.stdin).get("error",os.environ["WVM_ERROR"]))' 2>/dev/null || echo "$WVM_ERROR $code")" >&2; exit 1; fi ;;
+  resume)
+    id=$(resolve "${2:?$a_id}")
+    out=$(curl -s -m 40 -w '\n%{http_code}' -X POST -H 'content-type: application/json' --data-binary '{}' "$base/api/sessions/$id/resume")
+    code=${out##*$'\n'}
+    if [ "$code" = 200 ]; then printf "$m_resumed\n" "${id:0:8}"
     else printf "$m_not_sent\n" "${id:0:8}" "$(printf '%s' "${out%$'\n'*}" | "$py" -c 'import json,sys,os; print(json.load(sys.stdin).get("error",os.environ["WVM_ERROR"]))' 2>/dev/null || echo "$WVM_ERROR $code")" >&2; exit 1; fi ;;
   new)
     project=${2:?$a_project}
@@ -129,6 +170,73 @@ for m in msgs[-n:]:
     [ "${2:-}" = set ] || { echo "$usage"; exit 1; }
     "$py" -c 'import json,sys; print(json.dumps({"key":sys.argv[1],"value":sys.argv[2]}))' "${3:?}" "${4-}" \
       | curl -sf -m 15 -H 'content-type: application/json' --data-binary @- "$base/api/setup/config" >/dev/null && echo ok ;;
+  memory)
+    # What weevils remembers about the user (goals, wishes, projects): list, add a durable fact, forget one.
+    # The memory lives on the main machine only (404 elsewhere).
+    mem_get() {
+      local out code
+      out=$(curl -s -m 10 -w '\n%{http_code}' "$base/api/memory") || true
+      code=${out##*$'\n'}
+      if [ "$code" = 404 ]; then echo "$WVM_NO_MEMORY_HERE" >&2; exit 1; fi
+      [ "$code" = 200 ] || { echo "$WVM_ERROR $code" >&2; exit 1; }
+      printf '%s' "${out%$'\n'*}"
+    }
+    case "${2:-}" in
+      '')
+        list=$(mem_get) || exit 1
+        printf '%s' "$list" | json "
+items=d.get('items') or []
+if not items: print(E['WVM_NO_MEMORY'])
+for m in items: print(f\"{m['id']}  {m['text']}\")
+" ;;
+      add)
+        # Nothing (or only blanks) to remember: one clean line, not bash's « line N: 3: … ».
+        text=${3-}
+        [ -n "${text//[[:space:]]/}" ] || { echo "$m_mem_empty" >&2; exit 1; }
+        out=$("$py" -c 'import json,sys; print(json.dumps({"text":sys.argv[1]}))' "$text" \
+          | curl -s -m 10 -w '\n%{http_code}' -H 'content-type: application/json' --data-binary @- "$base/api/memory") || true
+        code=${out##*$'\n'} body=${out%$'\n'*}
+        if [ "$code" = 404 ]; then echo "$WVM_NO_MEMORY_HERE" >&2; exit 1; fi
+        # Refusé (souvenir vide…) : le message du serveur, sinon le code.
+        [ "$code" = 200 ] || { printf '%s' "$body" | json "print(d.get('error') or '')" 2>/dev/null | grep . >&2 || echo "$WVM_ERROR $code" >&2; exit 1; }
+        printf '%s' "$body" | json "print(E['WVM_MEM_ADDED']+d['item']['id'])" ;;
+      rm)
+        want=${3-}
+        [ -n "${want//[[:space:]]/}" ] || { echo "$m_mem_no_id" >&2; exit 1; }
+        list=$(mem_get) || exit 1
+        id=$(printf '%s' "$list" | json "
+want=sys.argv[1]; hits=[m['id'] for m in d.get('items') or [] if m['id'].startswith(want)]
+if len(hits)==1: print(hits[0])
+else: print(E['WVM_MEM_NOT_FOUND']+want, file=sys.stderr); sys.exit(1)
+" "$want")
+        curl -sf -m 10 -X DELETE "$base/api/memory/$id" >/dev/null && echo "$WVM_MEM_REMOVED$id" ;;
+      *) echo "$usage"; exit 1 ;;
+    esac ;;
+  post)
+    # A word in the « for you » stream, with optional buttons: each --action is "label::brief" (the brief comes back
+    # to weevboss when the button is tapped).
+    shift
+    text='' actions=()
+    while [ $# -gt 0 ]; do
+      case "$1" in
+        --action)
+          a=${2-}
+          # A label, « :: », something to do: anything else is one clean line.
+          case "$a" in ?*::?*) ;; *) echo "$m_action_bad" >&2; exit 1 ;; esac
+          actions+=("$a"); shift; [ $# -gt 0 ] && shift ;;
+        *) [ -n "$text" ] || text=$1; shift ;;
+      esac
+    done
+    [ -n "${text//[[:space:]]/}" ] || { echo "$m_post_empty" >&2; exit 1; }
+    for_you post "$m_posted" "$("$py" -c 'import json,sys
+acts=[dict(zip(("label","brief"),(p.strip() for p in a.split("::",1)))) for a in sys.argv[3:]]
+print(json.dumps({"text":sys.argv[1],"actions":acts,"from":sys.argv[2]}))' "$text" "$from" ${actions[@]+"${actions[@]}"})" ;;
+  show)
+    # An image or a video in the « for you » stream. The server checks the file (place, type, size) and says why not.
+    file=${2-}
+    [ -n "${file//[[:space:]]/}" ] || { echo "$m_show_no_file" >&2; exit 1; }
+    case "$file" in /*) ;; "~/"*) file=$HOME/${file#"~/"} ;; *) file=$PWD/$file ;; esac
+    for_you media "$m_shown" "$("$py" -c 'import json,sys; print(json.dumps({"path":sys.argv[1],"caption":sys.argv[2],"cwd":sys.argv[3],"from":sys.argv[4]}))' "$file" "${3-}" "$PWD" "$from")" ;;
   *)
     echo "$usage"
     exit 1 ;;

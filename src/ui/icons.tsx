@@ -9,6 +9,10 @@ import type { ReactNode } from 'react'
 export type Dir = 'up' | 'right' | 'down' | 'left'
 const TURN: Record<Dir, number> = { up: 0, right: 90, down: 180, left: 270 }
 
+/** La boucle de « cycle » et sa pointe, à part : AutoMark les anime séparément. */
+const CYCLE_LOOP = 'M4 14v6h16V4H4v6'
+const CYCLE_HEAD = 'M1 7l3 3 3-3'
+
 const PATHS = {
   // Tracés de base, orientés vers le haut quand ils ont un sens.
   arrow: 'M12 20V5M5 12l7-7 7 7',
@@ -22,6 +26,8 @@ const PATHS = {
   bang: 'M12 4v10M12 18.5v1.5',
   slash: 'M16 3L8 21',
   quote: 'M8.5 5v6M15.5 5v6',
+  // Bulle de parole : un rectangle, sa pointe en bas à gauche.
+  bubble: 'M3 4h18v12H11l-5 4v-4H3z',
   machine: 'M3 4h18v12H3zM8 20h8',
   more: 'M5 12h1M11.5 12h1M18 12h1',
   mic: 'M9 3h6v10H9zM5 10v6h14v-6M12 16v5M8 21h8',
@@ -39,6 +45,8 @@ const PATHS = {
   grip: 'M7 9h10M7 15h10',
   file: 'M6 3h8l4 4v14H6z',
   copy: 'M9 9h11v11H9zM15 5V4H4v11h1',
+  // Ce qui revient tout seul : la touche « répéter », à angles droits — une boucle ouverte à gauche, sa pointe en bas.
+  cycle: `${CYCLE_LOOP}${CYCLE_HEAD}`,
 } as const
 
 export type IconName = keyof typeof PATHS
@@ -75,6 +83,23 @@ export function Icon({ name, dir = 'up', label, className = '' }: { name: IconNa
   )
 }
 
+/**
+ * Le signe de ce qui tourne tout seul (une automatisation au travail) : la boucle « cycle », en magenta (--auto-fluo),
+ * où un segment plein fait le tour comme un tapis roulant ; la boucle entière reste lisible (piste à mi-teinte, contour
+ * d'encre en thème clair), la pointe soudée à son bout ouvert. Ni rotation (l'étoile verte), ni clignotement (.fluo) : c'est sa
+ * forme et son mouvement qui le distinguent. Animé même en « réduire les animations », comme l'étoile : seul signe de vie.
+ */
+export function AutoMark({ label, className = '' }: { label?: string; className?: string }) {
+  return (
+    <svg className={`ic auto-mark ${className}`} viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth={2.5} strokeLinecap="square" strokeLinejoin="miter" strokeMiterlimit={10} role={label ? 'img' : undefined} aria-label={label} aria-hidden={label ? undefined : true} focusable="false">
+      <path className="halo" d={`${CYCLE_LOOP}${CYCLE_HEAD}`} />
+      <path className="track" d={CYCLE_LOOP} />
+      <path className="run" d={CYCLE_LOOP} pathLength={100} />
+      <path d={CYCLE_HEAD} />
+    </svg>
+  )
+}
+
 /** Les anciens caractères-icônes, traduits en icônes du jeu. */
 const GLYPHS: Record<string, [IconName, Dir?]> = {
   '→': ['arrow', 'right'],
@@ -102,6 +127,7 @@ const GLYPHS: Record<string, [IconName, Dir?]> = {
   '#': ['hash'],
   '||': ['pause'],
   '·': ['file'],
+  '↻': ['cycle'],
 }
 
 /** Une icône à la place d'un caractère ; tout le reste passe tel quel (texte, nœuds React). */

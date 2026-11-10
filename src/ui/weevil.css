@@ -1,0 +1,171 @@
+/* The weevil's questions (src/ui/weevil.tsx): a flat full colour panel that slides up from the bottom, the question big
+   and bold, the voice logo and the field under it, × to close. Sharp corners, no shadow, nothing drifting. */
+
+/* ---------- The exchange ---------- */
+
+.weevil-scrim {
+  position: fixed;
+  inset: 0;
+  z-index: 40;
+  background: rgb(0 0 0 / 0.12);
+}
+
+[data-theme='dark'] .weevil-scrim {
+  background: rgb(0 0 0 / 0.3);
+}
+
+/* Follows the visible viewport: with the keyboard open, the band sits right above it. */
+.weevil-dock {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vvt, 0px);
+  height: var(--vvh, 100dvh);
+  z-index: 41;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  pointer-events: none;
+}
+
+.weevil-sheet {
+  pointer-events: auto;
+  max-height: 100%;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  background: var(--c);
+  color: var(--ink);
+  padding: 14px var(--pad) calc(var(--safe-b) + 10px);
+  font-family: var(--font);
+}
+
+.weevil-head {
+  display: flex;
+  align-items: flex-start;
+  gap: 12px;
+}
+
+.weevil-q {
+  flex: 1;
+  min-width: 0;
+  margin: 0;
+  font-size: 1.5rem;
+  font-weight: 800;
+  line-height: 1.15;
+  letter-spacing: -0.015em;
+  overflow-wrap: anywhere;
+}
+
+.weevil-x {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 44px;
+  height: 44px;
+  margin: -8px -10px 0 0;
+}
+
+.weevil-lines {
+  display: grid;
+  gap: 8px;
+  padding: 14px 0 4px;
+  font-size: 1.0625rem;
+  line-height: 1.35;
+}
+
+.weevil-line {
+  margin: 0;
+  animation: weevil-in 0.22s ease-out;
+  overflow-wrap: anywhere;
+}
+
+.weevil-line.weevil {
+  font-weight: 750;
+}
+
+.weevil-line.user {
+  justify-self: end;
+  max-width: 85%;
+  text-align: right;
+  font-weight: 600;
+  opacity: 0.7;
+}
+
+.weevil-learned {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+  font-size: 0.875rem;
+  font-weight: 700;
+  opacity: 0.75;
+  animation: weevil-in 0.22s ease-out;
+}
+
+.weevil-wait {
+  justify-self: start;
+}
+
+.weevil-err {
+  margin: 0;
+  font-weight: 700;
+}
+
+@keyframes weevil-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+/* The voice logo (same one as everywhere) and the field, side by side under the thumb. */
+.weevil-say {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  padding-top: 12px;
+  transition: opacity 0.3s ease;
+}
+
+.weevil-say.done {
+  opacity: 0.35;
+}
+
+.weevil-say .voice-logo {
+  height: 46px;
+  min-height: 0;
+}
+
+.weevil-form {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 48px;
+  border-bottom: 3px solid var(--ink);
+  font-size: 1.0625rem;
+}
+
+.weevil-form input {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+}
+
+.weevil-send {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 40px;
+  height: 44px;
+}
+
+.weevil-send:disabled {
+  opacity: 0.3;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .weevil-line,
+  .weevil-learned {
+    animation: none;
+  }
+}

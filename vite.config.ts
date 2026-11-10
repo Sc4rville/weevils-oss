@@ -1,4 +1,5 @@
 import fs from 'node:fs'
+import { execFileSync } from 'node:child_process'
 import os from 'node:os'
 import path from 'node:path'
 import type { Plugin } from 'vite'
@@ -27,6 +28,10 @@ function swBuild(): Plugin {
       outDir = path.resolve(c.root, c.build.outDir)
     },
     generateBundle(_, bundle) {
+      try {
+        const commit = execFileSync('git', ['rev-parse', 'HEAD'], { encoding: 'utf8' }).trim()
+        this.emitFile({ type: 'asset', fileName: 'build.json', source: JSON.stringify({ commit, at: Date.now() }) })
+      } catch { /* A source archive can be built without Git. */ }
       for (const f of Object.values(bundle)) if (f.type === 'chunk' && f.isEntry) entry = path.basename(f.fileName)
     },
     closeBundle() {

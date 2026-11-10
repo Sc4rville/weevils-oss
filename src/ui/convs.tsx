@@ -1,3 +1,5 @@
+import { noticeKey } from '../../shared/notices.ts'
+import { Notice } from './notice'
 // Conversations ChatGPT / Claude.ai : liste, lecture, rangement, import, « continuer ici ».
 
 import { useEffect, useRef, useState, type ChangeEvent } from 'react'
@@ -8,7 +10,8 @@ import M from '../i18n/convs'
 import { useApp } from './app-context'
 import { Collapse, Composer, Line, Messages } from './bits'
 import { ago } from './format'
-import { Shell } from './shell'
+import { seedPending } from './pending'
+import { FootError, Shell, swapPage } from './shell'
 import { Icon } from './icons'
 
 const SOURCE = { chatgpt: 'chatgpt', claude: 'claude.ai' } as const
@@ -62,7 +65,7 @@ export function Chooser({ c, onDone }: { c: ConversationSummary; onDone: () => v
   }
   return (
     <div className="band tone">
-      {err && <div className="in meta">! {err}</div>}
+      {err && <Notice eventId={noticeKey("error:conversations", location.pathname, err)} className="in meta" role="alert">! {err}</Notice>}
       {snap.projects
         .filter((p) => p.id !== c.projectId && p.id !== 'divers' && p.id !== 'general')
         .map((p) => (
@@ -146,13 +149,20 @@ export function ConversationPage({ id }: { id: string }) {
   const c = d.conversation
 
   const accept = async () => {
-    await api.classify(c.id, { projectId: c.suggestedProjectId })
-    refresh()
+    setErr(null)
+    try {
+      await api.classify(c.id, { projectId: c.suggestedProjectId })
+      refresh()
+    } catch (e) {
+      setErr((e as Error).message)
+    }
   }
   const cont = async (text: string) => {
     setErr(null)
     try {
       const r = await api.continueConv(c.id, tool, text)
+      seedPending(r.id, text)
+      swapPage()
       replace({ kind: 'session', id: r.id })
     } catch (e) {
       setErr((e as Error).message)
@@ -166,15 +176,13 @@ export function ConversationPage({ id }: { id: string }) {
       kicker={c.projectId ? name(c.projectId) : t.toFile}
       title={c.title}
       meta={`${SOURCE[c.source]} · ${t.messages(c.messageCount)} · ${new Date(c.updatedAt).toLocaleDateString(intlLocale(), { day: 'numeric', month: 'long', year: 'numeric' })}`}
-      foot={<Composer placeholder={t.continueWithTool(tool)} label={t.continueLabel} onSend={cont} />}
+      foot={
+        <>
+          <FootError text={err} />
+          <Composer placeholder={t.continueWithTool(tool)} label={t.continueLabel} onSend={cont} />
+        </>
+      }
     >
-      {err && (
-        <div className="band invert" role="alert">
-          <div className="in meta" style={{ paddingBlock: 12 }}>
-            ! {err}
-          </div>
-        </div>
-      )}
       <div className={`band ${c.status === 'pending' ? 'invert' : 'tone'}`}>
         <div className="in" style={{ paddingBlock: 12 }}>
           <div className="strong">{statusLabel(c, name)}</div>
@@ -251,7 +259,7 @@ export function ImportPage() {
       {result && <div className="in meta strong" style={{ paddingBlock: 12 }}>
           <Icon name="check" /> {t.imported(result.total, result.added, result.updated)}
         </div>}
-      {err && <div className="in meta strong" style={{ paddingBlock: 12 }}>! {err}</div>}
+      {err && <Notice eventId={noticeKey("error:import", err)} className="in meta strong" style={{ paddingBlock: 12 }} role="alert">! {err}</Notice>}
       <div className="in meta" style={{ paddingBlock: 10 }}>
         {cl.running ? t.filing(cl.queued) : cl.lastError ? t.filingFailed(cl.lastError) : snap.conversationCounts.pending ? t.toFileByYou(snap.conversationCounts.pending) : t.allFiled}
       </div>

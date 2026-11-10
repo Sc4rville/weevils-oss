@@ -1,25 +1,45 @@
 // La couche tmux : la frontière entre ce que le téléphone envoie et le terminal (saisie littérale, touches permises)
 // et le registre des sessions wv-* partagé avec le lanceur server/wv. tmux est simulé : on regarde les arguments.
+import fs from 'node:fs'
+import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it, vi } from 'vitest'
 
-const sh = vi.hoisted(() => ({ calls: [] as string[][], out: '', fail: false }))
+// calls : les arguments sans le choix du serveur ; sockets : le serveur visé (« -L <nom> », sinon « default »).
+const sh = vi.hoisted(() => ({ commands: [] as string[], calls: [] as string[][], sockets: [] as string[], out: '', by: {} as Record<string, string | null>, fail: false }))
 vi.mock('node:child_process', () => ({
   execFile: (_cmd: string, args: string[], _opts: unknown, cb: (err: Error | null, stdout: string, stderr: string) => void) => {
-    sh.calls.push(args)
-    if (sh.fail) cb(new Error('no server running'), '', 'no server running on /tmp/tmux-1000/default')
-    else cb(null, sh.out, '')
+    sh.commands.push(_cmd)
+    if (_cmd === 'systemd-run') args = args.slice(args.indexOf('--') + 2)
+    const socket = args[0] === '-L' ? args[1] : 'default'
+    sh.calls.push(args[0] === '-L' ? args.slice(2) : args)
+    sh.sockets.push(socket)
+    const out = socket in sh.by ? sh.by[socket] : sh.out
+    if (sh.fail || out === null) cb(new Error('no server running'), '', 'no server running on /tmp/tmux-1000/default')
+    else cb(null, out, '')
   },
 }))
 
 const mux = await import('./mux.ts')
 
 beforeEach(() => {
+  sh.commands.length = 0
   sh.calls.length = 0
+  sh.sockets.length = 0
+  sh.by = {}
   sh.out = ''
   sh.fail = false
 })
 afterEach(() => {
   vi.useRealTimers()
+})
+
+describe('wvName', () => {
+  it('« . » et « : » deviennent « _ » comme tmux le ferait : le nom retenu est celui de la session', () => {
+    expect(mux.wvName('.ad9651b0c8', 'abc123')).toBe('wv-_ad9651b0c8-abc123')
+    expect(mux.wvName('mon.site:v2', 'abc123')).toBe('wv-mon_site_v2-abc123')
+    expect(mux.wvName('tic-tac-toe', 'abc123')).toBe('wv-tic-tac-toe-abc123')
+    expect(mux.wvName('a-very-long-folder-name-indeed', 'f')).toBe('wv-a-very-long-folder-f')
+  })
 })
 
 describe('sendText', () => {
@@ -164,5 +184,59 @@ describe('cibles', () => {
   it('une erreur tmux remonte avec son message', async () => {
     sh.fail = true
     await expect(mux.killWv('wv-x')).rejects.toThrow(/no server running/)
+  })
+})
+
+describe('serveur tmux dédié (garde-fou contre « tmux kill-server »)', () => {
+  const row = (name: string) => [name, 'claude', 'id', 't', '/d', '/d', '1', '42'].join('\u001f')
+
+  it('les sessions sont lancées et réglées sur « tmux -L weevils », jamais sur le serveur par défaut', async () => {
+    expect(mux.SOCKET).toBe('weevils')
+    await mux.spawnWv('wv-new-000000', '/d', 'claude', 't', ['claude'], 'u')
+    expect(sh.sockets.every((x) => x === 'weevils')).toBe(true)
+    await mux.sendText('wv-new-000000', 'hi').catch(() => undefined)
+    await mux.killWv('wv-new-000000')
+    expect(sh.sockets.every((x) => x === 'weevils')).toBe(true)
+  })
+
+  it('relecture : le serveur dédié, puis les sessions d’avant restées sur le serveur par défaut (pilotées là où elles vivent)', async () => {
+    sh.by = { weevils: row('wv-new-000000') + '\n', default: [row('wv-old-111111'), row('wv-new-000000'), 'perso: 1 windows'].join('\n') + '\n' }
+    const list = await mux.listWv()
+    expect(list.map((s) => s.name)).toEqual(['wv-new-000000', 'wv-old-111111'])
+    expect(sh.sockets).toEqual(['weevils', 'default'])
+    sh.calls.length = sh.sockets.length = 0
+    await mux.capture('wv-old-111111')
+    await mux.capture('wv-new-000000')
+    expect(sh.sockets).toEqual(['default', 'weevils'])
+  })
+
+  it('pas encore de serveur dédié : les anciennes sessions restent visibles', async () => {
+    sh.by = { weevils: null, default: row('wv-old-111111') + '\n' }
+    expect((await mux.listWv()).map((s) => s.name)).toEqual(['wv-old-111111'])
+  })
+})
+
+describe('Codex active approval menu', () => {
+  it('ignores command output, quoted options and the ordinary composer during work', () => {
+    expect(mux.codexDialogOnScreen('exec requires approval?\n› 1. Yes\n2. No\nEnter to confirm\n• Working (36s • esc to interrupt)\n› 111')).toBeUndefined()
+    expect(mux.codexDialogOnScreen('• Ran rg needs_user approval\n› 111\nGPT-6.1-Sol default')).toBeUndefined()
+  })
+  it('recognizes an actual Codex approval selector', () => {
+    expect(mux.codexDialogOnScreen('Would you like to run this command?\n› 1. Yes, proceed\n2. No, tell Codex what to do differently\nPress enter to confirm or esc to cancel')).toBe('Would you like to run this command?')
+  })
+})
+
+describe('throwaway tmux isolation', () => {
+  it('creates TMUX_TMPDIR before even listing the legacy socket, including after deletion', async () => {
+    const dir = path.join(process.env.HOME!, 'missing-tmux')
+    vi.stubEnv('TMUX_TMPDIR', dir)
+    try {
+      expect(fs.existsSync(dir)).toBe(false)
+      await mux.listWv()
+      expect(fs.statSync(dir).isDirectory()).toBe(true)
+      fs.rmSync(dir, { recursive: true })
+      await mux.listWv()
+      expect(fs.statSync(dir).isDirectory()).toBe(true)
+    } finally { vi.unstubAllEnvs() }
   })
 })

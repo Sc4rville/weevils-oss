@@ -1,4 +1,4 @@
-import { createContext, useContext } from 'react'
+import { createContext, useContext, useSyncExternalStore } from 'react'
 import type { Snapshot } from '../../shared/api.ts'
 
 export type Theme = 'light' | 'dark' | 'zen' | 'graphite'
@@ -12,6 +12,7 @@ export const THEME_COLOR: Record<Theme, string> = { light: '#B39BFF', dark: '#55
 
 export type Page =
   | { kind: 'session'; id: string }
+  | { kind: 'archived' }
   | { kind: 'files'; projectId: string; repo?: string; dir?: string }
   | { kind: 'file'; projectId: string; repo: string; path: string; line?: number }
   | { kind: 'machine'; projectId: string }
@@ -20,11 +21,22 @@ export type Page =
   | { kind: 'conversation'; id: string }
   | { kind: 'import' }
   | { kind: 'repos' }
+  | { kind: 'softwares' }
+  | { kind: 'software'; id: string }
   | { kind: 'calm' }
   | { kind: 'calmconv'; id: string }
   | { kind: 'fs'; machine: string; path: string }
   | { kind: 'fsfile'; machine: string; path: string }
   | { kind: 'usage' }
+  | { kind: 'relay' }
+  | { kind: 'memory' }
+  /** « Pour toi » en plein écran ; who : le participant isolé à l'ouverture. */
+  | { kind: 'foryou'; who?: string }
+  /** Un média du flux, seul, en grand. */
+  | { kind: 'media'; url: string; type: 'image' | 'video'; name: string }
+  /** Une automatisation (tâche, proposition, timer, job) et l'un de ses passages (at : sa fin). */
+  | { kind: 'auto'; id: string }
+  | { kind: 'autorun'; id: string; at: number }
 
 export interface AppCtx {
   snap: Snapshot
@@ -42,11 +54,34 @@ export interface AppCtx {
   instant?: boolean
   setExpanded: (id: string | null) => void
   h24Open: boolean
-  setH24Open: (open: boolean) => void
+  /** `focus` : l'activité touchée (une ligne 24/7 d'une bande projet), amenée sous les yeux dans le tiroir. */
+  setH24Open: (open: boolean, focus?: string) => void
+  /** L'activité à montrer à l'ouverture du tiroir 24/7. */
+  h24Focus?: string | null
   theme: Theme
   setTheme: (t: Theme) => void
   refresh: () => void
   logout: () => void
+}
+
+/**
+ * Ordre stable d'une liste vivante : `rank` d'abord (ce qui t'attend remonte), puis l'ordre déjà affiché (`prev`, ids) ;
+ * l'activité seule ne fait jamais bouger une ligne. Les nouveaux venus se placent en tête de leur rang, entre eux par
+ * `fresh`. `frozen` (doigt posé, défilement) : rien ne bouge, les nouveaux venus vont à la fin, sous le regard.
+ */
+export function stableOrder<T>(items: readonly T[], id: (x: T) => string, rank: (x: T) => number, fresh: (a: T, b: T) => number, prev: readonly string[], frozen = false): T[] {
+  const at = new Map(prev.map((k, i) => [k, i]))
+  const idx = (x: T) => at.get(id(x))
+  if (frozen) {
+    const known = items.filter((x) => idx(x) !== undefined).sort((a, b) => idx(a)! - idx(b)!)
+    const news = items.filter((x) => idx(x) === undefined).sort((a, b) => rank(a) - rank(b) || fresh(a, b))
+    return [...known, ...news]
+  }
+  return [...items].sort((a, b) => {
+    const ia = idx(a)
+    const ib = idx(b)
+    return rank(a) - rank(b) || (ia === undefined ? (ib === undefined ? fresh(a, b) : -1) : ib === undefined ? 1 : ia - ib)
+  })
 }
 
 export const Ctx = createContext<AppCtx | null>(null)
@@ -86,3 +121,15 @@ export function colorSlots(ids: string[]): Record<string, string> {
   out.__foot = `p${(last + 5) % SLOTS}`
   return out
 }
+
+/** Freeze during a gesture; release subscribers only when a deferred order can safely be applied. */
+let settledNow = true
+const settledListeners = new Set<() => void>()
+export const isSettled = () => settledNow
+export function setSettledNow(v: boolean) {
+  if (settledNow === v) return
+  settledNow = v
+  if (v) for (const listener of settledListeners) listener()
+}
+const subscribeSettled = (listener: () => void) => { settledListeners.add(listener); return () => { settledListeners.delete(listener) } }
+export const useSettled = () => useSyncExternalStore(subscribeSettled, isSettled, isSettled)
