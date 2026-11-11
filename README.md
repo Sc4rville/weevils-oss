@@ -1,6 +1,6 @@
 # weevils
 
-<img src="public/branding/weevboss-cutout.png" width="96" alt="weevils official logo">
+<img src="public/branding/weevboss.svg" width="96" alt="weevils official logo">
 
 **Watch and drive your Claude Code and Codex sessions from your phone**, on your own machine, with the subscriptions
 you already have.

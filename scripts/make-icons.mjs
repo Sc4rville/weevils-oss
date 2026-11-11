@@ -1,46 +1,38 @@
-// Génère les icônes PNG (bandes de couleur, sans dépendance) dans public/.
-import { writeFileSync } from 'node:fs'
-import { deflateSync } from 'node:zlib'
-
-const bands = ['#B39BFF', '#6FA4FF', '#FF7F67', '#FF8AD6', '#FFC64C'].map((h) => [1, 3, 5].map((i) => parseInt(h.slice(i, i + 2), 16)))
-
-const crcTable = Array.from({ length: 256 }, (_, n) => {
-  let c = n
-  for (let k = 0; k < 8; k++) c = c & 1 ? 0xedb88320 ^ (c >>> 1) : c >>> 1
-  return c >>> 0
-})
-const crc32 = (buf) => {
-  let c = 0xffffffff
-  for (const b of buf) c = crcTable[(c ^ b) & 0xff] ^ (c >>> 8)
-  return (c ^ 0xffffffff) >>> 0
-}
-const chunk = (type, data) => {
-  const len = Buffer.alloc(4)
-  len.writeUInt32BE(data.length)
-  const body = Buffer.concat([Buffer.from(type), data])
-  const crc = Buffer.alloc(4)
-  crc.writeUInt32BE(crc32(body))
-  return Buffer.concat([len, body, crc])
-}
-
-function png(size) {
-  const raw = Buffer.alloc((size * 3 + 1) * size)
-  for (let y = 0; y < size; y++) {
-    const [r, g, b] = bands[Math.min(bands.length - 1, Math.floor((y / size) * bands.length))]
-    const row = y * (size * 3 + 1)
-    for (let x = 0; x < size; x++) raw.set([r, g, b], row + 1 + x * 3)
-  }
-  const ihdr = Buffer.alloc(13)
-  ihdr.writeUInt32BE(size, 0)
-  ihdr.writeUInt32BE(size, 4)
-  ihdr.set([8, 2, 0, 0, 0], 8)
-  return Buffer.concat([
-    Buffer.from([0x89, 0x50, 0x4e, 0x47, 0x0d, 0x0a, 0x1a, 0x0a]),
-    chunk('IHDR', ihdr),
-    chunk('IDAT', deflateSync(raw)),
-    chunk('IEND', Buffer.alloc(0)),
-  ])
-}
-
-for (const s of [180, 192, 512]) writeFileSync(`public/icon-${s}.png`, png(s))
-console.log('icônes générées')
+// Deterministic exports of the shipped logo component; no redraw and no browser.
+import fs from 'node:fs'
+import { createHash } from 'node:crypto'
+import { createServer } from 'vite'
+import React from 'react'
+import { renderToStaticMarkup } from 'react-dom/server'
+import { Resvg } from '@resvg/resvg-js'
+const png = fs.readFileSync('public/branding/weevboss-cutout.png')
+const vite = await createServer({ server: { middlewareMode: true }, appType: 'custom' })
+try {
+ const { WeevbossLogo } = await vite.ssrLoadModule('/src/ui/logo.tsx')
+ const mark = renderToStaticMarkup(React.createElement(WeevbossLogo,{title:'weevils'}),{identifierPrefix:'official-'})
+  .replace('href="/branding/weevboss-cutout.png"',`href="data:image/png;base64,${png.toString('base64')}"`)
+  .replace('width="44" height="44"','width="1046" height="1046"')
+ const lightFilter='<filter id="light" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="linear" slope=".46"/><feFuncG type="linear" slope=".46"/><feFuncB type="linear" slope=".46"/></feComponentTransfer></filter>'
+ const transparent=`<svg xmlns="http://www.w3.org/2000/svg" width="1046" height="1046" viewBox="0 0 1046 1046"><title>weevils</title><defs>${lightFilter}</defs><g filter="url(#light)">${mark}</g></svg>`
+ fs.writeFileSync('public/branding/weevboss.svg',transparent)
+ const files={}
+ for(const size of [32,180,192,512]) {
+  // 340/512 preserves the complete mark within the PWA maskable safe circle.
+  const view=size===32 ? 512 : 340, offset=(512-view)/2
+  const image=`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs>${lightFilter}</defs>${size===32?'':'<rect width="512" height="512" fill="#B39BFF"/>'}<g transform="translate(${offset} ${offset}) scale(${view/1046})" filter="url(#light)">${mark}</g></svg>`
+  const rendered=new Resvg(image,{fitTo:{mode:'width',value:size}}).render()
+  const data=rendered.asPng(),name=size===32?'favicon-32.png':`icon-${size}.png`
+  fs.writeFileSync(`public/${name}`,data)
+  files[name]={width:rendered.width,height:rendered.height,sha256:createHash('sha256').update(data).digest('hex')}
+ }
+ const version=name=>files[name].sha256.slice(0,12)
+ const html=fs.readFileSync('index.html','utf8').replace(/(<link id="app-favicon"[^>]+href=")[^"]+/,`$1/favicon-32.png?v=${version('favicon-32.png')}`).replace(/(rel="apple-touch-icon" href=")[^"]+/,`$1/icon-180.png?v=${version('icon-180.png')}`)
+ fs.writeFileSync('index.html',html)
+ const manifest=JSON.parse(fs.readFileSync('public/manifest.webmanifest','utf8'))
+ for(const icon of manifest.icons){const name=icon.src.split('/').at(-1).split('?')[0];if(files[name])icon.src=`/${name}?v=${version(name)}`}
+ fs.writeFileSync('public/manifest.webmanifest',JSON.stringify(manifest,null,2)+'\n')
+ const sw=fs.readFileSync('public/sw.js','utf8').replaceAll(/\/icon-192\.png(?:\?v=[a-z0-9]+)?/g,`/icon-192.png?v=${version('icon-192.png')}`)
+ fs.writeFileSync('public/sw.js',sw)
+ fs.writeFileSync('public/branding/exports.json' ,JSON.stringify({sourceSha256:createHash('sha256').update(png).digest('hex'),source:'weevboss-cutout.png',component:'src/ui/logo.tsx',files},null,2)+'\n')
+ console.log('Official logo exports: transparent SVG, 32px favicon, 180/192/512px app icons')
+} finally { await vite.close() }

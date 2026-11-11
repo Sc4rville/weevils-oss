@@ -1,0 +1,27 @@
+{
+  "sourceSha256": "966644aad59fc8b7852bb7bfca260ee0382978c013a881763cc17fb12d1d9149",
+  "source": "weevboss-cutout.png",
+  "component": "src/ui/logo.tsx",
+  "files": {
+    "favicon-32.png": {
+      "width": 32,
+      "height": 32,
+      "sha256": "689b02a6bc6b1b47ebfb44396fd094679547a679fd4f742687d918d485f8dd98"
+    },
+    "icon-180.png": {
+      "width": 180,
+      "height": 180,
+      "sha256": "7792c6e77dd3f1e3113ab48be67ed25af7bb37f3834ad376a78ce88346812f65"
+    },
+    "icon-192.png": {
+      "width": 192,
+      "height": 192,
+      "sha256": "606f8a7c3e3d9b7898f22301e3eaadf24059c88c6a3894b237d7f5cf3eaaa165"
+    },
+    "icon-512.png": {
+      "width": 512,
+      "height": 512,
+      "sha256": "6712eb8043f0281bb5a8e0d877fce3fb130e27de7990c291a0d1c7012914b01d"
+    }
+  }
+}
