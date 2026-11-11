@@ -1,6 +1,6 @@
 Asset provenance
 
-public/icon-{180,192,512}.png, public/favicon-32.png and public/branding/weevboss.svg: deterministic exports of the approved shared logo component, imported from source commit 384052d. Regenerate with npm run icons (development-only @resvg/resvg-js). Source and output hashes: public/branding/exports.json.
+public/icon-{180,192,512}.png, public/favicon-32.png, public/badge-96.png and public/branding/weevboss.svg: deterministic exports of the approved shared logo component, imported from source commits 384052d and 9ccb5f6. Regenerate with npm run icons (development-only @resvg/resvg-js). Source and output hashes: public/branding/exports.json.
 src/ui/icons.tsx: inline geometric SVG paths maintained in this repository.
 src/assets/weevboss-official.png: approved original supplied by Gepetto; original bytes and hash retained.
 public/branding/weevboss-cutout.png: approved transparent derivative, reused unchanged. Provenance and processing notes: src/assets/weevboss-*.source.json (private message identifiers excluded).

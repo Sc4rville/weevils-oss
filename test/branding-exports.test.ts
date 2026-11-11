@@ -12,7 +12,7 @@ it('exports the approved logo with correct sizes, opaque PWA backgrounds and a t
   const size=meta.width
   const raster=new Resvg(`<svg xmlns="http://www.w3.org/2000/svg" width="${size}" height="${size}"><image href="data:image/png;base64,${file.toString('base64')}" width="${size}" height="${size}"/></svg>`).render()
   const pixels=raster.pixels
-  if(size===32){expect(pixels[3]).toBe(0);expect([...pixels].filter((v,i)=>i%4===3&&v>0).length).toBeGreaterThan(250)}
+  if(size<180){expect(pixels[3]).toBe(0);expect([...pixels].filter((v,i)=>i%4===3&&v>0).length).toBeGreaterThan(250)}
   else {
    let mark=0
    for(let y=0;y<size;y++)for(let x=0;x<size;x++){
@@ -30,5 +30,6 @@ it('versions all installed-icon URLs by their bytes without service worker cachi
  for(const name of ['favicon-32.png','icon-180.png'])expect(html).toContain(`/${name}?v=${exports.files[name].sha256.slice(0,12)}`)
  for(const icon of manifest.icons){const name=icon.src.split('/').at(-1).split('?')[0];expect(icon.src).toBe(`/${name}?v=${exports.files[name].sha256.slice(0,12)}`)}
  expect(sw).toContain(`/icon-192.png?v=${exports.files['icon-192.png'].sha256.slice(0,12)}`)
+ expect(sw).toContain(`/badge-96.png?v=${exports.files['badge-96.png'].sha256.slice(0,12)}`)
  expect(sw).not.toContain('caches.open(')
 })

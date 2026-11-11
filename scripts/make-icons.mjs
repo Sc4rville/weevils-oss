@@ -16,12 +16,12 @@ try {
  const transparent=`<svg xmlns="http://www.w3.org/2000/svg" width="1046" height="1046" viewBox="0 0 1046 1046"><title>weevils</title><defs>${lightFilter}</defs><g filter="url(#light)">${mark}</g></svg>`
  fs.writeFileSync('public/branding/weevboss.svg',transparent)
  const files={}
- for(const size of [32,180,192,512]) {
+ for(const size of [32,96,180,192,512]) {
   // 340/512 preserves the complete mark within the PWA maskable safe circle.
-  const view=size===32 ? 512 : 340, offset=(512-view)/2
-  const image=`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs>${lightFilter}</defs>${size===32?'':'<rect width="512" height="512" fill="#B39BFF"/>'}<g transform="translate(${offset} ${offset}) scale(${view/1046})" filter="url(#light)">${mark}</g></svg>`
+  const view=size<180 ? 512 : 340, offset=(512-view)/2
+  const image=`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><defs>${lightFilter}</defs>${size<180?'':'<rect width="512" height="512" fill="#B39BFF"/>'}<g transform="translate(${offset} ${offset}) scale(${view/1046})" filter="url(#light)">${mark}</g></svg>`
   const rendered=new Resvg(image,{fitTo:{mode:'width',value:size}}).render()
-  const data=rendered.asPng(),name=size===32?'favicon-32.png':`icon-${size}.png`
+  const data=rendered.asPng(),name=size===32?'favicon-32.png':size===96?'badge-96.png':`icon-${size}.png`
   fs.writeFileSync(`public/${name}`,data)
   files[name]={width:rendered.width,height:rendered.height,sha256:createHash('sha256').update(data).digest('hex')}
  }
@@ -32,7 +32,7 @@ try {
  for(const icon of manifest.icons){const name=icon.src.split('/').at(-1).split('?')[0];if(files[name])icon.src=`/${name}?v=${version(name)}`}
  fs.writeFileSync('public/manifest.webmanifest',JSON.stringify(manifest,null,2)+'\n')
  const sw=fs.readFileSync('public/sw.js','utf8').replaceAll(/\/icon-192\.png(?:\?v=[a-z0-9]+)?/g,`/icon-192.png?v=${version('icon-192.png')}`)
- fs.writeFileSync('public/sw.js',sw)
+ fs.writeFileSync('public/sw.js',sw.replace(/badge: '[^']+'/g,`badge: '/badge-96.png?v=${version('badge-96.png')}'`))
  fs.writeFileSync('public/branding/exports.json' ,JSON.stringify({sourceSha256:createHash('sha256').update(png).digest('hex'),source:'weevboss-cutout.png',component:'src/ui/logo.tsx',files},null,2)+'\n')
- console.log('Official logo exports: transparent SVG, 32px favicon, 180/192/512px app icons')
+ console.log('Official logo exports: transparent SVG, 32px favicon, 96px notification badge, 180/192/512px app icons')
 } finally { await vite.close() }
