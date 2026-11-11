@@ -369,7 +369,7 @@ const routes: [string, RegExp, Handler][] = [
   ['GET', /^\/api\/me$/, (req, res) => json(res, 200, { authed: authed(req), demoAvailable: process.env.WEEVILS_DEMO === '1' })],
   ['GET', /^\/api\/demo$/, (req, res) => {
     if (process.env.WEEVILS_DEMO !== '1') return json(res, 404, { error: tr(M).unknownRoute })
-    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'" })
+    res.writeHead(200, { 'content-type': 'text/html; charset=utf-8', 'cache-control': 'no-store', 'content-security-policy': "default-src 'none'; img-src 'self'; script-src 'unsafe-inline'; style-src 'unsafe-inline'; connect-src 'none'; form-action 'none'; base-uri 'none'; frame-ancestors 'none'" })
     res.end(demoPage(String(req.headers['accept-language'] ?? 'en')))
   }],
   ['POST', /^\/api\/logout$/, (req, res) => {

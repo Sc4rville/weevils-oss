@@ -2,8 +2,12 @@ Asset provenance
 
 public/icon-{180,192,512}.png: generated from geometric color bands by scripts/make-icons.mjs; no external image input. Regenerate with npm run icons.
 src/ui/icons.tsx: inline geometric SVG paths maintained in this repository.
-src/ui/logo.tsx: inline project logo traced from the original drawing, as recorded in its source comment. No third-party asset package is imported.
+src/assets/weevboss-official.png: approved original supplied by Gepetto; original bytes and hash retained.
+public/branding/weevboss-cutout.png: approved transparent derivative, reused unchanged. Provenance and processing notes: src/assets/weevboss-*.source.json (private message identifiers excluded).
+src/ui/logo.tsx: shared rendering of that PNG, with alpha cleanup and theme filters. Imported from source commit 1b95bd2 (including 6d03b76). No new logo was generated for this package.
 docs/screenshot.png and docs/first-run.png: application demonstration screenshots. docs/first-run.gif: onboarding demonstration.
 Fonts: OS system font stacks; no font binaries distributed.
 The private design reference kit is excluded from this repository.
 Dependencies retain their respective upstream licenses; see package-lock.json and installed package LICENSE files.
+
+PWA icons and demonstration captures still predate this logo rollout; see docs/branding.md. Existing license and third-party attribution notices are unchanged.

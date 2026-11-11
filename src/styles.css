@@ -13,6 +13,7 @@
 /* Clair : couleurs vives, texte noir. */
 :root,
 [data-theme='light'] {
+  --logo-filter: brightness(.46);
   color-scheme: light;
   --ink: #000;
   --agent: #b39bff;
@@ -44,6 +45,7 @@
 
 /* Sombre : couleurs profondes mais chaleureuses, texte blanc. */
 [data-theme='dark'] {
+  --logo-filter: grayscale(1) brightness(.3) invert(1);
   color-scheme: dark;
   --ink: #fff;
   --agent: #5522b5;
@@ -77,6 +79,7 @@
    Contrastes vérifiés (WCAG AA) : texte ≥ 6,4:1 sur toutes les bandes, étoile verte ≥ 4,1:1, logo animé ≥ 3,3:1.
    :root en plus : passe devant les :root plus bas (--fluo, palette du logo) qui ont sinon la même spécificité. */
 :root[data-theme='zen'] {
+  --logo-filter: grayscale(1) sepia(.25) brightness(.6);
   color-scheme: light;
   --ink: #33302b;
   --agent: oklch(0.83 0.03 315);
@@ -118,6 +121,7 @@
    chargements, enregistrement vocal, non lu, aperçu live, progression). Les bandes se distinguent par la nuance.
    Contrastes vérifiés : texte ≥ 8:1 partout, bleu ≥ 3:1 sur toutes les bandes et sous-bandes de projet (≥ 6:1 sur les plus claires). */
 :root[data-theme='graphite'] {
+  --logo-filter: grayscale(1) brightness(.6);
   color-scheme: light;
   --ink: #141414;
   --agent: oklch(0.82 0 0);
@@ -1700,14 +1704,18 @@ button.copy.done {
 
 .voice-logo {
   color: var(--ink);
-  height: 10dvh;
-  min-height: 58px;
-  aspect-ratio: 775 / 571;
+  width: 56px;
+  height: 56px;
+  min-height: 44px;
+  aspect-ratio: 1;
+  flex: none;
   display: grid;
   place-items: center;
   transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), color 0.22s ease;
   touch-action: manipulation;
 }
+
+.weevboss-logo { display: block; flex: none; overflow: hidden; filter: var(--logo-filter, none); }
 
 .voice-svg {
   width: 100%;
@@ -1731,10 +1739,12 @@ button.copy.done {
 
 /* Enregistre : couleur vive, légèrement incliné, respire. */
 .voice-logo.rec {
-  color: var(--anim-rec);
+  color: color-mix(in oklab, var(--anim-rec) 35%, var(--ink));
   transform: rotate(-8deg);
   animation: voice-breathe 1.1s ease-in-out infinite;
 }
+
+.voice-logo.rec .voice-svg { filter: none; color: inherit; animation: none; }
 
 .voice-logo.wait {
   color: var(--anim-wait);

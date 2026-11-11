@@ -1,11 +1,14 @@
 # weevils
 
+<img src="public/branding/weevboss-cutout.png" width="96" alt="weevils official logo">
+
 **Watch and drive your Claude Code and Codex sessions from your phone**, on your own machine, with the subscriptions
 you already have.
 
 *An AI agent installing this for someone? Clone it and follow [AGENTS.md](AGENTS.md): it installs everything
 without asking them anything first.*
 
+<!-- Historical capture: recorded before the official logo update. -->
 <img src="docs/first-run.gif" width="280" alt="weevils on a fresh install: the 3-card intro, the empty home, the first hint">
 
 - **Every session, sorted by project**: what each agent is doing right now, and the full thread.
@@ -108,6 +111,8 @@ which explains every setting. After a change: `weevils-service restart` (for the
   online if you set `WEEVILS_DISCOVER=1`. The quota page reads your Claude Code / Codex login to show your usage.
 
 ## More
+
+Branding rollout status and historical screenshots: [docs/branding.md](docs/branding.md).
 
 - [docs/install.md](docs/install.md): installer details, several machines, tests
 - [CONTRIBUTING.md](CONTRIBUTING.md): development setup, checks, how the code is laid out

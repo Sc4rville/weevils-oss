@@ -312,7 +312,7 @@ export function VoiceLogo({ onText, onSend, replyKey, replyText, working, take }
   return (
     <div className="voice">
       <button className={`voice-logo ${phase} ${reply ? 'reply' : ''} ${working ? 'working' : ''} ${speaking ? 'speaking' : ''}`} onPointerDown={(e) => e.preventDefault()} onClick={tap} aria-label={label} aria-pressed={phase === 'rec'}>
-        <WeevbossLogo className="voice-svg" />
+        <WeevbossLogo className="voice-svg" recording={phase === 'rec'} />
       </button>
       <AnimatePresence>
         {err && !errorHidden && (
