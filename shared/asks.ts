@@ -1,6 +1,6 @@
 // « Attend l'utilisateur » sans dialogue à l'écran : le tour de l'agent principal est fini sur une question ou une demande
 // d'action (lien à ouvrir, valeur à coller, choix à faire), et l'utilisateur n'a rien répondu. Ses sous-agents peuvent
-// encore tourner : la session attend quand même (TLO, 2026-11-10 : six agents en arrière-plan cachaient une question).
+// encore tourner : la session attend quand même (SampleProject, regression fixture: six agents en arrière-plan cachaient une question).
 
 export interface Ask {
   /** link : un lien à ouvrir ; paste : une valeur à coller (adresse, clé, code) ; question : une réponse ou un choix. */

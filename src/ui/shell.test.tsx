@@ -11,10 +11,10 @@ it('keeps back navigation fixed while session title, metadata and all messages s
   document.body.append(host)
   const root = createRoot(host)
   try {
-    await act(async () => root.render(<Shell slot="agent" kicker="tlo" title="TLO — création du monde" meta="Long session context" scrollHeading foot={<input aria-label="message" />}><p>First complete message</p><p>Last complete message</p></Shell>))
+    await act(async () => root.render(<Shell slot="agent" kicker="sample-project" title="SampleProject — création du monde" meta="Long session context" scrollHeading foot={<input aria-label="message" />}><p>First complete message</p><p>Last complete message</p></Shell>))
     expect(host.querySelector('.page-head .back')).not.toBeNull()
     expect(host.querySelector('.page-head h1')).toBeNull()
-    expect(host.querySelector('.page-body h1')?.textContent).toBe('TLO — création du monde')
+    expect(host.querySelector('.page-body h1')?.textContent).toBe('SampleProject — création du monde')
     expect(host.querySelector('.page-body')?.textContent).toContain('First complete message')
     expect(host.querySelector('.page-body')?.textContent).toContain('Last complete message')
     expect(host.querySelector('.page-foot input')).not.toBeNull()

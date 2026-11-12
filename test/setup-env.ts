@@ -25,5 +25,5 @@ delete process.env.INVOCATION_ID
 delete process.env.CODEX_HOME
 delete process.env.WEEVILS_PROJECTS
 // Le HOME jetable part avec le fichier de test.
-const clean = () => fs.rmSync(home, { recursive: true, force: true })
+const clean = () => fs.rmSync(home, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
 afterAll(clean)

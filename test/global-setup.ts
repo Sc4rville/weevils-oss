@@ -9,5 +9,5 @@ export function setup() {
 }
 
 export function teardown() {
-  if (process.env.WEEVILS_TEST_ROOT) fs.rmSync(process.env.WEEVILS_TEST_ROOT, { recursive: true, force: true })
+  if (process.env.WEEVILS_TEST_ROOT) fs.rmSync(process.env.WEEVILS_TEST_ROOT, { recursive: true, force: true, maxRetries: 5, retryDelay: 100 })
 }

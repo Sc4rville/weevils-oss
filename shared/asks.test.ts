@@ -2,7 +2,7 @@ import { describe, expect, it } from 'vitest'
 import { asksUser } from './asks.ts'
 
 describe('une session qui attend l’utilisateur', () => {
-  it('TLO : valider RunPod et coller une adresse → coller ; un lien à ouvrir → lien', () => {
+  it('SampleProject : valider RunPod et coller une adresse → coller ; un lien à ouvrir → lien', () => {
     expect(asksUser('J’ai préparé le pod.\n\nValide la facturation sur RunPod, puis colle-moi l’adresse du pod ici.')).toMatchObject({ kind: 'paste' })
     expect(asksUser('Ouvre ce lien pour autoriser l’accès : https://www.runpod.io/console/user/settings?x=1. Je reprends ensuite.')).toMatchObject({ kind: 'link', url: 'https://www.runpod.io/console/user/settings?x=1' })
   })
@@ -20,7 +20,7 @@ describe('une session qui attend l’utilisateur', () => {
 
 describe('declarative reports never ask for an answer', () => {
   it.each([
-    '[VPS] TLO repris par Codex à 16 h 32 : session liée et lecture des fichiers confirmées.\nClaude était bloqué derrière un panneau ; les six workflows ont fini en erreur de quota.\nPod supprimé par le watchdog à 16 h 22, dépense actuelle 0 $/h ; weevboss informé, aucune nouvelle dépense ni publication autorisée.',
+    '[VPS] SampleProject repris par Codex à une heure donnée : session liée et lecture des fichiers confirmées.\nClaude était bloqué derrière un panneau ; les six workflows ont fini en erreur de quota.\nPod supprimé par le watchdog plus tôt, dépense actuelle 0 $/h ; weevboss informé, aucune nouvelle dépense ni publication autorisée.',
     'RunPod confirme qu’il ne reste aucun pod actif et aucune dépense horaire.',
     'Je confirme la mise en ligne, aucune confirmation attendue.',
     'Les autorisations et interdictions sont documentées. La validation est terminée.',
