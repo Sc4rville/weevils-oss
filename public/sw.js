@@ -57,7 +57,7 @@ self.addEventListener('push', (e) => {
       body: d.body || '',
       tag: d.tag,
       data: { url: d.url || '/' },
-      icon: '/icon-192.png?v=606f8a7c3e3d',
+      icon: '/icon-192.png?v=9fec9eacdecc',
       badge: '/badge-96.png?v=a391e6f73e13',
     }),
   )
