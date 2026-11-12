@@ -11,3 +11,7 @@ The private design reference kit is excluded from this repository.
 Dependencies retain their respective upstream licenses; see package-lock.json and installed package LICENSE files.
 
 Demonstration captures still predate this logo rollout; see docs/branding.md. Existing license and third-party attribution notices are unchanged.
+
+Release clearance: approval of the supplied official logo establishes the intended design, not evidence of its original generation tool, terms, or third-party rights. Redistribution clearance for the original and derivatives remains a public-release blocker until the owner supplies that evidence. No third-party artwork license is invented here.
+
+The screenshots were inspected as generic demonstration content, not private account screenshots. They retain the historical logo; the GIF and every historical asset also require history-wide review before public visibility.

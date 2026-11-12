@@ -17,7 +17,11 @@ without asking them anything first.*
 - **weevboss**: one chat at the top that reads your sessions and passes work on to them.
 - **Several machines, one app**: a laptop and a server show up side by side.
 
-No API cost: weevils drives the official `claude` and `codex` commands you are already logged in to.
+Core session control uses your own Claude Code or Codex account. Provider subscription or usage charges still apply; optional voice services may charge separately.
+
+## Release status
+
+This is a private release candidate. Friends can clone it only after the owner grants repository access or approves public visibility. The intended public installation URL is https://github.com/Sc4rville/weevils-oss.
 
 ## Install it with your AI agent
 
@@ -34,8 +38,7 @@ and hands you the link. The steps it follows are in [AGENTS.md](AGENTS.md).
 
 **AI agents: don't use this section and don't ask the user for these answers: follow [AGENTS.md](AGENTS.md).**
 
-You need a Linux machine (a VPS, a home server, WSL2) with **Claude Code** installed and logged in as a regular user
-(not root). Codex is optional.
+You need a Linux machine (a VPS, a home server, or WSL2), preferably a regular user with sudo. The installer adds missing prerequisites and Claude Code. Sign in with your own Claude account for weevboss; see the Codex-only limitations below.
 
 ```sh
 git clone https://github.com/Sc4rville/weevils-oss weevils && cd weevils && ./install.sh
@@ -57,6 +60,28 @@ Other options: `--yes` (no questions), `--agent` (for an AI agent: no questions,
 end), `--url <https://…>` (HTTPS already served by something else, like `tailscale serve`), `--name`, `--lang en|fr`, `--port`, `--secondary <ssh host>` (add a second
 machine), `--uninstall` (`--purge` also deletes settings and data). Everything the script does:
 [docs/install.md](docs/install.md).
+
+## Claude or Codex
+
+The installer can be run from either Claude Code or Codex. The full experience, including weevboss, currently requires a signed-in Claude Code account. Codex sessions use your own separate Codex login. **A Codex-only account does not power weevboss.**
+
+For session control with Codex and no Claude subscription, run the installer above, then disable weevboss before using the app:
+
+```sh
+weevils-service config set WEEVILS_ORCHESTRATOR 0
+weevils-service restart
+codex login
+cd ~/projects/my-app
+wv codex "Read this project and summarize it"
+```
+
+The installer may install the Claude executable; you do not need to sign in to Claude for this limited mode. Its readiness summary still checks Claude, so it may say Claude login is missing even though Codex session control is available. Background features that invoke Claude also remain unavailable. Fresh installer and package checks use disposable homes; authenticated model work requires the installing person to sign in. See [release validation](docs/release-readiness.md) for tested coverage and remaining blockers.
+
+## Shared code and private data
+
+This repository contains the application, generic prompts, translations, tests, and installation scripts. It does not contain a running account. Each installation owns its provider logins, access code, projects, sessions, memories and preferences. Settings live in `~/.config/weevils`; application state lives in `~/.local/share/weevils`; provider credentials stay in their respective Claude/Codex home directories. Keep these outside Git and never share your phone login link.
+
+For a separate single-user Docker trial that mounts no host account or projects, follow [scripts/friend/README.txt](scripts/friend/README.txt). Give each friend a separate container and volume; this is not a shared multi-user service.
 
 ## First session
 
@@ -118,4 +143,4 @@ Branding rollout status and historical screenshots: [docs/branding.md](docs/bran
 - [CONTRIBUTING.md](CONTRIBUTING.md): development setup, checks, how the code is laid out
 - [docs/changelog.md](docs/changelog.md): what changed
 
-English and French throughout. MIT license, see [LICENSE](LICENSE).
+English and French throughout. Application source and documentation: Apache-2.0, see [LICENSE](LICENSE) and [NOTICE](NOTICE). Earlier MIT notices are retained in [LICENSE-MIT](LICENSE-MIT). Asset clearance status: [ASSETS.txt](ASSETS.txt).
