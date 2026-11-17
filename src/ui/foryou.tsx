@@ -333,7 +333,7 @@ const bandClass = (item: ForYouItem, format: ForYouFormat, look: ForYouLook = 'f
 export function ForYouItemView({ item, compact, look }: { item: ForYouItem; compact?: boolean; look?: ForYouLook }) {
   const fy = useForYou()
   const { hidden, dismiss } = useNotice(feedNoticeKey(item))
-  const { colors } = useApp()
+  const { colors, snap } = useApp()
   const t = useT(M)
   const authors = useAuthors()
   const style = itemSlot(item, colors, authors)
@@ -350,7 +350,7 @@ export function ForYouItemView({ item, compact, look }: { item: ForYouItem; comp
   const format = formatOf(item)
   const closable = closableFeedNotice(item)
   if (!format || hidden || rawEngineeringNotice(item.id, item.text) || !worthShowing(item)) return null
-  const links = pageLinks([item.text, item.body, item.moreText, item.title].filter(Boolean).join('\n'), [location.host])
+  const links = pageLinks([item.text, item.body, item.moreText, item.title].filter(Boolean).join('\n'), [location.host, snap.config.publicHost])
   if (compact) {
     return (
       <div className={`${bandClass(item, format)} fy-strip${closable ? ' notice-shell' : ''}`} style={style} data-fy={item.id}>

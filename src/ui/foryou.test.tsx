@@ -99,7 +99,7 @@ const snap = (rev: number | null = 1): Snapshot => ({
   mainQueued: 0,
   devil: { enabled: false, working: false },
   pinnedRepos: [],
-  config: { userName: '', exposeDomain: '', publicHost: '', authors: [{ id: 'juno', name: 'Juno', color: '#2ec4b6' }] },
+  config: { userName: '', exposeDomain: '', publicHost: 'app.example', authors: [{ id: 'juno', name: 'Juno', color: '#2ec4b6' }] },
   foryou: rev === null ? undefined : { rev, unseen: 3 },
 })
 
@@ -159,8 +159,8 @@ beforeEach(() => {
   root = createRoot(host)
 })
 
-it('opens a result page directly even when its link was omitted from the shortened headline', async () => {
-  const item: ForYouItem = { ...base, id: 'page-result', kind: 'boss', who: 'session', text: 'The report is ready to review.', body: 'Read [Requests and goals](/p/report/requests).', open: { page: 'boss' } }
+it.each(['', 'https://app.example'])('opens a result page directly from local or public links: %s', async (origin) => {
+  const item: ForYouItem = { ...base, id: 'page-result', kind: 'boss', who: 'session', text: 'The report is ready to review.', body: `Read [Requests and goals](${origin}/p/report/requests).`, open: { page: 'boss' } }
   await open([item])
   const link = band(item.id).querySelector('a.living')!
   expect(link.textContent).toBe('Requests and goals')
