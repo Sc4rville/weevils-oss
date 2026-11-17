@@ -1,8 +1,41 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { LANGS, LANG_NAMES, installLang, langIsChosen, setLang, useLang, useT, type Lang } from '../i18n'
 import M from '../i18n/prefs'
+import { Line } from './bits'
 import { Icon } from './icons'
 import './prefs.css'
+
+/** Settings row: « language   English ». A tap opens the choices; only a tap on one of them changes the language
+ *  (a stray tap once left the whole app in English), on this device only. */
+export function LanguageLine() {
+  const t = useT(M)
+  const lang = useLang()
+  const [picking, setPicking] = useState(false)
+  const chosen = langIsChosen()
+  const pick = (l: Lang | null) => {
+    setPicking(false)
+    if (l === null ? chosen : !chosen || l !== lang) setLang(l)
+  }
+  return (
+    <>
+      <Line ch="A" go={null} value={LANG_NAMES[lang]} onClick={() => setPicking((p) => !p)}>
+        {t.language}
+      </Line>
+      {picking && (
+        <div className="lang-pick" role="group" aria-label={t.language}>
+          <Line ch={chosen ? '' : '✓'} go={null} onClick={() => pick(null)}>
+            {t.followDefault(LANG_NAMES[installLang()])}
+          </Line>
+          {LANGS.map((l: Lang) => (
+            <Line key={l} ch={chosen && l === lang ? '✓' : ''} go={null} onClick={() => pick(l)}>
+              <span lang={l}>{LANG_NAMES[l]}</span>
+            </Line>
+          ))}
+        </div>
+      )}
+    </>
+  )
+}
 
 export function LanguageButton({ compact = false }: { compact?: boolean }) {
   const t = useT(M)

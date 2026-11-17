@@ -500,7 +500,7 @@ export function UsageLine() {
     )
   const parts = [fig('Claude', cw), fig('Codex', xw)].filter(Boolean)
   return (
-    <Line className="usage-line" value={u ? parts.flatMap((x, i) => (i ? [' · ', x] : [x])) : '…'} onClick={() => push({ kind: 'usage' })}>
+    <Line ch="%" className="usage-line" value={u ? parts.flatMap((x, i) => (i ? [' · ', x] : [x])) : '…'} onClick={() => push({ kind: 'usage' })}>
       {t.usageTitle}
     </Line>
   )

@@ -38,6 +38,10 @@ const PATHS = {
   /** Save to the device (camera roll, downloads). */
   save: 'M12 3v11M6 9l6 6 6-6M4 20h16',
   theme: 'M4 4h16v16H4zM12 4v16',
+  // Subscriptions: three rising levels, open and light next to the old heavy « % ».
+  usage: 'M5 20v-4M12 20v-9M19 20V5',
+  // Language: a capital A.
+  language: 'M5 21l7-17 7 17M8 14h8',
   logout: 'M10 4H4v16h6M15 8l4 4-4 4M19 12H9',
   agents: 'M4 6h16M4 12h16M4 18h16',
   terminal: 'M4 7l5 5-5 5M12 18h8',
@@ -126,6 +130,8 @@ const GLYPHS: Record<string, [IconName, Dir?]> = {
   '"': ['quote'],
   '@': ['machine'],
   '~': ['theme'],
+  '%': ['usage'],
+  A: ['language'],
   x: ['logout'],
   '&': ['agents'],
   '>': ['chevron', 'right'],

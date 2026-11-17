@@ -23,7 +23,7 @@ globalThis.fetch = (async (_u: string, init?: RequestInit) => {
 }) as typeof fetch
 
 const { getLang, langIsChosen, setLang, tr } = await import('../i18n')
-const { LanguageButton } = await import('./prefs')
+const { LanguageButton, LanguageLine } = await import('./prefs')
 const { default: B } = await import('../i18n/bands')
 const { default: S } = await import('../i18n/setup')
 
@@ -43,6 +43,9 @@ afterEach(() => {
 })
 
 
+const rows = () => [...el.querySelectorAll('button.row')] as HTMLButtonElement[]
+const tap = (b: HTMLElement) => act(() => b.dispatchEvent(new MouseEvent('click', { bubbles: true })))
+
 describe("la langue de l'app", () => {
   it("un téléphone en français sur un weevils installé en anglais : l'interface sort en anglais", () => {
     expect(localStorage.getItem('weevils-lang')).toBeNull()
@@ -53,6 +56,32 @@ describe("la langue de l'app", () => {
     expect(tr(S).chip_mail).toBe(S.en.chip_mail)
     // This device never changes the shared server's language.
     expect(posted).toEqual([])
+  })
+
+  it('the settings row « language   English » opens the choices without changing anything', () => {
+    act(() => root.render(<LanguageLine />))
+    expect(rows()[0].textContent).toBe('languageEnglish')
+    tap(rows()[0])
+    expect(getLang()).toBe('en')
+    expect(posted).toEqual([])
+    expect(rows().map((r) => r.textContent)).toEqual(['languageEnglish', 'default (English)', 'English', 'Français'])
+    tap(rows()[0])
+    expect(rows()).toHaveLength(1)
+  })
+
+  it('only a tapped language changes it, on this device; « default » goes back to the install language', () => {
+    act(() => root.render(<LanguageLine />))
+    tap(rows()[0])
+    tap(rows().find((r) => r.textContent === 'Français')!)
+    expect(getLang()).toBe('fr')
+    expect(langIsChosen()).toBe(true)
+    expect(localStorage.getItem('weevils-language')).toBe('fr')
+    tap(rows()[0])
+    tap(rows().find((r) => r.textContent?.startsWith('par défaut ('))!)
+    expect(getLang()).toBe('en')
+    expect(langIsChosen()).toBe(false)
+    expect(posted).toEqual([])
+    setLang(null)
   })
 })
 

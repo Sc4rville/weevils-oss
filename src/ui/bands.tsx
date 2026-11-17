@@ -28,6 +28,7 @@ import { KeepSessionOrder } from './session-order'
 import PM from '../i18n/project-screen'
 import { autoOfSession } from './auto-model'
 import { ThreadPlans } from './relay'
+import { LanguageLine } from './prefs'
 import { UsageLine } from './infra'
 import { TokenMeter } from './rate'
 import { setDevil, useDevil } from './devil'
@@ -687,7 +688,7 @@ export function FootBand() {
       /* no time zone: the server's */
     }
   }, [])
-  // Four sections and log out (Yann, 2026-11-17): everything else lives where it is used — notifications, the phone and
+  // Four sections, language and log out (Yann, 2026-11-17): everything else lives where it is used — notifications, the phone and
   // old conversations through weevboss's chips, memory through weevboss, finished sessions on their project's page.
   return (
     <section className="band demo settings-band" style={color(colors.__foot ?? 'p3')} aria-label={t.settings}>
@@ -698,20 +699,21 @@ export function FootBand() {
         <span className="chars meta strong">{offline ? t.reconnecting : ''}</span>
       </div>
       {snap.machines.length > 0 && (
-        <Line value={snap.machines.length === 1 ? (snap.machines[0].online === false ? `${snap.machines[0].name} · ${t.offline}` : snap.machines[0].name) : machinesMeta(snap.machines)} onClick={() => push({ kind: 'machine', projectId: '' })}>
+        <Line ch="@" value={snap.machines.length === 1 ? (snap.machines[0].online === false ? `${snap.machines[0].name} · ${t.offline}` : snap.machines[0].name) : machinesMeta(snap.machines)} onClick={() => push({ kind: 'machine', projectId: '' })}>
           {t.machines}
         </Line>
       )}
       <UsageLine />
-      <Line go={null} value={t.themeName(theme)} onClick={() => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length])}>
+      <Line ch="~" go={null} value={t.themeName(theme)} onClick={() => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length])}>
         {t.themeLabel}
       </Line>
+      <LanguageLine />
       {snap.asksOpen !== undefined && (
-        <Line value={snap.asksOpen ? String(snap.asksOpen) : undefined} onClick={() => push({ kind: 'requests' })}>
+        <Line ch="!" value={snap.asksOpen ? String(snap.asksOpen) : undefined} onClick={() => push({ kind: 'requests' })}>
           {tr(RM).menu}
         </Line>
       )}
-      <Line go={null} onClick={logout}>
+      <Line ch="x" go={null} onClick={logout}>
         {t.logout}
       </Line>
     </section>

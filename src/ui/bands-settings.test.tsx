@@ -82,10 +82,12 @@ describe('settings band', () => {
     expect(rows().find((r) => r.includes('vps'))).toContain('offline')
   })
 
-  it('exactly machines, subscriptions, theme, requests and log out: each a label and its value, nothing under it', async () => {
+  it('exactly machines, subscriptions, theme, language, requests and log out: each a label and its value, nothing under it', async () => {
     render(<FootBand />, snap([{ id: 'm-7f3a9c', name: 'vps', online: true }], { asksOpen: 3 }))
     // UsageLine is mocked out here (it reads the quotas); the four others are the band.
-    expect(rows()).toEqual(['machinesvps', 'themelight', 'requests3', 'log out'])
+    expect(rows()).toEqual(['machinesvps', 'themelight', 'languageEnglish', 'requests3', 'log out'])
+    // Each row keeps its icon.
+    expect(host.querySelectorAll('button.row .st svg')).toHaveLength(5)
     expect(host.querySelectorAll('button.row .meta')).toHaveLength(0)
     await click([...host.querySelectorAll('button.row')].find((r) => r.textContent!.startsWith('requests')))
     expect(pushed).toEqual([{ kind: 'requests' }])

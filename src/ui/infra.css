@@ -58,10 +58,6 @@
 .gauge.none > span {
   width: 0 !important;
 }
-.usage-line .meta .gauge {
-  height: 4px;
-  margin-top: 5px;
-}
 .gauge.big {
   height: 8px;
   margin-top: 6px;
@@ -196,9 +192,6 @@ button.kv {
 }
 
 /* The subscription marker belongs to the same quiet scale as machine metadata. */
-.usage-line .st { font-size: 1rem; font-weight: 500; }
-.usage-line .meta { font-size: .8125rem; line-height: 1.4; }
-.usage-line .meta .gauge { height: 3px; margin-top: 4px; }
 
 /* Where the disk goes: one quiet ink bar per folder (its share of the disk used), what is inside in small type. */
 .disk-row {
