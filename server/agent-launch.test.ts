@@ -2,7 +2,7 @@
 import fs from 'node:fs'
 import path from 'node:path'
 import { describe, expect, it } from 'vitest'
-import { CLAUDE, CODEX_FLAGS, plainVoice, projectClaude, projectCodexFlags } from './agent-launch.ts'
+import { CLAUDE, CODEX_FLAGS, plainVoice, projectInstructions, projectClaude, projectCodexFlags } from './agent-launch.ts'
 import PlainVoice from './i18n/plain-voice.ts'
 
 const src = (f: string) => fs.readFileSync(path.join(import.meta.dirname, f), 'utf8')
@@ -23,7 +23,7 @@ describe('the plain-voice rule', () => {
     for (const l of ['fr', 'en'] as const) {
       const c = projectClaude(l)
       expect(c.slice(0, CLAUDE.length)).toEqual([...CLAUDE])
-      expect(c.slice(CLAUDE.length)).toEqual(['--append-system-prompt', plainVoice(l)])
+      expect(c.slice(CLAUDE.length)).toEqual(['--append-system-prompt', projectInstructions(l)])
     }
   })
 
@@ -37,7 +37,9 @@ describe('the plain-voice rule', () => {
       expect(key).toBe('developer_instructions')
       // A JSON string with only \" \\ \n \t \uXXXX escapes is a valid TOML basic string.
       expect(value).toMatch(/^"(?:[^"\\]|\\["\\nt]|\\u[0-9a-f]{4})*"$/)
-      expect(JSON.parse(value)).toBe(plainVoice(l))
+      expect(JSON.parse(value)).toBe(projectInstructions(l))
+      expect(projectInstructions(l)).toContain('weevils page')
+      expect(projectInstructions(l)).toContain('weevils post')
     }
   })
 

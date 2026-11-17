@@ -1362,10 +1362,13 @@ button.copy.done {
 
 /* Agent externe (géométrie, instinct…) : même bulle, sa couleur (config du serveur). En sombre, la même teinte assombrie comme la palette. */
 .msg.orch.ext {
-  --who-c: var(--who);
+  /* Author hue, on a light band that can carry the theme's dark text. */
+  --who-c: oklch(from var(--who) 0.82 calc(c * 0.55) h);
 }
 [data-theme='dark'] .msg.orch.ext {
   --who-c: oklch(from var(--who) 0.44 calc(c * 0.95) h);
+  /* Keep the external bubble dark enough for its white text and living links. */
+  background: oklch(from var(--who-c) calc(l + var(--dl)) calc(c * 1.1) h);
 }
 [data-theme='zen'] .msg.orch.ext {
   --who-c: oklch(from var(--who) 0.86 calc(c * 0.35) h);

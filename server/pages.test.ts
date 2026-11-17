@@ -3,7 +3,7 @@ import http from 'node:http'
 import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
-import { pageLink, slugOf } from '../shared/pages.ts'
+import { pageLink, pageLinks, slugOf } from '../shared/pages.ts'
 import { ARCH_AROUND, ARCH_FILES, ARCH_ROWS, changedPieces, listItems, MACHINE_SLUG, PageRefused, Pages, scanLibrary } from './pages.ts'
 import A from './i18n/architecture.ts'
 
@@ -37,6 +37,11 @@ async function get(url: string, headers: Record<string, string> = {}) {
 }
 
 describe('page addresses', () => {
+  it('keeps Markdown and bare page destinations while excluding outside hosts and duplicates', () => {
+    expect(pageLinks('[Read it](https://w.example/p/report/requests) and http://localhost:4179/p/report/requests, /p/library/content. https://outside.example/p/report/other', ['w.example'])).toEqual([
+      { href: '/p/report/requests', label: 'Read it' }, { href: '/p/library/content', label: undefined },
+    ])
+  })
   it('turns a title into a stable slug', () => {
     expect(slugOf('Deals this week — Été 2026!')).toBe('deals-this-week-ete-2026')
     expect(slugOf('***')).toBe('page')
@@ -50,6 +55,26 @@ describe('page addresses', () => {
 })
 
 describe('Pages', () => {
+  it('refreshes a private collection from records, preserving its address and last good page on failure', async () => {
+    let items = [{ title: 'First result', details: '</script><img src=x>' }]
+    pages.collections = { results: () => items }
+    const p = pages.publishCollection('results', 'Results')
+    expect(pages.publishCollection('results', 'Results').path).toBe(p.path)
+    const url = `/api/page/${pages.key(p.slug)}/${p.slug}/`
+    const initial = await get(url)
+    expect(initial.body).toContain('First result')
+    expect(initial.body).not.toContain('</script><img')
+    expect(initial.headers.get('content-security-policy')).not.toContain('allow-same-origin')
+    items = [{ title: 'Fresh result', details: 'Run source' }]
+    const live = await get(url + 'items.json')
+    expect(JSON.parse(live.body).items).toEqual(items)
+    expect(live.headers.get('cache-control')).toBe('no-store')
+    expect((await get(url.replace(pages.key(p.slug), 'x'.repeat(22)) + 'items.json')).status).toBe(404)
+    expect((await get(url)).body).toContain('Fresh result')
+    pages.collections.results = () => { throw new Error('temporarily unreadable') }
+    expect((await get(url + 'items.json')).status).toBe(503)
+    expect((await get(url)).body).toContain('Fresh result')
+  })
   it('publishes a folder, keeps its address on republish, and serves it with a per-page key only', async () => {
     write('projects/app/report/index.html', '<h1>hi</h1>')
     const a = pages.publish({ path: path.join(tmp, 'projects/app/report'), title: 'Weekly report', kind: 'report' })

@@ -158,6 +158,17 @@ beforeEach(() => {
   document.body.appendChild(host)
   root = createRoot(host)
 })
+
+it('opens a result page directly even when its link was omitted from the shortened headline', async () => {
+  const item: ForYouItem = { ...base, id: 'page-result', kind: 'boss', who: 'session', text: 'The report is ready to review.', body: 'Read [Requests and goals](/p/report/requests).', open: { page: 'boss' } }
+  await open([item])
+  const link = band(item.id).querySelector('a.living')!
+  expect(link.textContent).toBe('Requests and goals')
+  expect(link.closest('button')).toBeNull()
+  await click(link)
+  expect(pushed.at(-1)).toEqual({ kind: 'webpage', path: '/p/report/requests', title: 'Requests and goals', pageKind: 'report' })
+  expect(srv.calls.some((c) => c.startsWith('act ') || c.startsWith('reply '))).toBe(false)
+})
 afterEach(() => {
   act(() => root.unmount())
   host.remove()

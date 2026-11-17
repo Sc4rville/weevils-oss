@@ -7,9 +7,9 @@
 :root,
 [data-theme='light'] {
   --fy-ok: oklch(from var(--fluo) 0.84 calc(c * 0.72) h);
-  --fy-who-lm: 1;
-  --fy-who-la: 0;
-  --fy-who-k: 1;
+  --fy-who-lm: 0;
+  --fy-who-la: 0.8;
+  --fy-who-k: 0.7;
   /* The gradient of « improve » and of a milestone's type: palette hues, far apart. */
   --fy-g1: var(--p13);
   --fy-g2: var(--p0);
@@ -1431,3 +1431,6 @@ button.fy-hit {
 .fy-numcard .fy-num { font-size: 2rem; }
 .fy-numcard .fy-say { font-size: 0.9375rem; font-weight: 550; line-height: 1.4; }
 .fy-caption .fy-say.small { font-size: 0.875rem; font-weight: 500; opacity: 0.85; }
+
+.fy-page-links { padding-top: 0; }
+.fy-page-links p { margin: 0 0 12px; }

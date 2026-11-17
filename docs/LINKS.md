@@ -73,3 +73,31 @@ log of weevils' own checkout). No activity feed, no load, no quota: that is the 
   ten minutes.
 - A page whose folder is gone disappears from the list. `weevils page rm <slug>` unpublishes; for a page weevils
   built, its folder goes too. A published folder is never deleted by weevils.
+
+## Default delivery and live reports
+
+Every install publishes three private report pages: `/p/report/requests`, `/p/report/automations`, and
+`/p/report/repositories`. They read the existing request ledger, recorded automation runs and local Git repository
+inventory. They never dispatch, resume or reroute work. Requests retain their actual author and source message;
+automation runs retain their source/config revisions and session IDs in the optional source details. Only recorded
+runs appear: a queued task or an adopted repository alone is never a successful result. The request/run lists show
+up to 150 recent records, with goals alongside requests. Run outcomes are labelled reported success/failure, not
+independent verification. Original quotations and identifiers are preserved.
+
+These reports refresh when opened and poll their keyed, read-only `items.json` once a minute while visible. An open
+source disclosure pauses replacement so it stays readable. A failed read keeps the last good page; the live endpoint
+returns an error rather than a fabricated empty or successful result. No private source paths or credentials enter
+shared source. For you preserves named and bare living links even when its short headline removes Markdown or
+technical paths; tapping the link opens the page directly, without sending a request to weevboss.
+
+The shared result-delivery rule reaches both project agent launch paths and weevboss's generated instructions.
+Questions and acknowledgements stay short; inspectable results use a verified private page link. Existing sessions
+receive new launch instructions when next launched, not through an injected turn. Automation instructions retain
+execution restrictions. Existing Opportunity hunter publication already uses the shared list builder; a publisher
+must successfully obtain its page link before announcing delivery. This does not authorize spending or external
+publication.
+
+Rendered contrast can be checked with `scripts/check-living-links.mjs`, supplying an optional external Playwright
+module and Chromium executable through `WEEVILS_PLAYWRIGHT` and `WEEVILS_BROWSER`. It uses the actual application
+styles and screenshot pixels at phone and desktop widths, including all palette bands, result bands, outside authors,
+thread bubbles and five positions of the For you gradient. It does not replace checking a real iPhone.

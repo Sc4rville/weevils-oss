@@ -1,3 +1,4 @@
+import { collectionReaders } from './page-collections.ts'
 import { markdownFileRoutes } from './markdown-files.ts'
 import { proposeThinkLayout } from './think-ai.ts'
 import { ThinkStore } from './think.ts'
@@ -388,6 +389,10 @@ const SITE_RE = /^\/api\/site\/([\w-]{22})\/([\w.@+-]+)(\/.*)?$/
 
 // Living-link pages (server/pages.ts, docs/LINKS.md): /p/<kind>/<slug> for the signed-in, keyed files for the sandbox.
 const pages = new Pages({ dataDir: DATA_DIR, secret: SECRET, roots: [...PROJECT_ROOTS, INBOX_DIR] })
+pages.collections = collectionReaders({ ledger: () => w.ledger, automations: () => optimizers.recapAutos(), repositories: () => w.allRepos().filter((name) => { try { return fs.existsSync(path.join(w.repoDir(name), '.git')) } catch { return false } }), sessions: () => w.snapshot().sessions })
+for (const source of ['requests', 'automations', 'repositories'] as const) {
+  try { pages.publishCollection(source, tr(PM)[source]) } catch (e) { console.error('[pages]', source, e) }
+}
 /** The address of a page, as a link to paste: the public one, else the one this request came by. */
 const pageUrl = (req: http.IncomingMessage, p: string) => {
   const host = String(req.headers['x-forwarded-host'] ?? req.headers.host ?? `127.0.0.1:${PORT}`)

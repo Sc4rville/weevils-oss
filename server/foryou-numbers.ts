@@ -1,3 +1,4 @@
+import NumberMessages from './i18n/foryou-numbers.ts'
 // « For you »: figures that moved, read from real local data, each a big number plus what changed. Cheap and cached:
 // git logs at most every 10 min (asynchronously, a read never waits), the request ledger on its mtime.
 //   - requests closed this week toward each goal (boss ledger), vs last week
@@ -32,8 +33,9 @@ const short = (s: string, n = 48) => {
 /** this week vs last: the words of the change, or '' when nothing moved. */
 export function change(now: number, last: number, fr = false): string {
   if (now === last) return ''
-  if (!last) return fr ? 'rien la semaine dernière' : 'none last week'
-  return fr ? `contre ${last} la semaine dernière` : `vs ${last} last week`
+  const t = NumberMessages[fr ? 'fr' : 'en']
+  if (!last) return t.none
+  return t.change(last)
 }
 
 export class ForYouNumbers {
@@ -66,8 +68,9 @@ export class ForYouNumbers {
         const open = (l.asks ?? []).filter((a) => a.goal === g.id && (a.status === 'open' || a.status === 'dispatched')).length
         const moved = change(tw, lw, fr)
         if (!tw || !moved) continue
-        const left = open ? (fr ? `, ${open} encore en cours` : `, ${open} still open`) : ''
-        out.push({ id: `ms:goal:${g.id}:${Math.floor(now / WEEK)}`, kind: 'milestone', tone: 'magic', at: now, who: 'weevils', text: fr ? `${tw} demandes bouclées cette semaine pour « ${short(g.title)} », ${moved}${left}.` : `${tw} requests closed this week toward “${short(g.title)}”, ${moved}${left}.`, open: { page: 'boss' }, live: true })
+        const t = NumberMessages[fr ? 'fr' : 'en']
+        const left = open ? t.left(open) : ''
+        out.push({ id: `ms:goal:${g.id}:${Math.floor(now / WEEK)}`, kind: 'milestone', tone: 'magic', at: now, who: 'weevils', text: t.requests(tw, short(g.title), moved, left), open: { page: 'boss' }, live: true })
       }
     } catch { /* a ledger being written: next time */ }
     out.sort((a, b) => Number(/^\d+/.exec(b.text)?.[0]) - Number(/^\d+/.exec(a.text)?.[0]))
@@ -97,7 +100,7 @@ export class ForYouNumbers {
       const seen = new Set<string>()
       this.git.items = all.filter((r) => r.tw >= 3 && change(r.tw, r.lw) && !seen.has(`${r.tw}:${r.lw}`) && !!seen.add(`${r.tw}:${r.lw}`)).sort((a, b) => b.tw - a.tw).slice(0, 2).map((r) => ({
         id: `ms:commits:${r.name}:${Math.floor(now / WEEK)}`, kind: 'milestone' as const, tone: 'magic' as const, at: now, who: 'weevils', projectId: r.name,
-        text: fr ? `${r.tw} commits livrés sur ${r.name} cette semaine, ${change(r.tw, r.lw, true)}.` : `${r.tw} commits shipped on ${r.name} this week, ${change(r.tw, r.lw)}.`, live: true,
+        text: NumberMessages[fr ? 'fr' : 'en'].commits(r.tw, r.name, change(r.tw, r.lw, fr)), live: true,
       }))
     }).finally(() => { this.git.busy = false })
   }

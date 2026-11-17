@@ -12,7 +12,7 @@ export function rawEngineeringNotice(id: string, text = ''): boolean {
 export function humanFeedText(text: string): string {
   text = withoutMachinePrefix(text)
   const urls: string[] = []
-  text = text.replace(/https?:\/\/[^\s<>"']+/g, (url) => `§LINK${urls.push(url) - 1}§`)
+  text = text.replace(/https?:\/\/[^\s<>"']+|\/p\/(?:opportunities|library|preview|report|render)\/[a-z0-9][a-z0-9-]{0,79}/g, (url) => `§LINK${urls.push(url) - 1}§`)
   return text
     .replace(/```[\s\S]*?```/g, '')
     .replace(/^\s*(?:[a-f\d]{7,40}\s+)?(?:fix|feat|chore|refactor|test|docs|build|ci|perf|style)(?:\([^\n)]*\))?!?:[^\n]*$/gmi, '')

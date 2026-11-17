@@ -116,8 +116,8 @@ const LIGHT_TEXT = new Set<LinkTheme>(['dark', 'dark-bubble', 'page-dark'])
 
 // ---------------------------------------------------------------- the shade of each hue
 
-/** What every link must clear (a hair above 4.5:1, so rounding to hex never drops below it). */
-export const LINK_MIN_CONTRAST = 4.6
+/** What every link must clear (a margin above 4.5:1 for browser gamut mapping and gradient interpolation). */
+export const LINK_MIN_CONTRAST = 4.8
 const MAX_CHROMA = 0.2
 
 /** The most vivid in-gamut colour of hue h at lightness l, chroma at most MAX_CHROMA. */
@@ -163,6 +163,6 @@ export function linkCss(): string {
     for (const [k, [a, b]] of Object.entries(linkColors(theme))) out.push(`${root} a.living.lk-${k}{--lk-a:${a};--lk-b:${b}}`)
     for (const [k, [a, b]] of Object.entries(linkColors(`${theme}-bubble`))) out.push(`${root} .msg.orch a.living.lk-${k}{--lk-a:${a};--lk-b:${b}}`)
   }
-  out.push(':root .msg.orch.ext a.living{--lk-a:var(--ink);--lk-b:var(--ink)}')
+  out.push(':root .msg.orch.ext a.living,:root[data-theme] .msg.orch.ext a.living{--lk-a:var(--ink);--lk-b:var(--ink)}')
   return out.join('\n')
 }

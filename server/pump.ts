@@ -1,3 +1,5 @@
+import PumpMessages from './i18n/pump.ts'
+import { tr } from './i18n.ts'
 // Structured Claude sessions (server/claude-pump.mjs): weevilsd's side. Behind WEEVILS_STRUCTURED=1, for NEW Claude
 // sessions only; every other session keeps the tmux screen path. If the structured session does not come up, the
 // caller falls back to the ordinary tmux launch (see Core.create).
@@ -31,7 +33,7 @@ export function pumpCall(name: string, req: Record<string, unknown>, timeoutMs =
   return new Promise((resolve, reject) => {
     const c = net.createConnection(path.join(PUMP_DIR, `${name}.sock`))
     let out = ''
-    const timer = setTimeout(() => { c.destroy(); reject(new Error('structured session did not answer')) }, timeoutMs)
+    const timer = setTimeout(() => { c.destroy(); reject(new Error(tr(PumpMessages).noAnswer)) }, timeoutMs)
     c.on('connect', () => c.write(JSON.stringify(req) + '\n'))
     c.on('data', (d) => { out += d })
     c.on('error', (e) => { clearTimeout(timer); reject(e) })
@@ -41,7 +43,7 @@ export function pumpCall(name: string, req: Record<string, unknown>, timeoutMs =
         const r = JSON.parse(out)
         if (r.ok) resolve(r.state)
         else reject(new Error(r.error || 'refused'))
-      } catch { reject(new Error('structured session gave no answer')) }
+      } catch { reject(new Error(tr(PumpMessages).invalidAnswer)) }
     })
   })
 }

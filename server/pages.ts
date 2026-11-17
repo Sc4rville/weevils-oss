@@ -27,7 +27,7 @@ export interface PageMeta extends PageInfo {
   /** The file opened at the page's address, relative to root. */
   entry: string
   /** Built pages: what they are made from, so they rebuild themselves. */
-  build?: { type: 'list'; source: string; mtime: number } | { type: 'library'; roots: string[]; at: number } | { type: 'machine' }
+  build?: { type: 'list'; source: string; mtime: number } | { type: 'library'; roots: string[]; at: number } | { type: 'machine' } | { type: 'collection'; source: string }
   from?: string
   createdAt: number
 }
@@ -59,6 +59,8 @@ export interface MachineLive {
 export const MACHINE_SLUG = 'how-weevils-works'
 
 export class Pages {
+  /** Read models only: opening a report never dispatches work or changes a request. */
+  collections: Record<string, () => ListItem[]> = {}
   /** Set by the server: without it the explainer marks nothing as recently changed. */
   live?: MachineLive
   readonly dir: string
@@ -177,6 +179,15 @@ export class Pages {
     return this.save({ kind, title, root, entry: 'index.html', from: o.from, build: { type: 'list', source, mtime: fs.statSync(source).mtimeMs } }, slug)
   }
 
+  publishCollection(source: string, title: string): PageMeta {
+    const read = this.collections[source]
+    if (!read) throw new PageRefused(tr(M).missing)
+    const slug = this.slugFor(title, 'report', source)
+    const root = path.join(this.dir, slug)
+    writeListPage(root, title, 'report', read(), true)
+    return this.save({ kind: 'report', title, root, entry: 'index.html', build: { type: 'collection', source } }, slug)
+  }
+
   /** How weevils works: one per install, an explainer of its pieces from the code (docs/LINKS.md). The former
    *  live dashboard (slug weevils-machine, same build type) is retired on the way. */
   publishMachine(from?: string): PageMeta {
@@ -226,7 +237,11 @@ export class Pages {
     if (!b) return
     if (b.type === 'machine') return void writeMachinePage(page.root, page.title)
     try {
-      if (b.type === 'list') {
+      if (b.type === 'collection') {
+        const read = this.collections[b.source]
+        if (!read) return
+        writeListPage(page.root, page.title, page.kind, read(), true)
+      } else if (b.type === 'list') {
         const m = fs.statSync(b.source).mtimeMs
         if (m === b.mtime) return
         writeListPage(page.root, page.title, page.kind, listItems(b.source))
@@ -263,6 +278,18 @@ export class Pages {
       this.fresh(page)
     }
     if (page.build?.type === 'machine' && rest === '/state.json') return void this.machineState(res)
+    if (page.build?.type === 'collection' && rest === '/items.json') {
+      try {
+        const read = this.collections[page.build.source]
+        if (!read) return gone()
+        const body = scriptJson({ items: read() })
+        res.writeHead(200, { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
+        return void res.end(body)
+      } catch {
+        res.writeHead(503, { 'cache-control': 'no-store', 'access-control-allow-origin': '*' })
+        return void res.end('{}')
+      }
+    }
     let rel: string
     try {
       rel = decodeURIComponent(rest)
@@ -326,10 +353,13 @@ function sendFile(req: http.IncomingMessage, res: http.ServerResponse, file: str
 
 export interface ListItem {
   title: string
+  /** A readable report's supporting facts, kept separate from its short outcome. */
+  details?: string
   source?: string
   url?: string
   why?: string
   date?: string
+  checkedAt?: string
   fit?: number
   /** Text the user copies (a ready reply), then opens url. */
   copy?: string
@@ -364,6 +394,7 @@ export function listItems(source: string): ListItem[] {
       url: https(r.url) ?? https(r.officialUrl) ?? https(r.link),
       why: str(r.why, 300) ?? str(r.summary, 300) ?? str(r.fitWhy, 300) ?? str(r.benefit, 300),
       date: deadline ? `→ ${deadline}` : str(r.date, 30) ?? str(r.postedAt, 30) ?? str(r.firstSeen, 30),
+      checkedAt: str(r.sourceCheckedAt, 40) ?? str(r.checkedAt, 40),
       fit: typeof r.fit === 'number' ? r.fit : undefined,
       copy: str(r.copy, 2000) ?? str(r.reply, 2000),
       actionUrl: https(r.action?.url),
@@ -412,23 +443,25 @@ function writeAtomic(file: string, text: string) {
   fs.renameSync(tmp, file)
 }
 
-function writeListPage(root: string, title: string, kind: PageKind, items: ListItem[]) {
+function writeListPage(root: string, title: string, kind: PageKind, items: ListItem[], refresh = false) {
   const t = tr(M)
   const css = `.it{padding:14px 0;border-bottom:1px solid color-mix(in srgb,var(--ink) 12%,transparent)}
 .it .src{color:var(--mute);font-size:12px}.it .tt{display:block;font-weight:700;font-size:16px;margin:2px 0;text-decoration:none}
 .it .why{margin:2px 0 6px}.it .act{font-size:14px}.it pre{white-space:pre-wrap;font:inherit;font-size:13px;color:var(--mute);margin:6px 0 0}`
   // i18n-ignore: the page's script, its words come from T (the catalog above)
-  const js = `const m=document.getElementById('m');if(!D.items.length)m.append(el('p','meta',T.empty));
-for(const it of D.items){const d=el('div','it');d.append(el('div','src',[it.source,it.date].filter(Boolean).join(' · ')));
+  const js = `const m=document.getElementById('m');let current=JSON.stringify(D.items);function render(items){m.replaceChildren();if(!items.length)m.append(el('p','meta',T.empty));
+for(const it of items){const d=el('div','it');d.append(el('div','src',[it.source,it.date,it.checkedAt?T.checked+' '+it.checkedAt:''].filter(Boolean).join(' · ')));
 const a=el(it.url?'a':'span','tt',it.title);if(it.url){a.href=it.url;a.target='_blank';a.rel='noopener noreferrer'}d.append(a);
 if(it.why)d.append(el('div','why',it.why));
+if(it.details){const more=el('details');more.append(el('summary',null,T.details),el('pre',null,it.details));d.append(more)}
 if(it.copy){const b=el('button','act live',T.copyReply);const pre=el('pre',null,it.copy);
 b.onclick=()=>{const done=()=>{b.textContent=T.copied;b.onclick=null;if(it.url){const o=el('a','act live',T.copied);o.href=it.url;o.target='_blank';o.rel='noopener noreferrer';b.replaceWith(o)}};
 const fb=()=>{const ta=el('textarea');ta.value=it.copy;ta.style.position='fixed';ta.style.opacity='0';document.body.append(ta);ta.select();try{document.execCommand('copy')}catch(e){}ta.remove();done()};
 navigator.clipboard&&navigator.clipboard.writeText?navigator.clipboard.writeText(it.copy).then(done,fb):fb()};d.append(b,pre)}
 else if(it.actionUrl||it.url){const o=el('a','act live',it.actionLabel||T.open);o.href=it.actionUrl||it.url;o.target='_blank';o.rel='noopener noreferrer';d.append(o)}
-m.append(d)}`
-  const data = { at: Date.now(), count: items.length, items, t: { updated: t.updated, open: t.open, copyReply: t.copyReply, copied: t.copied, empty: t.empty } }
+m.append(d)}}render(D.items);
+if(D.refresh)setInterval(async()=>{if(document.hidden||m.querySelector('details[open]')||document.activeElement?.tagName==='BUTTON')return;try{const r=await fetch('./items.json',{cache:'no-store'});if(!r.ok)return;const d=await r.json();if(!Array.isArray(d.items))return;const next=JSON.stringify(d.items);if(next!==current){render(d.items);current=next;document.getElementById('when').textContent=T.updated+' '+ago(Date.now())+' · '+d.items.length}}catch{}},60000);`
+  const data = { at: Date.now(), count: items.length, items, refresh, t: { updated: t.updated, open: t.open, details: t.details, checked: t.checked, copyReply: t.copyReply, copied: t.copied, empty: t.empty } }
   writeAtomic(path.join(root, 'index.html'), shell(title, kind, css, js, data))
 }
 
@@ -591,7 +624,7 @@ export const ARCH_FILES: Record<string, string[]> = {
   pages: ['server/pages.ts', 'shared/pages.ts', 'docs/LINKS.md'],
   autos: ['server/optimizers.ts', 'server/auto-runs.ts', 'server/sleep.ts'],
   tmux: ['server/mux.ts', 'server/wv', 'server/claude-pump.mjs', 'server/pump.ts'],
-  hooks: ['server/hook.sh', 'server/transcripts.ts'],
+  hooks: ['server/claude-pump.mjs', 'server/pump.ts', 'server/hook.sh', 'server/transcripts.ts'],
   codex: ['server/codex-bridge.ts', 'server/transcripts.ts'],
   sessions: ['server/core.ts', 'server/agent-launch.ts'],
   push: ['server/push.ts', 'src/push.ts', 'shared/notification-policy.ts'],

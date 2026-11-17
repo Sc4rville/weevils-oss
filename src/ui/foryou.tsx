@@ -1,3 +1,5 @@
+import { pageLinks } from '../../shared/pages'
+import { LivingLink } from './living-link'
 import { InlineMediaFormats } from './foryou-formats'
 import { OutboxStatus } from './outbox-status'
 import { SaveMediaButton, useLongPressSave } from './save-media'
@@ -348,12 +350,13 @@ export function ForYouItemView({ item, compact, look }: { item: ForYouItem; comp
   const format = formatOf(item)
   const closable = closableFeedNotice(item)
   if (!format || hidden || rawEngineeringNotice(item.id, item.text) || !worthShowing(item)) return null
+  const links = pageLinks([item.text, item.body, item.moreText, item.title].filter(Boolean).join('\n'), [location.host])
   if (compact) {
     return (
       <div className={`${bandClass(item, format)} fy-strip${closable ? ' notice-shell' : ''}`} style={style} data-fy={item.id}>
         {closable && <NoticeClose about={item.title ?? item.text} onClose={() => { dismiss(); void fy.dismiss(item.id) }} />}
         <div className="in fy-strip-in">
-          <span className="fy-strip-text ellipsis">{item.kind === 'proposals' && item.cards?.[0]?.own ? t.yourIdea(shortLine(item.cards[0].title)) : cardLine(item)}</span>
+          <span className="fy-strip-text ellipsis">{item.kind === 'proposals' && item.cards?.[0]?.own ? t.yourIdea(shortLine(item.cards[0].title)) : cardLine(item)}{links.map((link) => <span key={link.href}> · <LivingLink {...link} /></span>)}</span>
         </div>
       </div>
     )
@@ -364,6 +367,7 @@ export function ForYouItemView({ item, compact, look }: { item: ForYouItem; comp
     <article ref={band} className={`${bandClass(item, format, look)} fy-item${closable ? ' notice-shell' : ''}${inView ? ' fy-inview' : ''}`} style={style} data-fy={item.id} data-fy-format={format}>
       {closable && <NoticeClose about={item.title ?? item.text} onClose={() => { dismiss(); void fy.dismiss(item.id) }} />}
       <Card item={item} fy={fy} />
+      {!!links.length && <div className="in fy-page-links">{links.map((link) => <p key={link.href}><LivingLink {...link} /></p>)}</div>}
       <OutboxStatus scope={`/api/foryou/${encodeURIComponent(item.id)}/`} eventId={feedNoticeKey(item)} />
       {err && (
         <Notice eventId={noticeKey('error:foryou', location.pathname, location.hash, err)} className="fy-err" role="alert">

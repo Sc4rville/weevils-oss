@@ -1,3 +1,4 @@
+import LivingResults from './i18n/living-results.ts'
 import { InstallationIdentity } from './recursive-identity.ts'
 import { isScratchDir } from './scratch.ts'
 import AgentMessages from './i18n/agent-messages.ts'
@@ -1980,7 +1981,7 @@ export class Weevils {
       // demandé à gh) et {{projects}} (premier dossier de WEEVILS_PROJECTS, ~/projects par défaut).
       const owner = process.env.WEEVILS_GH_OWNER?.trim() || '$(gh api user -q .login)'
       const projects = PROJECTS_DIR.startsWith(HOME + path.sep) ? '~' + PROJECTS_DIR.slice(HOME.length) : PROJECTS_DIR
-      const text = fs.readFileSync(src, 'utf8').replaceAll('{{user}}', withLang(installationLang(), user)).replaceAll('{{owner}}', owner).replaceAll('{{projects}}', projects).replaceAll('{{machineProse}}', MachineProse[installationLang()].rule).replaceAll('{{agentMessages}}', AgentMessages[installationLang()].rule + '\n\n' + AgentMessages[installationLang()].automation)
+      const text = fs.readFileSync(src, 'utf8').replaceAll('{{user}}', withLang(installationLang(), user)).replaceAll('{{owner}}', owner).replaceAll('{{projects}}', projects).replaceAll('{{machineProse}}', MachineProse[installationLang()].rule).replaceAll('{{agentMessages}}', AgentMessages[installationLang()].rule + '\n\n' + AgentMessages[installationLang()].automation + '\n\n' + LivingResults[installationLang()].rule)
         // Several Claude accounts: weevboss hears of them only where the feature is on.
         .replace(/<!-- claude-accounts -->\n([\s\S]*?)<!-- \/claude-accounts -->\n/g, (_m, body: string) => (accountsOn() ? body : ''))
       fs.writeFileSync(path.join(ORCH_DIR, 'CLAUDE.md'), text)

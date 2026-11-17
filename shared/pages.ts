@@ -52,3 +52,15 @@ export function slugOf(title: string): string {
     .replace(/-+$/, '')
   return s || 'page'
 }
+
+/** Preserve page destinations even when a feed headline is shortened to plain words. */
+export function pageLinks(text: string, hosts: string[] = []): { href: string; label?: string }[] {
+  const out = new Map<string, { href: string; label?: string }>()
+  const add = (href: string, label?: string) => {
+    const p = pageLink(href, hosts)
+    if (p && !out.has(p.path)) out.set(p.path, { href: p.path, label })
+  }
+  const rest = text.replace(/\[([^\]\n]+)\]\(([^\s)]+)\)/g, (_, label, href) => { add(href, label); return ' ' })
+  for (const m of rest.matchAll(/(?:https?:\/\/[^\s<>"')]+|\/p\/[^\s<>"')]+)/g)) add(m[0].replace(/[.,;!?]+$/, ''))
+  return [...out.values()]
+}
