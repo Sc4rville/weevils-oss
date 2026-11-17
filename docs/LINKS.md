@@ -46,7 +46,7 @@ requests and goals, memory, automations → tmux, Claude Code hooks + transcript
 pieces around it (notifications, relay and accounts, other machines, mail bridge, RunPod, storage, install), and the
 life of one message from the phone to a session and back. Each piece opens into a few plain sentences and its files
 in the repo; the words are in `server/i18n/architecture.ts`, the diagram and files in `server/pages.ts`. Its only
-live part is a small mark on the pieces whose files main changed in the last three days (`state.json`, from the git
+live part is a small mark on the pieces whose files main changed in the last day (the shared hub files, like server/index.ts and server/core.ts, don't count) (`state.json`, from the git
 log of weevils' own checkout). No activity feed, no load, no quota: that is the app's job. It replaced the
 `weevils-machine` live dashboard, which is removed at the next start.
 

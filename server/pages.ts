@@ -604,13 +604,18 @@ export const ARCH_FILES: Record<string, string[]> = {
 /** The pieces each step of « the life of one message » goes through (same order as the steps' words). */
 const ARCH_STEPS = [['phone', 'voice'], ['door', 'weevilsd'], ['weevilsd', 'ledger', 'boss'], ['boss'], ['weevilsd', 'tmux', 'codex'], ['hooks', 'codex', 'sessions'], ['sessions', 'foryou', 'push', 'ledger']]
 
+/** Files nearly every change goes through: they never mark a piece as changed on their own. */
+const ARCH_HUBS = new Set(['server/index.ts', 'server/core.ts', 'server/config.ts', 'server/transcripts.ts', 'src/App.tsx', 'src/api.ts'])
+
 /** The newest commit time per piece, from main's log (newest first or not): a piece is touched when a commit changed
  *  one of its files. */
 export function changedPieces(log: { at: number; files: string[] }[]): Record<string, number> {
   const out: Record<string, number> = {}
   for (const c of log) {
+    const own = c.files.filter((f) => !ARCH_HUBS.has(f))
     for (const [id, files] of Object.entries(ARCH_FILES)) {
-      if (!c.files.some((f) => files.some((x) => (x.endsWith('/') ? f.startsWith(x) : f === x)))) continue
+      if (id === 'runpod') continue // no code of its own: its file is the automations'
+      if (!own.some((f) => files.some((x) => (x.endsWith('/') ? f.startsWith(x) : f === x)))) continue
       if (!(out[id] >= c.at)) out[id] = c.at
     }
   }
@@ -650,7 +655,7 @@ function light(i){step=i;if(i>=0&&open)toggle(open);const on=new Set(i<0?[]:D.st
 dia.classList.toggle('dim',i>=0);around.classList.toggle('dim',i>=0);ol.classList.toggle('dim',i>=0);[...ol.children].forEach((li,k)=>li.classList.toggle('on',k===i));
 const ks=D.rows.map((r,k)=>r.some(x=>on.has(x))?k:-1).filter(k=>k>=0);for(const l of dia.querySelectorAll('.ln')){const k=+l.dataset.i;l.classList.toggle('lit',ks.length>1&&k>ks[0]&&k<=ks[ks.length-1])}
 if(i>=0&&dia.getBoundingClientRect().top<0)dia.scrollIntoView({behavior:'smooth',block:'start'})}
-D.changed={};fetch('state.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(S=>{D.changed=S.changed||{};for(const [id,at] of Object.entries(D.changed))if(nodes[id]&&Date.now()-at<3*86400000)nodes[id].classList.add('new');if(open)fill(nodes[open].parentNode.nextSibling,open)}).catch(()=>{})`
+D.changed={};fetch('state.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(S=>{D.changed=S.changed||{};for(const [id,at] of Object.entries(D.changed))if(nodes[id]&&Date.now()-at<86400000)nodes[id].classList.add('new');if(open)fill(nodes[open].parentNode.nextSibling,open)}).catch(()=>{})`
   const data = { at: Date.now(), rows: ARCH_ROWS, around: ARCH_AROUND, files: ARCH_FILES, steps: ARCH_STEPS, t: { updated: '', lede: t.lede, around: t.around, life: t.life, changed: t.changed, p: Object.fromEntries([...ARCH_ROWS.flat(), ...ARCH_AROUND].map((id) => [id, { name: t[id], body: t[`${id}Body`] }])), steps: ARCH_STEPS.map((_, i) => t[`step${i + 1}`]) } }
   const html = shell(title, 'report', css, js, data)
   const file = path.join(root, 'index.html')

@@ -142,8 +142,9 @@ describe('how weevils works', () => {
     const c = changedPieces([
       { at: 2000, files: ['server/relay.ts'] },
       { at: 1000, files: ['server/relay.ts', 'src/ui/feed.tsx', 'README.md'] },
+      { at: 3000, files: ['server/core.ts', 'server/optimizers.ts'] },
     ])
-    expect(c).toEqual({ relay: 2000, phone: 1000 })
+    expect(c).toEqual({ relay: 2000, phone: 1000, autos: 3000 })
   })
 
   it('is one page per install, replaces the old live dashboard, and says only what changed', async () => {

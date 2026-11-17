@@ -1072,14 +1072,14 @@ keepAwake()
 
 
 // ---------------------------------------------------------------- « How weevils works » (server/pages.ts, docs/LINKS.md)
-// An explainer, not a dashboard: the only live part is which pieces main touched in the last three days, read from the
+// An explainer, not a dashboard: the only live part is which pieces main touched in the last day, read from the
 // git log of weevils' own checkout. Every install gets its own page at /p/report/how-weevils-works.
 const SELF_DIR = path.resolve(import.meta.dirname, '..')
 let touched: { at: number; changed: Record<string, number> } = { at: 0, changed: {} }
 pages.live = {
   state: () => new Promise((resolve) => {
     if (Date.now() - touched.at < 60_000) return resolve({ changed: touched.changed })
-    execFile('git', ['-C', SELF_DIR, 'log', '--since=3 days ago', '--no-merges', '--name-only', '--format=%x1e%ct'], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out) => {
+    execFile('git', ['-C', SELF_DIR, 'log', '--since=1 day ago', '--no-merges', '--name-only', '--format=%x1e%ct'], { timeout: 5000, maxBuffer: 4 << 20 }, (err, out) => {
       const log = err ? [] : String(out).split('\x1e').filter((c) => c.trim()).map((c) => {
         const [ct, ...files] = c.split('\n').map((l) => l.trim()).filter(Boolean)
         return { at: Number(ct) * 1000, files }
