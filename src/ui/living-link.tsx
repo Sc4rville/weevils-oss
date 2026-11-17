@@ -8,6 +8,15 @@ import { useApp } from './app-context'
 import { Icon } from './icons'
 import { Shell } from './shell'
 import './living-link.css'
+import { linkCss } from '../../shared/link-colors'
+
+// The colours of each kind in each theme (shared/link-colors.ts), once per document.
+if (typeof document !== 'undefined' && !document.getElementById('lk-colors')) {
+  const style = document.createElement('style')
+  style.id = 'lk-colors'
+  style.textContent = linkCss()
+  document.head.append(style)
+}
 
 /** A page link written in a message or a post, if it is one of this weevils' pages. */
 export const livingLink = (href: string) => (typeof location === 'undefined' ? pageLink(href) : pageLink(href, [location.host]))

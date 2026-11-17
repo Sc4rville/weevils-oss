@@ -15,6 +15,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import type http from 'node:http'
 import path from 'node:path'
+import { linkColors } from '../shared/link-colors.ts'
 import { isPageKind, PAGE_KINDS, pagePath, slugOf, type PageInfo, type PageKind } from '../shared/pages.ts'
 import { lang, tr } from './i18n.ts'
 import M from './i18n/pages.ts'
@@ -377,14 +378,15 @@ const scriptJson = (v: unknown) => JSON.stringify(v).replace(/</g, '\\u003c').re
 const esc = (s: string) => s.replace(/[&<>"']/g, (c) => `&#${c.charCodeAt(0)};`)
 
 /** Hue pairs of each kind, the same as the app's living links (src/ui/living-link.css). */
-const HUES: Record<PageKind, [number, number]> = { opportunities: [150, 115], library: [300, 335], preview: [215, 250], report: [70, 40], render: [15, 350] }
 
 function shell(title: string, kind: PageKind, body: string, script: string, data: unknown): string {
-  const [h1, h2] = HUES[kind]
+  // The kind's two colours, shaded for a white and a black page at WCAG AA (shared/link-colors.ts).
+  const [l1, l2] = linkColors('page-light')[kind]
+  const [d1, d2] = linkColors('page-dark')[kind]
   return `<!doctype html><html lang="${lang()}"><head><meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
 <title>${esc(title)}</title><style>
-:root{--h1:${h1};--h2:${h2};--bg:#fff;--ink:#000;--mute:#0009;--a1:oklch(.5 .17 var(--h1));--a2:oklch(.5 .17 var(--h2));color-scheme:light dark}
-@media (prefers-color-scheme:dark){:root{--bg:#000;--ink:#fff;--mute:#fff9;--a1:oklch(.82 .15 var(--h1));--a2:oklch(.82 .15 var(--h2))}}
+:root{--bg:#fff;--ink:#000;--mute:#0009;--a1:${l1};--a2:${l2};color-scheme:light dark}
+@media (prefers-color-scheme:dark){:root{--bg:#000;--ink:#fff;--mute:#fff9;--a1:${d1};--a2:${d2}}}
 *{box-sizing:border-box}html{-webkit-text-size-adjust:100%}
 body{margin:0;background:var(--bg);color:var(--ink);font:15px/1.4 -apple-system,BlinkMacSystemFont,system-ui,'Segoe UI',Roboto,sans-serif;padding:18px 18px calc(28px + env(safe-area-inset-bottom))}
 h1{font-size:22px;line-height:1.15;margin:4px 0 2px;font-weight:800;letter-spacing:-.01em}

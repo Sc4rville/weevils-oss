@@ -13,6 +13,7 @@ const state = vi.hoisted(() => ({
   snap: null as unknown as Snapshot,
   push: vi.fn(),
   infra: null as unknown as InfraDetail | Error,
+  said: [] as string[],
   fs: null as unknown as FsListing | Error,
   usage: null as unknown as UsageInfo | Error,
   today: { rows: [] } as UsageToday,
@@ -36,9 +37,13 @@ vi.mock('../api', () => ({
     fs: async () => (state.fs instanceof Error ? Promise.reject(state.fs) : state.fs),
     usage: async () => (state.usage instanceof Error ? Promise.reject(state.usage) : state.usage),
     usageToday: async () => state.today,
+    main: async (text: string) => (state.said.push(text), { id: 'm1' }),
   },
 }))
 
+for (let p: object | null = HTMLElement.prototype; p; p = Object.getPrototypeOf(p)) if (Object.hasOwn(p, 'animate')) delete (p as { animate?: unknown }).animate
+const { MotionGlobalConfig } = await import('motion/react')
+MotionGlobalConfig.skipAnimations = true
 const { setLang } = await import('../i18n')
 const { InfraPage, FsPage, UsageLine, UsagePage, forgetUsage } = await import('./infra')
 const { Icon } = await import('./icons')
@@ -81,6 +86,7 @@ beforeEach(() => {
   forgetUsage()
   state.push.mockClear()
   state.setup = []
+  state.said = []
   state.snap = { machines: [{ id: 'vps', name: 'vps', online: true }], sessions: [], projects: [{ id: 'p', name: 'mygame', repos: ['mygame'] }] } as unknown as Snapshot
   state.infra = detail()
   host = document.createElement('div')
@@ -99,45 +105,63 @@ const render = async (node: React.ReactNode) => {
 const rows = () => [...host.querySelectorAll('button')]
 const row = (txt: string) => rows().find((b) => b.textContent?.includes(txt))
 
-it('machine page: no ssh commands, reverse DNS, load average, swap, arch or terminal glyph', async () => {
-  await render(<InfraPage machine="vps" />)
+const tapRow = async (txt: string) => {
+  await act(async () => row(txt)!.click())
+  await act(async () => new Promise((r) => setTimeout(r, 10)))
+}
+
+it('machines page: one line per machine, name and online / offline, nothing technical until a tap', async () => {
+  state.snap.machines = [{ id: 'vps', name: 'vps', online: true }, { id: 'pc', name: 'laptop', online: false }] as Snapshot['machines']
+  await render(<InfraPage />)
+  expect(host.querySelector('h1')?.textContent).toBe('machines')
   const text = host.textContent ?? ''
-  expect(text).toContain('Ubuntu 26.04')
-  // Each size once: the use row says « 4 cores », no second « machine » block repeating it.
-  expect(text).not.toContain('weevboss runs here')
-  for (const gone of ['ssh', 'connect', 'from pc', 'copied', 'reverse DNS', 'srv1.hstgr.cloud', '203.0.113.7', 'load', '0.52', 'swap', 'x86_64', 'kvm']) expect(text).not.toContain(gone)
-  expect(text).toContain('42 %')
+  expect(text).toContain('vpsonline')
+  expect(text).toContain('laptopoffline')
+  // The default view: names and states only.
+  for (const gone of ['CPU', 'GB', 'Ubuntu', 'srv1', '203.0.113.7', 'node', 'mygame', 'caddy', '4173', 'x86_64', 'kvm', 'up for']) expect(text).not.toContain(gone)
+  expect(host.querySelector('.strong')?.textContent).toBe('vps')
   expect(host.innerHTML).not.toContain(terminalIcon)
-  expect(text).toContain('node')
 })
 
-it('machine page: a server is named by its project, never by its port or path, and still opens', async () => {
-  const open = vi.spyOn(window, 'open').mockImplementation(() => null)
-  await render(<InfraPage machine="vps" />)
+it('machines page: a tap opens memory, disk, up for and the host, never the CPU, OS, servers or processes', async () => {
+  state.infra = detail({ diskTotal: 100 * 1024 ** 3, diskUsed: 40 * 1024 ** 3, advice: ['Swap 60% used: memory is short.'], facts: { ...detail().facts, provider: 'Hostinger' } as InfraDetail['facts'] })
+  await render(<InfraPage />)
+  await tapRow('vps')
   const text = host.textContent ?? ''
-  expect(text).not.toContain('4173')
-  expect(text).not.toContain('8080')
-  expect(text).not.toContain('/home/alex/projects/mygame')
-  await act(async () => row('mygame')!.click())
-  expect(open).toHaveBeenCalledWith('https://mygame.example.tech', '_blank', 'noopener')
-  expect(row('caddy')).toBeTruthy()
-  open.mockRestore()
+  expect(text).toContain('Swap 60% used')
+  expect(text).toContain('memory8.0 GB / 16.0 GB')
+  expect(text).toContain('disk40.0 GB / 100 GB')
+  expect(text).toContain('hostHostinger')
+  for (const gone of ['CPU', '42', 'Ubuntu', 'node', 'mygame', 'caddy', 'srv1']) expect(text).not.toContain(gone)
+  // weevboss runs on it: this weevils cannot remove itself.
+  expect(row('remove')).toBeUndefined()
 })
 
-it('machine page: one plain « add a machine » line, still asking weevboss', async () => {
-  await render(<InfraPage machine="vps" />)
-  const text = host.textContent ?? ''
-  expect(text).not.toContain('other machines')
-  expect(text).not.toContain('the host, the address, the password')
+it('machines page: « remove » asks twice, then hands it to weevboss in its thread', async () => {
+  state.snap.machines = [{ id: 'vps', name: 'vps', online: true }, { id: 'pc', name: 'laptop', online: true }] as Snapshot['machines']
+  state.infra = detail({ id: 'pc', name: 'laptop', weevboss: false })
+  await render(<InfraPage />)
+  await tapRow('laptop')
+  await tapRow('remove')
+  expect(state.said).toEqual([])
+  await tapRow('sure? tap again')
+  expect(state.said).toEqual(['Remove the machine « laptop » from weevils.'])
+  expect(host.textContent).toContain('asked weevboss')
+})
+
+it('machines page: one plain « add a machine » line, still asking weevboss', async () => {
+  await render(<InfraPage />)
   await act(async () => row('add a machine')!.click())
   expect(state.setup).toEqual(['machine'])
 })
 
-it('machine page: a failed read says so in plain words, never the raw error', async () => {
+it('machines page: a failed read says so in plain words, never the raw error', async () => {
   state.infra = new Error('failed (502) ECONNREFUSED')
   await render(<InfraPage machine="vps" />)
-  expect(host.textContent).toContain('can’t read this machine right now, retrying')
+  expect(host.textContent).toContain('not reachable')
   expect(host.textContent).not.toContain('ECONNREFUSED')
+  // Unreachable: still removable.
+  expect(row('remove')).toBeTruthy()
 })
 
 it('files: folder name as kicker, no « machine:/path », « home folder » instead of ~, plain error', async () => {

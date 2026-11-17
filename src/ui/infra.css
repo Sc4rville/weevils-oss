@@ -78,25 +78,6 @@
   pointer-events: none;
 }
 
-.mx-tabs {
-  display: flex;
-  gap: 6px;
-  flex-wrap: wrap;
-  padding-block: 10px 4px;
-}
-.mx-tab {
-  padding: 6px 12px 6px 0;
-  min-height: 36px;
-  font-weight: 700;
-  opacity: 0.55;
-}
-.mx-tab.on {
-  opacity: 1;
-}
-.mx-tab.off {
-  opacity: 0.3;
-}
-
 .stat {
   padding-block: 8px;
 }
@@ -116,12 +97,6 @@
 .stat.share .gauge > .lv-ok {
   background: var(--ink);
 }
-
-.chart svg {
-  display: block;
-  width: 100%;
-  height: 96px;
-}
 .c-mem {
   fill: color-mix(in oklab, var(--ink) 22%, transparent);
 }
@@ -133,32 +108,6 @@
 }
 .c-peak {
   fill: var(--crit);
-}
-.chart-h {
-  display: flex;
-  justify-content: space-between;
-  font-variant-numeric: tabular-nums;
-  margin-top: 2px;
-}
-
-.row-static {
-  display: flex;
-  align-items: center;
-  gap: 10px;
-  min-height: 52px;
-  padding-block: 8px;
-}
-.row-static .st {
-  width: 22px;
-  flex: none;
-  text-align: center;
-}
-.row-static .stack-text {
-  flex: 1;
-  min-width: 0;
-}
-.row-static .stack-text > * {
-  display: block;
 }
 
 .advice {
@@ -191,36 +140,29 @@ button.kv {
   width: 100%;
 }
 
-/* The subscription marker belongs to the same quiet scale as machine metadata. */
-
-/* Where the disk goes: one quiet ink bar per folder (its share of the disk used), what is inside in small type. */
-.disk-row {
-  display: block;
-  width: 100%;
-  text-align: left;
-}
-.disk-row .stat-h .strong {
-  min-width: 0;
-}
-.disk-row .gauge {
-  margin-top: 6px;
-}
-.disk-inside {
-  margin-top: 4px;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-  overflow-wrap: anywhere;
-}
-.disk-note {
-  padding-block: 6px;
-  font-size: 0.8125rem;
-  line-height: 1.4;
-}
-.disk-later {
-  padding-block: 8px;
-  line-height: 1.35;
-}
-
 /* A tool's heading: its name left, what is missing or how old the figures are right. */
 .quota-head { display: flex; justify-content: space-between; align-items: baseline; gap: 16px; }
 .quota-head .meta { font-weight: 400; }
+
+/* The machines page: one line per machine; an offline one is quieter, its details open under it. */
+.mx-item .row.off .ellipsis { opacity: 0.6; }
+.mx-item .mx-detail { padding-left: 32px; }
+.mx-item .mx-note { padding-block: 8px; }
+.mx-tabs {
+  display: flex;
+  gap: 6px;
+  flex-wrap: wrap;
+  padding-block: 10px 4px;
+}
+.mx-tab {
+  padding: 6px 12px 6px 0;
+  min-height: 36px;
+  font-weight: 700;
+  opacity: 0.55;
+}
+.mx-tab.on {
+  opacity: 1;
+}
+.mx-tab.off {
+  opacity: 0.3;
+}
