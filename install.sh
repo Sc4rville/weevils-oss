@@ -2,8 +2,8 @@
 # weevils installer — one command on a fresh Linux machine or VPS, or on a Mac (Apple Silicon or Intel).
 # Idempotent: run it again to update. Runs under the bash 3.2 that macOS ships: no associative array, no mapfile.
 #
-#   git clone https://github.com/Sc4rville/weevils && cd weevils && ./install.sh
-#   curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils/main/install.sh | bash
+#   git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
+#   curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 #   … | bash -s -- --secondary <ssh host of the main machine>      (a second machine, federated by the main one)
 #   ./install.sh --agent      run by an AI agent (see AGENTS.md): no questions, ends with a machine-readable summary
 #
@@ -34,7 +34,7 @@ case "$OS" in
     exit 1 ;;
 esac
 set -- ${WEEVILS_ARGS[@]+"${WEEVILS_ARGS[@]}"}
-REPO_URL=${WEEVILS_REPO:-https://github.com/Sc4rville/weevils.git}
+REPO_URL=${WEEVILS_REPO:-https://github.com/Sc4rville/weevils-oss.git}
 SELF=$WEEVILS_SELF
 ARGS=("$@")
 # PATH as the user has it (the install may prepend ~/.local/bin for itself): the end screen checks wv is reachable.
@@ -493,7 +493,7 @@ no_root() { # no_root [what needs it]
 retry_cmd() {
   local a out
   if [ -n "$SELF" ] && [ -f "$SELF" ]; then out="cd $(printf '%q' "$(cd "$(dirname "$SELF")" && pwd)") && ./install.sh"
-  else out="curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils/main/install.sh | bash -s --"; fi
+  else out="curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s --"; fi
   for a in ${ARGS[@]+"${ARGS[@]}"}; do [ "$a" = --agent ] || out+=" $(printf '%q' "$a")"; done
   printf '%s' "$out"
 }

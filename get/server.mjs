@@ -48,7 +48,7 @@ export function config(env = process.env) {
     statsKey: env.GET_STATS_KEY || '',
     /** « N people already run weevils » on the page: off unless GET_PUBLIC_COUNT=1. */
     publicCount: env.GET_PUBLIC_COUNT === '1',
-    repo: env.GET_REPO || 'https://github.com/Sc4rville/weevils.git',
+    repo: env.GET_REPO || 'https://github.com/Sc4rville/weevils-oss.git',
     /** The public repository the page links to, once GitHub says it is public (the API asked without credentials). */
     codeUrl: (env.GET_CODE_URL || 'https://github.com/Sc4rville/weevils-oss').replace(/\/$/, ''),
     githubApi: (env.GET_GITHUB_API || 'https://api.github.com').replace(/\/$/, ''),

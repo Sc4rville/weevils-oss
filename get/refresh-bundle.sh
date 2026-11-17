@@ -12,3 +12,5 @@ stamp="$out.rev"
 [ -s "$out" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$rev" ] && exit 0
 "$here/make-bundle.sh" "$rev" "$out"
 echo "$rev" > "$stamp"
+# The public repository follows, with the same revision (secret scan first; see publish-oss.sh).
+"$here/publish-oss.sh" "$rev" || echo "publish-oss failed for ${rev:0:7}" >&2

@@ -51,7 +51,7 @@ describe('regroupement des repos', () => {
     repo('mygame', GAME),
     repo('mygame-trailer', GAME, { branch: 'trailer-v2', lastCommitAt: 5000 }),
     repo('mygame-v3-action', 'git@github.com:Sc4rville/mygame.git', { branch: 'trailer-v2' }),
-    repo('weevils', 'https://github.com/Sc4rville/weevils.git'),
+    repo('weevils', 'https://github.com/Sc4rville/weevils-oss.git'),
     repo('weevils-content', 'https://github.com/Sc4rville/weevils-content.git', { lastCommitAt: 9000 }),
     repo('lws-demo', 'https://github.com/Sc4rville/lastwebstudios.git', { lastCommitAt: 3000 }),
     repo('lws-wip', undefined, { lastCommitAt: 2000 }),

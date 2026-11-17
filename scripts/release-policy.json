@@ -1,6 +1,6 @@
 {
   "schemaVersion": 1,
-  "repository": "Sc4rville/weevils",
+  "repository": "Sc4rville/weevils-oss",
   "exclude": [
     "harness-interface-kit/**",
     "content/avatar-memes-20261111/**",
@@ -27,7 +27,8 @@
     "*.bundle",
     "*.pem",
     "*.key",
-    "cookies*.txt"
+    "cookies*.txt",
+    "reports/**"
   ],
   "legacyCandidates": {
     "5798ba21aeab1b817fb8f00a1b816056dde80825": {

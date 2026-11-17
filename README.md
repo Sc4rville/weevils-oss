@@ -39,7 +39,7 @@ All the details, including what leaves your machine and how to check a release's
 Paste this into Claude Code or Codex, on the machine that will run weevils:
 
 ```text
-install https://github.com/Sc4rville/weevils
+install https://github.com/Sc4rville/weevils-oss
 ```
 
 It clones the repo, runs the installer without asking you anything first, sets up how your phone reaches the machine
@@ -53,7 +53,7 @@ You need a Linux machine (a VPS, a home server, WSL2) or a Mac (Apple Silicon or
 installed and logged in as a regular user (not root). Codex is optional.
 
 ```sh
-git clone https://github.com/Sc4rville/weevils && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
 ```
 
 The installer asks for your first name, your language and a domain (optional, see below), then installs what

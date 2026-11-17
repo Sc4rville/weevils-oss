@@ -39,7 +39,7 @@ def tree(ref):
 
 def read_policy(ref):
     value = json.loads(git('show', ref + ':' + POLICY))
-    if value.get('schemaVersion') != 1 or value.get('repository') != 'Sc4rville/weevils':
+    if value.get('schemaVersion') != 1 or value.get('repository') != 'Sc4rville/weevils-oss':
         raise ValueError('unsupported release policy')
     if not isinstance(value.get('exclude'), list) or not all(isinstance(p, str) for p in value['exclude']):
         raise ValueError('invalid exclusion policy')

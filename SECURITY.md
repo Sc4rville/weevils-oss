@@ -79,7 +79,8 @@ ssh-keygen -Y verify -f allowed -I weevils-release -n weevils-release -s weevils
 ```
 
 The key signs on the machine that serves the setup page, so it protects the code between that machine and yours. It
-does not protect against that machine itself being taken over. The repository is private for now: the bundle is how to read the code meanwhile.
+does not protect against that machine itself being taken over. The code is public at https://github.com/Sc4rville/weevils-oss: each bundle (one commit « weevils <rev> ») is
+published there with the same message, after a secret scan, so what you install is what you can read.
 
 ## Remove it
 
@@ -93,5 +94,5 @@ That stops and removes the service, the phone link, the update timer, the comman
 
 ## Reporting a problem
 
-Please report vulnerabilities privately, not in a public issue. Once the repository is public, use GitHub's private
-vulnerability reporting on Sc4rville/weevils. Until then, send a direct message to @weevilscode on X.
+Please report vulnerabilities privately, not in a public issue: GitHub's private vulnerability reporting on
+https://github.com/Sc4rville/weevils-oss, or a direct message to @weevilscode on X.

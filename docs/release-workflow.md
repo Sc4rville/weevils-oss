@@ -1,6 +1,6 @@
 # One product, one source
 
-The product and source URL are **https://github.com/Sc4rville/weevils**. Shared product improvements belong in this
+The product and source URL are **https://github.com/Sc4rville/weevils-oss**. Shared product improvements belong in this
 repository, including fixes discovered while helping one person. There is no separate `weevils-oss` feature copy.
 Personal configuration, accounts and data are not product source.
 

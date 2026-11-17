@@ -4,14 +4,14 @@ One command on a Linux machine or VPS (Ubuntu/Debian tested; dnf and pacman supp
 (Apple Silicon or Intel: see [macOS](#macos) for what differs). On Windows, use WSL2 (see below).
 
 ```sh
-git clone https://github.com/Sc4rville/weevils && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
 # once the repo is public:
-curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils/main/install.sh | bash
+curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 ```
 
 Run it again any time: it updates (git pull, npm ci and build only when something changed) and keeps your settings.
 
-Or ask your AI agent: paste `install https://github.com/Sc4rville/weevils` into Claude Code or Codex. It follows
+Or ask your AI agent: paste `install https://github.com/Sc4rville/weevils-oss` into Claude Code or Codex. It follows
 [AGENTS.md](../AGENTS.md) (see [With an AI agent](#with-an-ai-agent) below).
 
 ## What it does
@@ -227,7 +227,7 @@ Claude settings.
 Install the main machine first, then on each other machine (it needs `ssh <main host>` to work without a password):
 
 ```sh
-curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils/main/install.sh | bash -s -- --secondary <main ssh host>
+curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s -- --secondary <main ssh host>
 ```
 
 The secondary machine runs its own weevilsd (no app, no weevboss) and a reverse SSH tunnel to the main machine.

@@ -1,7 +1,7 @@
 # Installing weevils for your user
 
 You are an AI agent (Claude Code, Codex…) and your user asked you to install weevils, for example
-"install https://github.com/Sc4rville/weevils". Follow these steps in order. Everything runs without questions;
+"install https://github.com/Sc4rville/weevils-oss". Follow these steps in order. Everything runs without questions;
 your user hears from you once, at the end, unless a step below says to ask. Got this file through a web fetch or a
 summary? Clone first (step 2), then read `AGENTS.md` from the clone in full: step 7 matters as much as the install.
 
@@ -26,7 +26,7 @@ Codex sessions running on this machine, with an assistant called weevboss at the
 Already inside a clone (`install.sh` and `server/` next to this file)? Stay there. Otherwise:
 
 ```sh
-git clone https://github.com/Sc4rville/weevils ~/weevils && cd ~/weevils
+git clone https://github.com/Sc4rville/weevils-oss ~/weevils && cd ~/weevils
 ```
 
 If `~/weevils` already exists, `cd ~/weevils`: the installer updates it. Use `git clone`, not `curl | bash`.
@@ -35,7 +35,7 @@ On a Mac where `xcode-select -p` fails, git is not installed yet (calling it onl
 and, in step 4, start the installer with this line instead: it brings git and clones into `~/weevils` itself.
 
 ```sh
-nohup sh -c 'curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils/main/install.sh | bash -s -- --agent --lang <fr|en> [options from step 3]' > ~/weevils-install.log 2>&1 &
+nohup sh -c 'curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s -- --agent --lang <fr|en> [options from step 3]' > ~/weevils-install.log 2>&1 &
 ```
 
 ## 3. Pick the options
