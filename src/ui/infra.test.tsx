@@ -102,8 +102,9 @@ const row = (txt: string) => rows().find((b) => b.textContent?.includes(txt))
 it('machine page: no ssh commands, reverse DNS, load average, swap, arch or terminal glyph', async () => {
   await render(<InfraPage machine="vps" />)
   const text = host.textContent ?? ''
-  expect(text).toContain('weevboss runs here')
   expect(text).toContain('Ubuntu 26.04')
+  // Each size once: the use row says « 4 cores », no second « machine » block repeating it.
+  expect(text).not.toContain('weevboss runs here')
   for (const gone of ['ssh', 'connect', 'from pc', 'copied', 'reverse DNS', 'srv1.hstgr.cloud', '203.0.113.7', 'load', '0.52', 'swap', 'x86_64', 'kvm']) expect(text).not.toContain(gone)
   expect(text).toContain('42 %')
   expect(host.innerHTML).not.toContain(terminalIcon)
@@ -163,7 +164,7 @@ it('subscription: one figure per tool, no lone « ! », no raw error, no machine
     codex: { ok: true, windows: [{ kind: 'week', percent: 3, resetsAt: null }], source: 'x', at: Date.now() },
   } as UsageInfo
   await render(<UsageLine />)
-  expect(host.textContent).toContain('Claude 40% this week · Codex 3%')
+  expect(host.textContent).toContain('Claude 40% · Codex 3%')
   expect(host.textContent).not.toContain('5 h')
 
   // Nothing ever known (a fresh install, Claude refusing): the page says so.
@@ -176,15 +177,17 @@ it('subscription: one figure per tool, no lone « ! », no raw error, no machine
   state.today = { rows: [{ id: 's1', machine: 'vps-7f3a', tool: 'codex', projectId: 'p', title: 'refonte', weight: 1, tokens: 1000 }] } as UsageToday
   await render(<UsagePage />)
   const text = host.textContent ?? ''
-  expect(text).toContain('no figures yet, trying again soon')
+  expect(text).toContain('no figures yet')
+  expect(text).not.toContain('trying again')
   expect(text).not.toContain('HTTP 429')
   expect(text).not.toContain('vps-7f3a')
   // A share of today's use, never a raw token count.
   expect(text).toContain('100%')
   expect(text).not.toMatch(/tokens|1 k\b/)
   expect(host.innerHTML).not.toContain(terminalIcon)
-  await act(async () => row('refonte')!.click())
-  expect(state.push).toHaveBeenCalledWith({ kind: 'session', id: 's1' })
+  // Today by project only: no per-session list, no per-model list, no pace sentence.
+  expect(text).not.toContain('refonte')
+  expect(text).not.toMatch(/by session|by model|API prices/)
 })
 
 it('subscription: a Claude answer with no window still says something (never an empty section)', async () => {
@@ -193,7 +196,7 @@ it('subscription: a Claude answer with no window still says something (never an 
     codex: { ok: true, windows: [{ kind: 'week', percent: 3, resetsAt: null }], source: 'x', at: Date.now() },
   } as UsageInfo
   await render(<UsagePage />)
-  expect(host.textContent).toContain('Claude · Max 20xno figures yet, trying again soon')
+  expect(host.textContent).toContain('Claude · Max 20xno figures yet')
 })
 
 it('subscription: figures once known stay on screen, with their age, through a failed read or an empty answer (r41, r42)', async () => {
@@ -205,7 +208,7 @@ it('subscription: figures once known stay on screen, with their age, through a f
   await render(<UsagePage />)
   // Twenty minutes old: said so, never passed off as fresh.
   expect(host.textContent).toContain('week 74 %')
-  expect(host.textContent).toContain('last known figures')
+  expect(host.textContent).toContain('20 min ago')
 
   // weevils restarts with nothing to say: the page keeps the figures instead of « no figures yet ».
   state.usage = { claude: { ok: false, windows: [], source: 'x', at: Date.now(), error: 'HTTP 429' }, codex: { ok: true, windows: [], source: 'x', at: Date.now() } } as UsageInfo
@@ -226,7 +229,7 @@ it('subscription: healthy figures a few minutes old (between two server reads) n
   } as UsageInfo
   await render(<UsagePage />)
   expect(host.textContent).toContain('week 74 %')
-  expect(host.textContent).not.toContain('last known figures')
+  expect(host.textContent).not.toContain('ago')
 })
 
 it('subscription: a reopened app shows the last figures at once, even while weevils does not answer (r41, r42)', async () => {
@@ -246,5 +249,5 @@ it('subscription: a reopened app shows the last figures at once, even while weev
   await act(async () => root.unmount())
   root = createRoot(host)
   await render(<fresh.UsageLine />)
-  expect(host.textContent).toContain('Claude 40% this week · Codex 3%')
+  expect(host.textContent).toContain('Claude 40% · Codex 3%')
 })

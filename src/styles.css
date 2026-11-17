@@ -427,6 +427,17 @@ button:disabled {
   display: block;
 }
 
+/* A setting's current value, right of its label: plain weight (bold is for what is active), numbers aligned. */
+.row .val {
+  flex: none;
+  max-width: 55%;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
 .ellipsis {
   white-space: nowrap;
   overflow: hidden;

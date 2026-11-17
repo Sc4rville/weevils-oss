@@ -54,9 +54,10 @@ it('lists folders with their size, plain names, and what is inside', () => {
   render(base)
   expect(text()).toContain('where your disk space goes')
   expect(text()).toContain('projects40.0 GB')
-  expect(text()).toContain('game 11.0 GB · site 5.0 GB')
+  // One row per folder: its name and size, nothing listed under it.
+  expect(text()).not.toContain('game 11.0 GB')
   expect(text()).toContain('Docker and system data31.0 GB')
-  expect(text()).toContain('per Docker: build cache 19.6 GB (12.1 GB can be freed) · images 13.0 GB')
+  expect(text()).not.toContain('per Docker')
   expect(text()).not.toContain('volumes')
   expect(text()).toContain('swap files12.0 GB')
   expect(text()).toContain('system programs4.0 GB')
@@ -64,26 +65,24 @@ it('lists folders with their size, plain names, and what is inside', () => {
   expect(opened).toEqual(['/home/user/projects'])
 })
 
-it('says growth comes later, with no invented rate, and shows recent writes meanwhile', () => {
+it('before growth is known: the folders alone, no note about later and no stand-in list', () => {
   render(base)
-  expect(text()).toContain('Growth shows after a few measurements')
+  expect(text()).not.toContain('Growth shows after')
   expect(text()).not.toMatch(/a day/)
-  expect(text()).toContain('written in the last 7 days')
-  expect(text()).toContain('trailer · in work10.0 GB')
+  expect(text()).not.toContain('written in the last 7 days')
 })
 
-it('ranks growth per day once measured, and drops the recent-writes stand-in', () => {
+it('ranks growth per day once measured, one row each', () => {
   render({ ...base, samples: 5, growth: { since: NOW - 2 * 86400_000, perDay: 3 * GB, items: [{ name: 'trailer', parent: 'work', kind: 'folder', path: '/home/user/work/trailer', perDay: 2 * GB, bytes: 10 * GB }, { name: 'work', kind: 'loose', path: '/home/user/work', perDay: 0.5 * GB, bytes: 1 * GB }] } })
   expect(text()).toContain('growing fastest')
-  expect(text()).toContain('trailer · in work+2.0 GB a day')
+  expect(text()).toContain('trailer+2.0 GB a day')
   expect(text()).toContain('files directly in work+512 MB a day')
-  expect(text()).toContain('The whole disk: +3.0 GB a day since')
+  expect(text()).not.toContain('The whole disk')
   expect(text()).not.toContain('written in the last 7 days')
   expect(text()).not.toContain('Growth shows after')
 })
 
-it('before the first measurement, says when it comes and shows no numbers', () => {
+it('before the first measurement, shows nothing at all', () => {
   render({ ...base, at: null, samples: 0, since: null, used: 0, folders: [], recent: [] })
-  expect(text()).toMatch(/first measurement around .+, at low priority\./)
-  expect(text()).not.toMatch(/GB/)
+  expect(text()).toBe('')
 })

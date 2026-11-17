@@ -12,7 +12,7 @@ vi.mock('./think', () => ({ ThinkPage: ({ enabled }: { enabled: boolean }) => {
   const [value] = useState(() => { state.mounts++; return 'Original board, images and undo history' })
   return <article data-active={enabled}>{value}</article>
 } }))
-import { LostFeaturesLine, LostFeaturesPage, ThinkGate } from './lost-features'
+import { LostFeaturesPage, ThinkGate } from './lost-features'
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 let root: Root, host: HTMLDivElement
 beforeEach(() => {
@@ -23,14 +23,7 @@ beforeEach(() => {
 afterEach(async () => { await act(async () => root.unmount()); host.remove(); vi.unstubAllGlobals(); setLang(null); vi.restoreAllMocks() })
 const render = async (page: React.ReactNode) => { await act(async () => root.render(page)) }
 const toggle = async () => { await act(async () => host.querySelector<HTMLButtonElement>('[role=switch]')!.click()) }
-it('discovers the experiments from the settings and starts a clean profile off', async () => {
-  await render(<LostFeaturesLine />)
-  // A plain name, a short state: not "Lost features · experimental features · Think disabled".
-  expect(host.textContent).toContain('experiments')
-  expect(host.textContent).toContain('Think · disabled')
-  expect(host.textContent).not.toMatch(/Lost features|experimental features/)
-  await act(async () => host.querySelector<HTMLButtonElement>('button')!.click())
-  expect(state.push).toHaveBeenCalledWith({ kind: 'lost-features' })
+it('starts a clean profile off', async () => {
   await render(<LostFeaturesPage />)
   expect(host.querySelector('h1')?.textContent).toBe('experiments')
   expect(host.querySelector('[role=switch]')?.getAttribute('aria-checked')).toBe('false')

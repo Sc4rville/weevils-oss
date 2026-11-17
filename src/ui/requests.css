@@ -46,8 +46,6 @@
 .req-item.open .req-text {
   -webkit-line-clamp: unset;
   line-clamp: unset;
-  font-size: 1.25rem;
-  font-weight: 700;
 }
 
 .req-status {
@@ -79,8 +77,7 @@
 }
 
 .req-item.open .req-main {
-  flex-direction: column;
-  gap: 2px;
+  align-items: baseline;
   padding-block: 8px;
 }
 
@@ -264,4 +261,12 @@
 .req-empty {
   width: 100%;
   box-sizing: border-box;
+}
+
+/* An opened request: what else was said (a row, its time on the right), where it went, what came back. */
+.req-said-row {
+  display: flex;
+  align-items: baseline;
+  justify-content: space-between;
+  gap: 12px;
 }

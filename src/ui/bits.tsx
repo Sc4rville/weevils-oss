@@ -243,10 +243,13 @@ export function Line({
   label,
   disabled,
   go = '→',
+  value,
 }: {
   ch?: ReactNode
   children: ReactNode
   meta?: ReactNode
+  /** The current value, on the right of the label (« theme   light »): a setting read at a glance, never a sentence. */
+  value?: ReactNode
   onClick?: () => void
   className?: string
   label?: string
@@ -265,6 +268,7 @@ export function Line({
           <span className="ellipsis">{children}</span>
           {meta && <span className="meta ellipsis">{meta}</span>}
         </span>
+        {value != null && value !== '' && <span className="val">{value}</span>}
         {go && !disabled && (
           <span className="go" aria-hidden>
             <G c={go} />

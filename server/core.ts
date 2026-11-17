@@ -1,4 +1,5 @@
 import { InstallationIdentity } from './recursive-identity.ts'
+import { isScratchDir } from './scratch.ts'
 import AgentMessages from './i18n/agent-messages.ts'
 import { CLAUDE, CODEX_FLAGS, projectClaude, projectCodexFlags } from './agent-launch.ts'
 import { MessageOrigins } from './message-origins.ts'
@@ -677,7 +678,7 @@ export class Weevils {
         body = notificationText(s.lastMessage ?? '')
       }
       if (!title || !body) continue
-      if (isTestBrief(this.store.get(s.id)?.firstPrompt)) continue
+      if (isTestBrief(this.store.get(s.id)?.firstPrompt) || isScratchDir(s.cwd)) continue
       entry.notifiedAt = now
       void this.push.send({ title: `${title} · ${humanFeedText(s.title || '')}`.slice(0, 160), body: body.replace(/\s+/g, ' ').slice(0, 220), url: `/#s=${encodeURIComponent(s.id)}`, tag: s.id, category, sessionId: s.id, eventAt: s.lastActivityAt })
     }
@@ -1057,7 +1058,7 @@ export class Weevils {
       this.foryou?.sessionTurn(s, 'cut')
       if (now - s.interrupted.at > ANNOUNCE_WITHIN_MS) continue
       // Une session de test (vérifier la détection elle-même) : montrée, jamais annoncée dans le vrai fil.
-      if (isTestBrief(this.store.get(s.id)?.firstPrompt)) continue
+      if (isTestBrief(this.store.get(s.id)?.firstPrompt) || isScratchDir(s.cwd)) continue
       // Arrêtée par la limite de Claude et Codex peut prendre le relais : une seule annonce, celle du relais (server/relay.ts).
       if (s.machineId === MACHINE.id && this.relay?.covers(s)) continue
       const project = snap.projects.find((p) => p.id === s.projectId)?.name ?? s.projectId

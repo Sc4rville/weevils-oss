@@ -6,7 +6,6 @@ import { ensurePush, pushSupported } from '../push'
 import { localeHeaders, getLang, tr, useT } from '../i18n'
 import M from '../i18n/tips'
 import { useApp } from './app-context'
-import { Line } from './bits'
 import { Icon, type Dir, type IconName } from './icons'
 import { askSetup } from './setup'
 import { flash, toTop, when } from './follow'
@@ -330,16 +329,5 @@ export function Tips({ paused }: { paused: boolean }) {
         )}
       </AnimatePresence>
     </div>
-  )
-}
-
-/** Settings line (bottom band): tips on / off. */
-export function TipsLine() {
-  const t = useT(M)
-  const off = useTipsOff()
-  return (
-    <Line ch={<Icon name="more" />} go={null} meta={off ? t.lineOff : t.lineOn} onClick={() => setTipsOff(!off)}>
-      {t.line} · {off ? t.off : t.on}
-    </Line>
   )
 }

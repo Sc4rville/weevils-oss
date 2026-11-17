@@ -93,17 +93,17 @@ function AskRow({ a, open, state, onToggle, onAction }: { a: Row; open: boolean;
       </div>
       <Collapse open={open}>
         <div className="in req-detail">
-          {words.map((w, i) => (
-            <div key={i} className="req-said">
-              <blockquote className="req-quote">“{w.quote}”</blockquote>
-              <div className="meta">{i === 0 ? t.yourWords : ''}{w.from !== 'user' ? ` · ${t.from(w.from)}` : ''}{i === 0 ? ' · ' : ''}{hhmm(w.at)}</div>
+          {/* The title already says the request: a quote only when the words differ (a follow-up, a longer original). */}
+          {words.filter((w) => w.quote.trim() !== a.text.trim()).map((w, i) => (
+            <div key={i} className="req-said req-said-row">
+              <span className="req-quote">“{w.quote}”</span>
+              <span className="meta">{hhmm(w.at)}</span>
             </div>
           ))}
           {a.dispatches.map((d) => (
             <div key={d.session + d.at} className="req-dispatch">
               <button type="button" className="link req-who" onClick={() => push({ kind: 'session', id: d.session })}>→ {who(d, t.aSession)}</button>
-              {d.expect && <div className="meta"><span className="strong">{t.expects}</span> {d.expect}</div>}
-              {d.report && <div className="meta"><span className="strong">{t.report}</span> {d.report}</div>}
+              {d.report && <div className="meta">{d.report}</div>}
             </div>
           ))}
           {!a.dispatches.length && a.note && <div className="meta">{a.note}</div>}

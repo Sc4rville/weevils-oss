@@ -9,9 +9,6 @@ import type { H24Activity, Machine, Project, Session, Snapshot } from '../../sha
 vi.mock('../api', () => ({ api: { usageRate: async () => ({ step: 15_000, end: Date.now(), buckets: [] }) } }))
 vi.mock('../push', () => ({ ensurePush: async () => {} }))
 vi.mock('./infra', async (orig) => ({ ...(await orig<typeof import('./infra')>()), UsageLine: () => null }))
-vi.mock('./relay', async (orig) => ({ ...(await orig<typeof import('./relay')>()), RelayPrefLine: () => null }))
-vi.mock('./prefs', async (orig) => ({ ...(await orig<typeof import('./prefs')>()), PrefLines: () => null, UpdatesLine: () => null }))
-vi.mock('./lost-features', () => ({ LostFeaturesLine: () => null }))
 
 for (let p: object | null = HTMLElement.prototype; p; p = Object.getPrototypeOf(p)) if (Object.hasOwn(p, 'animate')) delete (p as { animate?: unknown }).animate
 const { MotionGlobalConfig } = await import('motion/react')
@@ -85,22 +82,13 @@ describe('settings band', () => {
     expect(rows().find((r) => r.includes('vps'))).toContain('offline')
   })
 
-  it('one conversations line with its count; import is no longer a second line here', async () => {
-    render(<FootBand />, snap([]))
-    expect(rows().some((r) => /import/i.test(r))).toBe(false)
-    expect(host.textContent).not.toContain('imported')
-    expect(host.textContent).not.toContain('elsewhere')
-    expect(rows().some((r) => r.includes('new session'))).toBe(true)
-    await click([...host.querySelectorAll('button.row')].find((r) => r.textContent!.includes('conversations')))
-    expect(pushed).toEqual([{ kind: 'conversations' }])
-    expect(rows().find((r) => r.includes('conversations'))).toContain('120')
-  })
-
-  it('notifications impossible here: the line says why instead of staying greyed with no reason', () => {
-    render(<FootBand />, snap([]))
-    const line = [...host.querySelectorAll('button.row')].find((r) => r.textContent!.includes('notifications')) as HTMLButtonElement
-    expect(line.disabled).toBe(true)
-    expect(line.textContent).toMatch(/not possible in this browser|home screen/)
+  it('exactly machines, subscriptions, theme, requests and log out: each a label and its value, nothing under it', async () => {
+    render(<FootBand />, snap([{ id: 'm-7f3a9c', name: 'vps', online: true }], { asksOpen: 3 }))
+    // UsageLine is mocked out here (it reads the quotas); the four others are the band.
+    expect(rows()).toEqual(['machinesvps', 'themelight', 'requests3', 'log out'])
+    expect(host.querySelectorAll('button.row .meta')).toHaveLength(0)
+    await click([...host.querySelectorAll('button.row')].find((r) => r.textContent!.startsWith('requests')))
+    expect(pushed).toEqual([{ kind: 'requests' }])
   })
 })
 

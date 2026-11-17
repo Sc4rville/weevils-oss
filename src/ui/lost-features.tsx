@@ -2,7 +2,6 @@ import { useRef, useState } from 'react'
 import { useT } from '../i18n'
 import M from '../i18n/lost-features'
 import { useApp } from './app-context'
-import { Line } from './bits'
 import { Shell } from './shell'
 import { ThinkPage } from './think'
 import { useThinkEnabled } from './lost-features-store'
@@ -10,12 +9,6 @@ import './lost-features.css'
 
 function ThinkIcon() {
   return <svg width="20" height="20" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="1.5" aria-hidden="true"><circle cx="7" cy="7" r="3"/><circle cx="17" cy="15" r="4"/><path d="m9 9 5 4M5 10l-1 8 9-1"/></svg>
-}
-export function LostFeaturesLine() {
-  const { snap, push } = useApp()
-  const t = useT(M)
-  const [enabled] = useThinkEnabled(snap) // Persist the one-time migration, even if the menu is never opened.
-  return <Line ch="?" meta={t.menuMeta(enabled ? t.enabled : t.disabled)} onClick={() => push({ kind: 'lost-features' })}>{t.title}</Line>
 }
 export function LostFeaturesPage() {
   const { snap, push, colors } = useApp()

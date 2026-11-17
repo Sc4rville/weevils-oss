@@ -1,64 +1,9 @@
 import { useEffect, useId, useRef, useState } from 'react'
 import { LANGS, LANG_NAMES, installLang, langIsChosen, setLang, useLang, useT, type Lang } from '../i18n'
 import M from '../i18n/prefs'
-import { api } from '../api'
-import { Line } from './bits'
-import { TipsLine } from './tips'
 import { Icon } from './icons'
 import './prefs.css'
 
-/** App-wide preferences shown in the bottom band: language, intro, tips (devil mode: the devil next to the logo). */
-export function PrefLines() {
-  const t = useT(M)
-  const lang = useLang()
-  const [picking, setPicking] = useState(false)
-  const chosen = langIsChosen()
-  // Never switched by a single tap (a stray tap in the bottom band once left the whole app in English): the line opens
-  // the choices, and only a tap on one of them changes the language.
-  const pick = (l: Lang | null) => {
-    setPicking(false)
-    if (l === null ? chosen : !chosen || l !== lang) setLang(l)
-  }
-  return (
-    <>
-      <Line ch="~" go={null} onClick={() => setPicking((p) => !p)}>
-        {t.language} · {LANG_NAMES[lang]}
-      </Line>
-      {picking && (
-        <div className="lang-pick" role="group" aria-label={t.language}>
-          <Line ch={chosen ? '' : '✓'} go={null} onClick={() => pick(null)}>
-            {t.followDefault(LANG_NAMES[installLang()])}
-          </Line>
-          {LANGS.map((l: Lang) => (
-            <Line key={l} ch={chosen && l === lang ? '✓' : ''} go={null} onClick={() => pick(l)}>
-              <span lang={l}>{LANG_NAMES[l]}</span>
-            </Line>
-          ))}
-        </div>
-      )}
-      <TipsLine />
-    </>
-  )
-}
-
-/** Updates by itself (on by default): one tap turns it off or on again, for this weevils (a server setting). */
-export function UpdatesLine({ on }: { on: boolean }) {
-  const t = useT(M)
-  const [value, setValue] = useState(on)
-  useEffect(() => setValue(on), [on])
-  const flip = () => {
-    const next = !value
-    setValue(next)
-    api.setUpdates(next).then((r) => setValue(r.on)).catch(() => setValue(!next))
-  }
-  return (
-    <Line ch="↻" go={null} meta={value ? t.updatesOnMeta : t.updatesOffMeta} onClick={flip}>
-      {t.updates} · {value ? t.updatesOn : t.updatesOff}
-    </Line>
-  )
-}
-
-/** Always discoverable in the existing bottom rail, with no overlay on the composer. */
 export function LanguageButton({ compact = false }: { compact?: boolean }) {
   const t = useT(M)
   const lang = useLang()

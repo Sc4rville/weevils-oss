@@ -1,4 +1,5 @@
 import { ALCOVE_SOURCE, alcoveFinal, groupAlcove } from './foryou-results.ts'
+import { isScratchDir } from './scratch.ts'
 import { FeedLocalization } from './foryou-localization.ts'
 import { OutboxError } from './outbox.ts'
 import { internalFeedUpdate, editorialFeedText, acknowledgementOnly, humanFeedItem, humanFeedText, rawEngineeringNotice } from '../shared/feed-text.ts'
@@ -648,11 +649,13 @@ export class ForYou {
 
   // ---------------------------------------------------------------- sessions
 
-  /** A session of work the user follows: not a test, not a one-shot call of a script, not weevils' own, not weevboss. */
+  /** A session of work the user follows: not a test (nor a probe in a temporary folder), not a one-shot call of a script, not weevils' own, not weevboss. */
   eligible(s: Session): boolean {
     if (s.archived) return false
     if (s.origin === 'headless' || s.id === this.w.orchestratorId) return false
     if (s.cwd && (s.cwd === this.dataDir || s.cwd.startsWith(this.dataDir + path.sep))) return false
+    // A probe or a throwaway test in a temporary folder (server/scratch.ts) is never a card.
+    if (isScratchDir(s.cwd)) return false
     // A repo-less automation's run (<projects>/.auto/.<id>: watches, hunters, reports) speaks in For you only through
     // what it posts (one line with its page link, docs/LINKS.md): its closing turn is not a card. A task working in a
     // repo (<projects>/.auto/<repo>/<id>) stays a session like another.

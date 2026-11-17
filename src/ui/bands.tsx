@@ -1,6 +1,5 @@
 import { sourceAccessIssue } from './source-access'
 import { selfProject, improvingProject } from './recursive-identity'
-import { LostFeaturesLine } from './lost-features'
 import { interceptModelControl, openModelControls } from '../model-controls'
 import { effortLabel, modelLabel } from './settings'
 import ModelM from '../i18n/model-controls'
@@ -14,12 +13,10 @@ import type { Brick } from '../../shared/setup.ts'
 import { api } from '../api'
 import { tr, useT } from '../i18n'
 import M from '../i18n/bands'
-import NM from '../i18n/notices'
 import RM from '../i18n/requests'
 import D from '../i18n/devil'
 import { prefetchRepo } from './pages'
 import { THEMES, stableOrder, useApp, useSettled } from './app-context'
-import { ensurePush } from '../push'
 import { VoiceLogo } from './voice'
 import { useThreadAsk } from './askthread'
 import { isUnread, useSeen } from './seen'
@@ -30,8 +27,7 @@ import { AutoMark, FilledIcon, G, Icon } from './icons'
 import { KeepSessionOrder } from './session-order'
 import PM from '../i18n/project-screen'
 import { autoOfSession } from './auto-model'
-import { PrefLines, UpdatesLine } from './prefs'
-import { RelayPrefLine, ThreadPlans } from './relay'
+import { ThreadPlans } from './relay'
 import { UsageLine } from './infra'
 import { TokenMeter } from './rate'
 import { setDevil, useDevil } from './devil'
@@ -672,44 +668,6 @@ export function ProjectBand({ project }: { project: Project }) {
 // Bande de fin : réglages et état de la connexion. Elle remplit l'espace jusqu'au rail H24.
 
 
-/** Notifications : abonnement Web Push (iPhone : seulement depuis l'app installée sur l'écran d'accueil). */
-function NotifyLine() {
-  const t = useT(M)
-  const supported = typeof window !== 'undefined' && 'serviceWorker' in navigator && 'PushManager' in window && 'Notification' in window
-  const standalone = typeof window !== 'undefined' && (matchMedia('(display-mode: standalone)').matches || (navigator as { standalone?: boolean }).standalone === true)
-  const ios = /iphone|ipad/i.test(navigator.userAgent)
-  const [state, setState] = useState<'idle' | 'busy' | 'on' | 'error'>(supported && Notification.permission === 'granted' ? 'on' : 'idle')
-  const [msg, setMsg] = useState<string | null>(null)
-  // Un drapeau plutôt que le texte : « notification de test envoyée » suit un changement de langue.
-  const [tested, setTested] = useState(false)
-  const enable = async () => {
-    setState('busy')
-    setMsg(null)
-    setTested(false)
-    try {
-      await ensurePush({ ask: true, test: true })
-      setState('on')
-      setTested(true)
-    } catch (e) {
-      setState('error')
-      setMsg((e as Error).message)
-    }
-  }
-  // Not possible here: say the one thing that would make it possible, rather than a greyed line with no reason.
-  if (!supported || (ios && !standalone)) {
-    return (
-      <Line ch="!" go={null} disabled meta={ios && !standalone ? t.notifyInstall : t.notifyUnsupported}>
-        {t.notifications}
-      </Line>
-    )
-  }
-  return (
-    <Line ch="!" go={null} meta={msg ?? (tested ? t.testSent : state === 'on' ? undefined : t.notifyOff)} onClick={() => void enable()}>
-      {t.notifications} {state === 'on' ? t.notifyOnSuffix : state === 'busy' ? '…' : ''}
-    </Line>
-  )
-}
-
 /** Only what matters: offline for one machine, how many are online for several. */
 function machinesMeta(machines: { online?: boolean }[]) {
   const t = tr(M)
@@ -719,53 +677,43 @@ function machinesMeta(machines: { online?: boolean }[]) {
 }
 
 export function FootBand() {
-  const nt = useT(NM)
   const t = useT(M)
   const { snap, theme, setTheme, offline, colors, logout, push } = useApp()
+  // The relay writes « until 6 pm » in this device's time zone (the Codex relay row moved to the subscriptions page).
+  useEffect(() => {
+    try {
+      void api.relaySet({ tz: Intl.DateTimeFormat().resolvedOptions().timeZone }).catch(() => undefined)
+    } catch {
+      /* no time zone: the server's */
+    }
+  }, [])
+  // Four sections and log out (Yann, 2026-11-17): everything else lives where it is used — notifications, the phone and
+  // old conversations through weevboss's chips, memory through weevboss, finished sessions on their project's page.
   return (
-    <section className="band demo" style={color(colors.__foot ?? 'p3')} aria-label={t.settings}>
+    <section className="band demo settings-band" style={color(colors.__foot ?? 'p3')} aria-label={t.settings}>
       <div className="in head">
         <h2 className="h2" style={{ margin: 0 }}>
           {t.settings}
         </h2>
         <span className="chars meta strong">{offline ? t.reconnecting : ''}</span>
       </div>
-      {/* One line for the machines: their page lists them all (one line each opened the same page). */}
       {snap.machines.length > 0 && (
-        <Line ch="@" meta={machinesMeta(snap.machines)} onClick={() => push({ kind: 'machine', projectId: '' })}>
-          {snap.machines.length === 1 ? snap.machines[0].name : t.machines}
+        <Line value={snap.machines.length === 1 ? (snap.machines[0].online === false ? `${snap.machines[0].name} · ${t.offline}` : snap.machines[0].name) : machinesMeta(snap.machines)} onClick={() => push({ kind: 'machine', projectId: '' })}>
+          {t.machines}
         </Line>
       )}
       <UsageLine />
-      {snap.sessions.some((s) => s.archived) && <Line ch="↓" onClick={() => push({ kind: 'archived' })}>{nt.archived}</Line>}
-      <Line ch="+" onClick={() => push({ kind: 'new', projectId: '__any' })}>
-        {t.newSession}
+      <Line go={null} value={t.themeName(theme)} onClick={() => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length])}>
+        {t.themeLabel}
       </Line>
-      {/* Importing lives on the conversations page. */}
-      <Line ch='"' meta={snap.conversationCounts.total ? String(snap.conversationCounts.total) : undefined} onClick={() => push({ kind: 'conversations' })}>
-        {t.conversationsLabel}
-      </Line>
-      <NotifyLine />
-      <Line ch="~" go={null} onClick={() => setTheme(THEMES[(THEMES.indexOf(theme) + 1) % THEMES.length])}>
-        {t.theme(theme)}
-      </Line>
-      <RelayPrefLine />
-      <PrefLines />
-      {snap.config?.autoUpdate !== undefined && <UpdatesLine on={snap.config.autoUpdate} />}
-      <Line ch="x" go={null} onClick={logout}>
-        {t.logout}
-      </Line>
-      {snap.memoryCount !== undefined && (
-        <Line ch="#" meta={t.memories(snap.memoryCount)} onClick={() => push({ kind: 'memory' })}>
-          {t.memory}
-        </Line>
-      )}
       {snap.asksOpen !== undefined && (
-        <Line ch="!" onClick={() => push({ kind: 'requests' })}>
+        <Line value={snap.asksOpen ? String(snap.asksOpen) : undefined} onClick={() => push({ kind: 'requests' })}>
           {tr(RM).menu}
         </Line>
       )}
-      <LostFeaturesLine />
+      <Line go={null} onClick={logout}>
+        {t.logout}
+      </Line>
     </section>
   )
 }

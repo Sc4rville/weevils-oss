@@ -277,7 +277,7 @@ describe('session results', () => {
     expect(fy.usageKnown()).toBeNull()
   })
 
-  it('never takes a test brief, a one-shot call, weevils own folder, a repo-less automation run or weevboss', async () => {
+  it('never takes a test brief, a probe in /tmp, a one-shot call, weevils own folder, a repo-less automation run or weevboss', async () => {
     const fy = make({ isTestBrief: (p) => !!p && p.startsWith('[test]') })
     transcripts.set('t1', { firstPrompt: '[test] probe' })
     transcripts.set('h1', { headless: true })
@@ -291,6 +291,8 @@ describe('session results', () => {
       session({ id: 'h2', origin: 'headless' }),
       session({ id: 'd1', cwd: '/home/u/.local/share/weevils/titles' }),
       session({ id: 'w1', cwd: '/home/u/projects/.auto/.811c154e93' }),
+      // An agent's probe in a temporary folder (a Codex run that answered « BANANA », 2026-11-17).
+      session({ id: 'p1', cwd: '/tmp/sa-codex/work' }),
       session({ id: 'boss' }),
     ]
     for (const s of out) {

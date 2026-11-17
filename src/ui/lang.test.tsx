@@ -23,7 +23,7 @@ globalThis.fetch = (async (_u: string, init?: RequestInit) => {
 }) as typeof fetch
 
 const { getLang, langIsChosen, setLang, tr } = await import('../i18n')
-const { PrefLines, LanguageButton } = await import('./prefs')
+const { LanguageButton } = await import('./prefs')
 const { default: B } = await import('../i18n/bands')
 const { default: S } = await import('../i18n/setup')
 
@@ -42,8 +42,6 @@ afterEach(() => {
   el.remove()
 })
 
-const rows = () => [...el.querySelectorAll('button.row')] as HTMLButtonElement[]
-const tap = (b: HTMLElement) => act(() => b.dispatchEvent(new MouseEvent('click', { bubbles: true })))
 
 describe("la langue de l'app", () => {
   it("un téléphone en français sur un weevils installé en anglais : l'interface sort en anglais", () => {
@@ -55,37 +53,6 @@ describe("la langue de l'app", () => {
     expect(tr(S).chip_mail).toBe(S.en.chip_mail)
     // This device never changes the shared server's language.
     expect(posted).toEqual([])
-  })
-
-  it('un tap sur la ligne « langue » ouvre le choix sans rien changer', () => {
-    act(() => root.render(<PrefLines />))
-    // No « default » / « chosen here » meta on the line: the open choices already show it with a ✓.
-    expect(rows()[0].textContent).toBe('language · English')
-    tap(rows()[0])
-    expect(getLang()).toBe('en')
-    expect(posted).toEqual([])
-    expect(rows().map((r) => r.textContent)).toEqual(['language · English', 'default (English)', 'English', 'Français'])
-    // Un second tap sur la ligne la referme, toujours en anglais.
-    tap(rows()[0])
-    expect(rows()).toHaveLength(1)
-    expect(getLang()).toBe('en')
-  })
-
-  it("seule une langue tapée la change, sur cet appareil ; « par défaut » revient à celle de l'installation", () => {
-    act(() => root.render(<PrefLines />))
-    tap(rows()[0])
-    tap(rows().find((r) => r.textContent === 'Français')!)
-    expect(getLang()).toBe('fr')
-    expect(langIsChosen()).toBe(true)
-    expect(posted).toEqual([])
-    expect(localStorage.getItem('weevils-language')).toBe('fr')
-    tap(rows()[0])
-    tap(rows().find((r) => r.textContent?.startsWith('par défaut ('))!)
-    expect(getLang()).toBe('en')
-    expect(langIsChosen()).toBe(false)
-    expect(posted).toEqual([])
-    expect(localStorage.getItem('weevils-language')).toBeNull()
-    setLang(null)
   })
 })
 

@@ -5,12 +5,11 @@ import type { DiskView, FsListing, InfraDetail, InfraPoint, Level, QuotaInfo, Qu
 import { api, type FileContent } from '../api'
 import { intlLocale, useT } from '../i18n'
 import M from '../i18n/infra'
+import RM from '../i18n/relay'
 import { useApp } from './app-context'
 import { Line, SessionRow } from './bits'
-import { modelLabel } from './settings'
 import { CodeFile } from './codeview'
 import { ago, durLong } from './format'
-import { Icon } from './icons'
 import { Shell } from './shell'
 import { askSetup } from './setup'
 import './infra.css'
@@ -42,7 +41,7 @@ function Stat({ label, pct, level, text }: { label: string; pct: number | null; 
   return (
     <div className="in stat">
       <div className="stat-h">
-        <span className="strong">{label}</span>
+        <span>{label}</span>
         <span className="meta">{text}</span>
       </div>
       {pct != null && <Gauge pct={pct} level={level} className="big" />}
@@ -107,49 +106,33 @@ function Kv({ k, v, onClick }: { k: string; v: ReactNode; onClick?: () => void }
 }
 
 const money = (n: number, cur: string | null) => `${Math.round(n * 100) / 100} ${cur ?? ''}`.trim()
-const dayName = (d: string) => new Date(`${d}T12:00:00`).toLocaleDateString(intlLocale(), { weekday: 'short' })
 
 // ---------------------------------------------------------------- où va le disque (mesures en lecture seule, toutes les 6 h)
 
-/** « 14:30 », ou « mar. 14:30 » au-delà de 20 h d'écart. */
-function stamp(t: number, now: number) {
-  const d = new Date(t)
-  const time = d.toLocaleTimeString(intlLocale(), { hour: '2-digit', minute: '2-digit' })
-  return Math.abs(now - t) > 20 * 3600_000 ? `${d.toLocaleDateString(intlLocale(), { weekday: 'short' })} ${time}` : time
-}
-
 const SHOWN = 8
 
+/** Where the disk goes: the biggest folders, one row each (a tap opens it), then what grows by the day. Nothing
+ *  before the first measurement: no note about when it will come. */
 export function DiskSpace({ v, open }: { v: DiskView; open: (path: string) => void }) {
   const t = useT(M)
-  const now = Date.now()
-  const next = v.next ? stamp(v.next, now) : ''
+  if (!v.at) return null
   const share = (b: number) => (v.used ? Math.round((b / v.used) * 100) : 0)
-  const shown = v.folders.slice(0, SHOWN)
-  const smaller = v.folders.slice(SHOWN)
   const name = (f: DiskView['folders'][number]) =>
     f.kind === 'rest' ? t.diskRest(f.inside.length > 0) : f.kind === 'swap' ? t.diskSwap : f.kind === 'system' ? t.diskSystem(f.name) : f.name
-  const inside = (f: DiskView['folders'][number]) =>
-    f.kind === 'rest'
-      ? f.inside.length
-        ? t.diskDockerSays(f.inside.filter((i) => i.bytes >= 100 * 1024 ** 2).map((i) => `${t.diskDocker(i.name)} ${t.size(i.bytes)}${(i.reclaimable ?? 0) >= 1024 ** 3 ? ` (${t.diskFreeable(t.size(i.reclaimable!))})` : ''}`).join(' · '))
-        : ''
-      : f.inside.map((i) => `${i.name} ${t.size(i.bytes)}`).join(' · ')
   const where = (g: { name: string; parent?: string; kind?: string; loose?: boolean }) =>
     g.kind === 'rest' ? t.diskRest(v.folders.some((f) => f.kind === 'rest' && f.inside.length > 0)) : g.kind === 'swap' ? t.diskSwap : g.kind === 'system' ? t.diskSystem(g.name) : g.kind === 'loose' || g.loose ? t.diskLoose(g.name) : g.name
+  const growing = v.growth?.items ?? []
   return (
     <div className="disk-space">
       <div className="in label">{t.diskWhere}</div>
-      {!v.at && <div className="in meta disk-note">{v.measuring ? t.diskMeasuring : t.diskFirst(next)}</div>}
-      {shown.map((f) => {
+      {v.folders.slice(0, SHOWN).map((f) => {
         const body = (
           <>
             <div className="stat-h">
-              <span className="strong ellipsis">{name(f)}</span>
+              <span className="ellipsis">{name(f)}</span>
               <span className="meta">{t.size(f.bytes)}</span>
             </div>
             <Gauge pct={share(f.bytes)} level="ok" />
-            {inside(f) && <div className="meta disk-inside">{inside(f)}</div>}
           </>
         )
         return f.path ? (
@@ -162,32 +145,11 @@ export function DiskSpace({ v, open }: { v: DiskView; open: (path: string) => vo
           </div>
         )
       })}
-      {smaller.length > 0 && <div className="in meta disk-note">{t.diskSmaller(smaller.length, t.size(smaller.reduce((a, f) => a + f.bytes, 0)))}</div>}
-      {v.at && <div className="in meta disk-note">{v.measuring ? t.diskMeasuring : t.diskMeasured(stamp(v.at, now), next)}</div>}
 
-      {v.at && <div className="in label">{t.diskGrowing}</div>}
-      {v.at && !v.growth && <div className="in disk-later">{t.diskGrowthLater(next)}</div>}
-      {v.growth && v.growth.items.length === 0 && <div className="in disk-later">{t.diskStable(stamp(v.growth.since, now))}</div>}
-      {v.growth?.items.map((g) => (
-        <Kv
-          key={`${g.kind}:${g.parent ?? ''}:${g.name}`}
-          k={[where(g), g.parent ? t.diskIn(g.parent) : ''].filter(Boolean).join(' · ')}
-          v={t.diskPerDay(t.size(g.perDay))}
-          onClick={g.path ? () => open(g.path!) : undefined}
-        />
+      {growing.length > 0 && <div className="in label">{t.diskGrowing}</div>}
+      {growing.map((g) => (
+        <Kv key={`${g.kind}:${g.parent ?? ''}:${g.name}`} k={where(g)} v={t.diskPerDay(t.size(g.perDay))} onClick={g.path ? () => open(g.path!) : undefined} />
       ))}
-      {v.growth && Math.abs(v.growth.perDay) >= 50 * 1024 ** 2 && (
-        <div className="in meta disk-note">{t.diskWhole(v.growth.perDay > 0 ? t.diskPerDay(t.size(v.growth.perDay)) : `−${t.size(-v.growth.perDay)}`, stamp(v.growth.since, now))}</div>
-      )}
-      {!v.growth && v.recent.length > 0 && (
-        <>
-          <div className="in label">{t.diskRecent}</div>
-          <div className="in meta disk-note">{t.diskRecentMeta}</div>
-          {v.recent.map((r) => (
-            <Kv key={`${r.parent ?? ''}/${r.name}`} k={[where(r), r.parent ? t.diskIn(r.parent) : ''].filter(Boolean).join(' · ')} v={t.size(r.bytes)} onClick={r.path ? () => open(r.path!) : undefined} />
-          ))}
-        </>
-      )}
     </div>
   )
 }
@@ -253,37 +215,30 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
         )}
         {x && f && !(stale && err) && (
           <div className={`mx-detail ${stale ? 'stale' : ''}`} aria-busy={stale}>
-            <div className="in label">{t.machineLabel}</div>
-            <Kv k={f.provider ? t.host : t.hardware} v={f.provider ?? f.hardware} />
-            <Kv k={t.offer} v={offer?.plan ? `${offer.plan}${offer.price != null ? ` · ${t.perMonth(money(offer.price, offer.currency))}` : ''}` : null} onClick={offer?.url ? () => window.open(offer.url!, '_blank', 'noopener') : undefined} />
-            <Kv k={t.cpu} v={`${t.cores(x.cores)}${f.cpuModel ? ` · ${f.cpuModel}` : ''}`} />
-            <Kv k={t.mem} v={t.size(x.memTotal)} />
-            <Kv k={t.disk} v={x.diskTotal ? t.size(x.diskTotal) : null} />
-            <Kv k={t.system} v={f.os} />
-            <Kv k={t.region} v={place} />
-            <Kv k={t.network} v={f.network} />
-            <Kv k={t.upSince} v={durLong(x.uptime)} />
-            {x.weevboss && (
-              <div className="in kv">
-                <span className="v">{t.bossHere}</span>
+            {/* What needs doing first (swap full, disk nearly full…), one bold row each. */}
+            {x.advice.map((a) => (
+              <div key={a} className="in advice">
+                {a}
               </div>
-            )}
-
-            <div className="in label">{t.loadLabel}</div>
-            <Stat label={t.cpu} pct={x.cpu} level={levelOf1(x.cpu, 'cpu')} text={`${x.cpu} %`} />
+            ))}
+            {/* Each resource once: its use now, its size, a bar. The old « machine » block repeated the sizes. */}
+            <Stat label={t.cpu} pct={x.cpu} level={levelOf1(x.cpu, 'cpu')} text={`${x.cpu} % · ${t.cores(x.cores)}`} />
             <Stat label={t.mem} pct={pct(x.memUsed, x.memTotal)} level={levelOf1(pct(x.memUsed, x.memTotal), 'mem')} text={t.of(t.size(x.memUsed), t.size(x.memTotal))} />
             {x.diskTotal > 0 && <Stat label={t.disk} pct={pct(x.diskUsed, x.diskTotal)} level={pct(x.diskUsed, x.diskTotal) >= 92 ? 'crit' : pct(x.diskUsed, x.diskTotal) >= 85 ? 'warn' : 'ok'} text={t.of(t.size(x.diskUsed), t.size(x.diskTotal))} />}
+            <Kv k={f.provider ? t.host : t.hardware} v={f.provider ?? f.hardware} />
+            <Kv k={t.offer} v={offer?.plan ? `${offer.plan}${offer.price != null ? ` · ${t.perMonth(money(offer.price, offer.currency))}` : ''}` : null} onClick={offer?.url ? () => window.open(offer.url!, '_blank', 'noopener') : undefined} />
+            <Kv k={t.system} v={f.os?.replace(/\s*\([^)]*\)\s*$/, '')} />
+            <Kv k={t.upSince} v={durLong(x.uptime)} />
 
             {x.consumers.length > 0 && <div className="in label">{t.consumers}</div>}
             {x.consumers.map((c, i) => (
               <Line
                 key={`${c.kind}:${c.label}:${i}`}
-                ch={c.kind === 'session' ? '*' : c.kind === 'container' ? '#' : '·'}
                 go={c.sessionId ? '→' : null}
                 onClick={c.sessionId ? () => push({ kind: 'session', id: c.sessionId! }) : undefined}
-                meta={[`${t.size(c.mem)} · ${c.cpu} % CPU`, ...c.parts].join(' · ')}
+                value={`${t.size(c.mem)} · ${c.cpu} %`}
               >
-                <span className="strong">{c.label}</span>
+                {c.label}
                 {c.count > 1 ? ` ×${c.count}` : ''}
               </Line>
             ))}
@@ -291,31 +246,7 @@ export function InfraPage({ machine, projectId }: { machine?: string; projectId?
             {x.day.length > 1 && <div className="in label">{t.today}</div>}
             {x.day.length > 1 && <DayChart points={x.day} episodes={x.episodes} />}
             {x.episodes.map((e) => (
-              <div key={e.from} className="in row-static">
-                <span className="st lv-text-crit" aria-hidden>
-                  <Icon name="bang" />
-                </span>
-                <span className="stack-text">
-                  <span className="strong">
-                    {hhmm(e.from)}–{hhmm(e.to)}
-                    {e.culprit ? ` · ${e.culprit}` : ''}
-                  </span>
-                  <span className="meta">{t.episode(e.cpu, e.mem)}</span>
-                </span>
-              </div>
-            ))}
-
-            {x.days.length > 1 && <div className="in label">{t.days(x.days.length)}</div>}
-            {x.days.length > 1 &&
-              x.days.map((y) => (
-                <Kv key={y.day} k={dayName(y.day)} v={t.dayLine(y.cpu, y.cpuMax, y.mem, y.memMax)} />
-              ))}
-
-            {x.advice.length > 0 && <div className="in label">{t.advice}</div>}
-            {x.advice.map((a) => (
-              <div key={a} className="in advice">
-                {a}
-              </div>
+              <Kv key={e.from} k={`${hhmm(e.from)}–${hhmm(e.to)}`} v={e.culprit ?? t.episode(e.cpu, e.mem)} />
             ))}
 
             {x.diskView && !stale && <DiskSpace v={x.diskView} open={(p) => push({ kind: 'fs', machine: id, path: p })} />}
@@ -458,25 +389,28 @@ function Quota({ name, q }: { name: string; q: QuotaInfo | undefined }) {
   const t = useT(M)
   const { now } = useApp()
   const label = (w: QuotaWindow) => (w.kind === 'session' ? t.session5h : w.kind === 'week' ? t.week : t.weekOf(w.label ?? ''))
+  const old = q?.ok && q.windows.length > 0 && (q.stale || now - q.at > STALE_MS)
+  // One heading row: the tool and its plan, and on its right what is missing (no figures yet) or how old they are.
   return (
     <>
-      <div className="in label">
-        {name}
-        {q?.plan ? ` · ${planName(q.plan)}` : ''}
+      <div className="in label quota-head">
+        <span>
+          {name}
+          {q?.plan ? ` · ${planName(q.plan)}` : ''}
+        </span>
+        <span className="meta" role={q && !q.windows.length ? 'status' : undefined}>
+          {!q ? '…' : !q.windows.length ? t.notYet : old ? ago(now - q.at) : ''}
+        </span>
       </div>
-      {!q && <div className="in meta empty">…</div>}
-      {/* Never an empty section: no figures yet (an error, or an answer with no window) says so; old ones say their age. */}
-      {q && !q.windows.length && <div className="in meta empty" role="status">{t.notYet}</div>}
-      {q?.ok && q.windows.length > 0 && (q.stale || now - q.at > STALE_MS) && <div className="in meta stale">{t.lastKnown(ago(now - q.at))}</div>}
       {q?.windows.map((w) => (
         <div key={`${w.kind}${w.label ?? ''}`} className={`in stat ${w.kind === 'model' ? 'minor' : ''}`}>
           <div className="stat-h">
-            <span className="strong">
-              {label(w)} <span className={`lv-text-${quotaLevel(w.percent)}`}>{w.percent} %</span>
+            <span>
+              {label(w)} <span className={`strong lv-text-${quotaLevel(w.percent)}`}>{w.percent} %</span>
             </span>
             <span className="meta">{w.resetsAt ? t.resets(when(w.resetsAt, now)) : ''}</span>
           </div>
-          <Gauge pct={w.percent} level={quotaLevel(w.percent)} className="big" />
+          <Gauge pct={w.percent} level={quotaLevel(w.percent)} />
         </div>
       ))}
     </>
@@ -551,33 +485,22 @@ function useQuotas() {
 
 const pick = (q: QuotaInfo | undefined, kind: QuotaWindow['kind']) => (q?.ok ? q.windows.find((w) => w.kind === kind)?.percent : undefined)
 
-/** L'entrée « abonnement » de la bande du bas : semaine et 5 h de Claude, Codex, et une barre pour le plus proche de la limite. */
+/** The « subscriptions » row of Settings: one figure per tool, red near the limit (the page has the windows and resets). */
 export function UsageLine() {
   const t = useT(M)
   const { push } = useApp()
   const u = useQuotas()
-  const cw = pick(u?.claude, 'week')
-  const c5 = pick(u?.claude, 'session')
+  const cw = pick(u?.claude, 'week') ?? pick(u?.claude, 'session')
   const xw = pick(u?.codex, 'week') ?? pick(u?.codex, 'session')
-  // One figure per tool: Claude's week (its 5 h window stays on the subscription page), Codex's nearest limit.
-  const parts = [cw != null ? t.weekBrief('Claude', cw) : c5 != null ? t.toolPct('Claude', c5) : '', xw != null ? t.toolPct('Codex', xw) : ''].filter(Boolean)
-  const top = Math.max(-1, ...[u?.claude, u?.codex].flatMap((q) => (q?.ok ? q.windows.filter((w) => w.kind !== 'model').map((w) => w.percent) : [])))
+  const fig = (name: string, p: number | undefined) =>
+    p == null ? null : (
+      <span key={name} className={quotaLevel(p) === 'ok' ? '' : `lv-text-${quotaLevel(p)}`}>
+        {name} {p}%
+      </span>
+    )
+  const parts = [fig('Claude', cw), fig('Codex', xw)].filter(Boolean)
   return (
-    <Line
-      ch="%"
-      className="usage-line"
-      meta={
-        u ? (
-          <>
-            {parts.join(' · ')}
-            {top >= 0 && <Gauge pct={top} level={quotaLevel(top)} />}
-          </>
-        ) : (
-          '…'
-        )
-      }
-      onClick={() => push({ kind: 'usage' })}
-    >
+    <Line className="usage-line" value={u ? parts.flatMap((x, i) => (i ? [' · ', x] : [x])) : '…'} onClick={() => push({ kind: 'usage' })}>
       {t.usageTitle}
     </Line>
   )
@@ -598,33 +521,16 @@ function Pace() {
       clearInterval(iv)
     }
   }, [])
-  if (!s?.burn) return null
-  const usd = (n: number) => (n >= 100 ? Math.round(n).toString() : n.toFixed(1))
-  const lines: string[] = []
-  if (s.perPercent && s.pctPerHour && s.weekPercentNow != null) {
-    const p = s.pctPerHour.fiveHours
-    lines.push(p < 0.05 ? t.paceIdle : t.paceHour(p < 1 ? p.toFixed(2) : p.toFixed(1)))
-    if (p >= 0.05) lines.push(s.limitAt ? t.limitAt(when(s.limitAt, now), durLong(s.limitAt - now)) : t.lastsWeek(when(s.week.end, now)))
-    lines.push(t.estNow(Math.min(100, Math.round(s.weekPercentNow)), usd(s.week.cost)))
-  } else lines.push(t.paceUncal(usd(s.burn.fiveHours)))
-  return (
-    <>
-      <div className="in label">{t.pace}</div>
-      {lines.map((l) => (
-        <div key={l} className="in meta">
-          {l}
-        </div>
-      ))}
-    </>
-  )
+  // One row, only when it says something: where this pace ends (the weekly limit, or the week holds). Idle, or not yet
+  // calibrated against the weekly quota: nothing (a sentence about API prices told nobody anything).
+  if (!s?.burn || !s.perPercent || !s.pctPerHour || s.weekPercentNow == null || s.pctPerHour.fiveHours < 0.05) return null
+  return <Kv k={t.pace} v={s.limitAt ? t.paceLimit(when(s.limitAt, now)) : t.paceHolds} />
 }
-
-/** « claude-opus-5-5 » → « opus 5.5 » ; les autres noms tels quels. */
-const modelName = (m: string) => modelLabel(m) ?? m
 
 export function UsagePage() {
   const { snap, push, colors } = useApp()
   const t = useT(M)
+  const rt = useT(RM)
   const u = useQuotas()
   const [today, setToday] = useState<UsageToday | null>(null)
   useEffect(() => {
@@ -635,72 +541,35 @@ export function UsagePage() {
   }, [])
   const rows = today?.rows ?? null
   const total = rows?.reduce((s, r) => s + r.weight, 0) ?? 0
-  const byModel = useMemo(() => {
-    const m = new Map<string, { weight: number }>()
-    for (const r of today?.models ?? []) {
-      const k = `${r.tool}:${modelName(r.model)}`
-      const p = m.get(k) ?? { weight: 0 }
-      p.weight += r.weight
-      m.set(k, p)
-    }
-    return [...m].sort((a, b) => b[1].weight - a[1].weight)
-  }, [today])
   const byProject = useMemo(() => {
-    const m = new Map<string, { weight: number }>()
-    for (const r of rows ?? []) {
-      const p = m.get(r.projectId) ?? { weight: 0 }
-      p.weight += r.weight
-      m.set(r.projectId, p)
-    }
-    return [...m].sort((a, b) => b[1].weight - a[1].weight)
+    const m = new Map<string, number>()
+    for (const r of rows ?? []) m.set(r.projectId, (m.get(r.projectId) ?? 0) + r.weight)
+    return [...m].sort((a, b) => b[1] - a[1])
   }, [rows])
   const share = (w: number) => (total ? Math.round((w / total) * 100) : 0)
   const projectName = (id: string) => snap.projects.find((p) => p.id === id)?.name ?? id
-  const known = new Set(snap.sessions.map((s) => s.id))
+  // Each tool: its windows, then one row per setting that belongs to it (the Codex relay takes over at Claude's limit).
   return (
     <Shell slot="agent" kicker="weevils" title={t.usageTitle}>
       <div className="ipage">
         <Quota name="Claude" q={u?.claude} />
         <Pace />
         <Quota name="Codex" q={u?.codex} />
+        {snap.relay && (
+          <Line value={rt[`mode_${snap.relay.mode}`]} onClick={() => push({ kind: 'relay' })}>
+            {rt.pref}
+          </Line>
+        )}
 
-        {byModel.length > 0 && <div className="in label">{t.byModel}</div>}
-        {byModel.map(([k, p]) => (
-          <div key={k} className="in stat share">
-            <div className="stat-h">
-              <span className="strong">{k.slice(k.indexOf(':') + 1)}</span>
-              <span className="meta">
-                {t.share(share(p.weight))}
-              </span>
-            </div>
-            <Gauge pct={share(p.weight)} level="ok" className="big" />
-          </div>
-        ))}
-
-        <div className="in label">{t.byProject}</div>
-        {!rows && <div className="in meta empty">{t.reading}</div>}
-        {rows && !rows.length && <div className="in meta empty">{t.nobody}</div>}
-        {byProject.map(([id, p]) => (
+        {byProject.length > 0 && <div className="in label">{t.today}</div>}
+        {byProject.map(([id, w]) => (
           <div key={id} className="in stat share" style={{ ['--bar' as string]: colors[id] ? `var(--${colors[id]})` : undefined }}>
             <div className="stat-h">
-              <span className="strong">{projectName(id)}</span>
-              <span className="meta">{t.share(share(p.weight))}</span>
+              <span>{projectName(id)}</span>
+              <span className="meta">{t.share(share(w))}</span>
             </div>
-            <Gauge pct={share(p.weight)} level="ok" className="big" />
+            <Gauge pct={share(w)} level="ok" />
           </div>
-        ))}
-
-        {rows && rows.length > 0 && <div className="in label">{t.bySession}</div>}
-        {rows?.slice(0, 40).map((r) => (
-          <Line
-            key={`${r.machine}:${r.id}`}
-            ch="*"
-            meta={`${projectName(r.projectId)} · ${t.share(share(r.weight))}`}
-            go={known.has(r.id) ? '→' : null}
-            onClick={known.has(r.id) ? () => push({ kind: 'session', id: r.id }) : undefined}
-          >
-            {snap.sessions.find((s) => s.id === r.id)?.title ?? r.title}
-          </Line>
         ))}
       </div>
     </Shell>
