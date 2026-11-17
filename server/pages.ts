@@ -18,6 +18,7 @@ import path from 'node:path'
 import { isPageKind, PAGE_KINDS, pagePath, slugOf, type PageInfo, type PageKind } from '../shared/pages.ts'
 import { lang, tr } from './i18n.ts'
 import M from './i18n/pages.ts'
+import A from './i18n/architecture.ts'
 
 export interface PageMeta extends PageInfo {
   /** The folder served (absolute). */
@@ -48,17 +49,16 @@ const MIME: Record<string, string> = {
 }
 const LIBRARY_STALE_MS = 10 * 60_000
 
-/** The machine page's live side (server/index.ts): its state, and the before/after shots it may show. */
+/** The « How weevils works » page's live side (server/index.ts): which pieces main touched lately. */
 export interface MachineLive {
   state(): Promise<unknown>
-  /** A shot's file by its id (the media shelf), or null. */
-  shot(id: string): string | null
 }
 
-export const MACHINE_SLUG = 'weevils-machine'
+/** The built-in explainer: one per install. The page it replaced (a live dashboard) had the old slug. */
+export const MACHINE_SLUG = 'how-weevils-works'
 
 export class Pages {
-  /** Set by the server: without it the machine page says it is not wired. */
+  /** Set by the server: without it the explainer marks nothing as recently changed. */
   live?: MachineLive
   readonly dir: string
   private index: string
@@ -176,13 +176,14 @@ export class Pages {
     return this.save({ kind, title, root, entry: 'index.html', from: o.from, build: { type: 'list', source, mtime: fs.statSync(source).mtimeMs } }, slug)
   }
 
-  /** The weevils machine: one per install, a live page of the stack, what runs and what lands (docs/LINKS.md). */
+  /** How weevils works: one per install, an explainer of its pieces from the code (docs/LINKS.md). The former
+   *  live dashboard (slug weevils-machine, same build type) is retired on the way. */
   publishMachine(from?: string): PageMeta {
-    const title = tr(M).machineTitle
-    const slug = this.read().find((p) => p.build?.type === 'machine')?.slug ?? MACHINE_SLUG
-    const root = path.join(this.dir, slug)
+    const title = tr(A).title
+    for (const p of this.read()) if (p.build?.type === 'machine' && p.slug !== MACHINE_SLUG) this.remove(p.slug)
+    const root = path.join(this.dir, MACHINE_SLUG)
     writeMachinePage(root, title)
-    return this.save({ kind: 'report', title, root, entry: 'index.html', from, build: { type: 'machine' } }, slug)
+    return this.save({ kind: 'report', title, root, entry: 'index.html', from, build: { type: 'machine' } }, MACHINE_SLUG)
   }
 
   /** The media of some folders, organised by project and series; rebuilt when opened if older than ten minutes. */
@@ -261,11 +262,6 @@ export class Pages {
       this.fresh(page)
     }
     if (page.build?.type === 'machine' && rest === '/state.json') return void this.machineState(res)
-    const shot = page.build?.type === 'machine' ? /^\/shot\/([\w-]{1,40})$/.exec(rest) : null
-    if (shot) {
-      const f = this.live?.shot(shot[1])
-      return f && fs.existsSync(f) ? sendFile(req, res, f) : gone()
-    }
     let rel: string
     try {
       rel = decodeURIComponent(rest)
@@ -288,7 +284,7 @@ export class Pages {
   private async machineState(res: http.ServerResponse) {
     const head = { 'content-type': 'application/json', 'cache-control': 'no-store', 'access-control-allow-origin': '*' }
     try {
-      const body = this.live ? await this.live.state() : { unwired: true }
+      const body = this.live ? await this.live.state() : { changed: {} }
       res.writeHead(200, head)
       res.end(JSON.stringify(body))
     } catch {
@@ -573,71 +569,89 @@ m.append(grid)}if(!any)m.append(el('p','meta',T.empty))};draw();`
   writeAtomic(path.join(root, 'index.html'), shell(title, 'library', css, js, data))
 }
 
-// ---------------------------------------------------------------- the weevils machine
+// ---------------------------------------------------------------- how weevils works
 
-/** A commit subject as a plain sentence and the feature it belongs to: « feat(for-you): a card … — details » →
- *  { group: 'For you', text: 'A card …' }. The part after an em dash (the how) is dropped. */
-export function commitSentence(subject: string): { group: string; text: string } {
-  const m = /^(\w+)(?:\(([^)]*)\))?!?:\s*(.*)$/.exec(subject.trim())
-  const scope = (m?.[2] ?? '').split(/[,/]/)[0].replace(/[-_]+/g, ' ').trim()
-  let text = (m ? m[3] : subject).split(/\s+—\s+|\s+--\s+|;\s+|\s+\(/)[0].trim()
-  if (text.length > 140) text = `${text.slice(0, 139).replace(/\s+\S*$/, '')}…`
-  const cap = (x: string) => x.charAt(0).toUpperCase() + x.slice(1)
-  const g = scope || m?.[1] || ''
-  return { group: g.length <= 3 ? g.toUpperCase() : cap(g), text: cap(text) }
+/** The explainer's diagram, top to bottom (the arrows run between rows), then the pieces around it. */
+export const ARCH_ROWS = [['phone', 'voice'], ['door'], ['weevilsd'], ['boss', 'foryou', 'pages'], ['ledger', 'memory', 'autos'], ['tmux', 'hooks', 'codex'], ['sessions']]
+export const ARCH_AROUND = ['push', 'relay', 'machines', 'mail', 'runpod', 'storage', 'install']
+
+/** Where each piece lives in the repo (a path ending in / is a folder). Shown under its words, and what marks a piece
+ *  as recently changed when main touches it. */
+export const ARCH_FILES: Record<string, string[]> = {
+  phone: ['src/App.tsx', 'src/api.ts', 'src/ui/', 'public/sw.js', 'public/manifest.webmanifest'],
+  voice: ['server/transcribe.ts', 'server/voicepipe.ts', 'server/live.ts'],
+  door: ['server/http.ts', 'server/boss-door.ts', 'docs/install.md'],
+  weevilsd: ['server/index.ts', 'server/core.ts', 'server/config.ts'],
+  boss: ['server/boss-turns.ts', 'server/boss-view.ts', 'server/orchestrator.en.md', 'server/weevils-cli'],
+  ledger: ['server/boss-ledger.ts', 'server/boss-ledger-http.ts'],
+  memory: ['server/memory.ts'],
+  foryou: ['server/foryou.ts', 'server/foryou-curator.ts', 'shared/foryou.ts', 'docs/foryou.md'],
+  pages: ['server/pages.ts', 'shared/pages.ts', 'docs/LINKS.md'],
+  autos: ['server/optimizers.ts', 'server/auto-runs.ts', 'server/sleep.ts'],
+  tmux: ['server/mux.ts', 'server/wv', 'server/claude-pump.mjs', 'server/pump.ts'],
+  hooks: ['server/hook.sh', 'server/transcripts.ts'],
+  codex: ['server/codex-bridge.ts', 'server/transcripts.ts'],
+  sessions: ['server/core.ts', 'server/agent-launch.ts'],
+  push: ['server/push.ts', 'src/push.ts', 'shared/notification-policy.ts'],
+  relay: ['server/relay.ts', 'server/claude-accounts.ts'],
+  mail: ['server/mailbridge.ts', 'server/imap.ts', 'server/smtp.ts', 'docs/email.md'],
+  machines: ['server/remotes.ts', 'server/infra.ts'],
+  runpod: ['server/optimizers.ts'],
+  storage: ['server/config.ts'],
+  install: ['install.sh', 'server/install.sh', 'server/weevils-update', 'AGENTS.md'],
+}
+
+/** The pieces each step of « the life of one message » goes through (same order as the steps' words). */
+const ARCH_STEPS = [['phone', 'voice'], ['door', 'weevilsd'], ['weevilsd', 'ledger', 'boss'], ['boss'], ['weevilsd', 'tmux', 'codex'], ['hooks', 'codex', 'sessions'], ['sessions', 'foryou', 'push', 'ledger']]
+
+/** The newest commit time per piece, from main's log (newest first or not): a piece is touched when a commit changed
+ *  one of its files. */
+export function changedPieces(log: { at: number; files: string[] }[]): Record<string, number> {
+  const out: Record<string, number> = {}
+  for (const c of log) {
+    for (const [id, files] of Object.entries(ARCH_FILES)) {
+      if (!c.files.some((f) => files.some((x) => (x.endsWith('/') ? f.startsWith(x) : f === x)))) continue
+      if (!(out[id] >= c.at)) out[id] = c.at
+    }
+  }
+  return out
 }
 
 function writeMachinePage(root: string, title: string) {
-  const t = tr(M)
-  const css = `h2{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:30px 0 8px}
-#dia{margin:18px 0 4px}.row{display:flex;justify-content:space-around;gap:6px;text-align:center}
-.nd{flex:1;min-width:0;padding:2px 0}.nd b{display:block;font-size:14px;line-height:1.2}.nd small{display:block;color:var(--mute);font-size:11px;min-height:14px}
-.dot{display:inline-block;width:9px;height:9px;border-radius:50%;margin-bottom:4px;background:var(--c);transition:background .6s}
-.up{--c:oklch(.7 .16 150)}.busy{--c:var(--a1)}.idle{--c:color-mix(in srgb,var(--ink) 28%,transparent)}.error{--c:oklch(.62 .2 25)}
-.off{--c:transparent}.off .dot{box-shadow:inset 0 0 0 1.5px color-mix(in srgb,var(--ink) 28%,transparent)}
-.busy .dot{animation:beat 1.6s ease-in-out infinite}@keyframes beat{50%{transform:scale(1.5);opacity:.6}}
-.ln{width:2px;height:20px;margin:3px auto;background:color-mix(in srgb,var(--ink) 14%,transparent);border-radius:2px}
-.ln.flow{background:linear-gradient(180deg,transparent,var(--a1),var(--a2),transparent);background-size:100% 300%;animation:flow 1.4s linear infinite}
-@keyframes flow{from{background-position:0 100%}to{background-position:0 -200%}}
-.oiled .dot{animation:oil 1.8s ease-out}@keyframes oil{0%{box-shadow:0 0 0 0 var(--a2)}100%{box-shadow:0 0 0 22px transparent}}
-#pulse{display:flex;flex-wrap:wrap;gap:2px 12px;color:var(--mute);font-size:13px;font-variant-numeric:tabular-nums;margin-bottom:6px}#pulse span{white-space:nowrap}
-.ln1{display:flex;gap:8px;align-items:baseline;padding:5px 0}.ln1 .dot{flex:none;margin:0;transform:translateY(-1px)}
-.ln1 .tx{min-width:0;flex:1}.ln1 .tx b{font-weight:600}.ln1 .tx i{font-style:normal;color:var(--mute)}.ln1 time{color:var(--mute);font-size:12px;flex:none}
-.grp{font-weight:800;font-size:15px;margin:16px 0 2px}.cm{padding:4px 0 4px 12px;border-left:2px solid color-mix(in srgb,var(--ink) 10%,transparent)}
-.cm time{color:var(--mute);font-size:12px;margin-left:6px;white-space:nowrap}
-.cm.new{animation:land 2.4s ease-out;border-left-color:var(--a1)}
-@keyframes land{0%{opacity:0;transform:translateY(-8px);background:color-mix(in srgb,var(--a2) 26%,transparent)}25%{opacity:1;transform:none}100%{background:transparent}}
-.gl{padding:5px 0}.bar{height:3px;border-radius:3px;background:color-mix(in srgb,var(--ink) 10%,transparent);margin-top:5px;overflow:hidden}
-.bar i{display:block;height:100%;background:linear-gradient(90deg,var(--a1),var(--a2));transition:width 1s}
-#shots{display:flex;gap:10px;overflow-x:auto;scroll-snap-type:x mandatory;margin:0 -18px;padding:0 18px}
-#shots a{flex:none;width:78%;scroll-snap-align:start;text-decoration:none}#shots img{width:100%;border-radius:10px;display:block}
-#shots small{display:block;color:var(--mute);font-size:12px;margin-top:4px}
-@media (prefers-reduced-motion:reduce){.busy .dot,.ln.flow,.cm.new,.oiled .dot{animation:none}}`
+  const t = tr(A) as unknown as Record<string, string>
+  // i18n-ignore: style sheet
+  const css = `#when{font-size:15px;color:var(--mute);margin:6px 0 4px;max-width:34em}
+h2{font-size:13px;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--mute);margin:30px 0 10px}
+#dia{margin:22px 0 0}.row{display:flex;justify-content:center;gap:4px 18px;flex-wrap:wrap;text-align:center}
+.nd{font-size:15px;font-weight:500;padding:6px 2px;line-height:1.2;transition:color .3s,opacity .3s;position:relative}
+.nd.on,.nd.lit{font-weight:800;color:var(--a1)}.dim .nd:not(.lit){opacity:.38}
+.nd.new::after{content:'';position:absolute;top:4px;right:-7px;width:6px;height:6px;border-radius:50%;background:var(--a2)}
+.ln{width:1.5px;height:18px;margin:2px auto;background:color-mix(in srgb,var(--ink) 18%,transparent);border-radius:2px;transition:background .3s}
+.ln.lit{background:linear-gradient(180deg,var(--a1),var(--a2));width:2px}
+.det{display:grid;grid-template-rows:0fr;transition:grid-template-rows .35s ease;text-align:left}.det.open{grid-template-rows:1fr}
+.det>div{overflow:hidden}.det p{margin:6px 0 4px;font-size:15px;line-height:1.45}
+.det code{display:block;font:12px/1.6 ui-monospace,SFMono-Regular,Menlo,monospace;color:var(--mute)}.det .meta{margin:2px 0 12px}
+#around{margin-top:4px}ol{list-style:none;padding:0;margin:0;counter-reset:s}
+li{counter-increment:s;display:flex;gap:12px;padding:8px 0;cursor:pointer;transition:opacity .3s}li::before{content:counter(s);font-weight:800;color:var(--mute);min-width:1em}
+li.on{font-weight:600}li.on::before{color:var(--a1)}ol.dim li:not(.on){opacity:.5}
+@media (prefers-reduced-motion:reduce){.det,.nd,.ln,li{transition:none}}`
   // i18n-ignore: the page's script, its words come from T (the catalog above)
-  const js = `const m=document.getElementById('m');const when=document.getElementById('when');
-const ROWS=[['app'],['weevilsd'],['boss','autos','pages'],['tmux','hooks','codex'],['sessions']];
-const sec=(id,h)=>{if(h)m.append(el('h2',null,h));const d=el('div');d.id=id;m.append(d);return d};
-const dia=sec('dia');const pulse=sec('pulse',T.now);const run=sec('run');const goals=sec('goals',T.goals);const shots=sec('shots',T.shots);const feed=sec('feed',T.better);
-const fill=(s,n)=>s.replace('{n}',n);const seen=new Set();let first=true;
-const nodes={};for(const [i,r] of ROWS.entries()){if(i){const l=el('div','ln');l.dataset.i=i;dia.append(l)}const row=el('div','row');for(const id of r){const n=el('div','nd idle');n.append(el('span','dot'),el('b',null,T.p[id]),el('small'));nodes[id]=n;row.append(n)}dia.append(row)}
-function draw(S){if(S.unwired){when.textContent=T.unwired;return}
-when.textContent=T.live+' · '+new Date(S.at).toLocaleTimeString([], {hour:'2-digit',minute:'2-digit',second:'2-digit'});
-const st={};for(const p of S.parts){st[p.id]=p.state;const n=nodes[p.id];if(!n)continue;n.className='nd '+p.state+(n.classList.contains('oiled')?' oiled':'');n.title=T.s[p.state];n.querySelector('small').textContent=p.note||T.s[p.state]}
-for(const l of dia.querySelectorAll('.ln')){const i=+l.dataset.i;l.classList.toggle('flow',[...ROWS[i-1],...ROWS[i]].some(id=>st[id]==='busy'))}
-pulse.replaceChildren(...S.pulse.map(x=>el('span',null,x.label+' '+x.value)));
-run.replaceChildren();for(const r of S.running){const d=el('div','ln1 '+r.state);d.append(el('span','dot'));const tx=el('div','tx');tx.append(el('b',null,r.title));if(r.note)tx.append(el('i',null,' — '+r.note));d.append(tx);if(r.at)d.append(el('time',null,ago(r.at)));run.append(d)}
-if(S.more)run.append(el('div','meta',fill(T.more,S.more)));if(!S.running.length)run.append(el('div','meta',T.quiet));
-goals.previousSibling.hidden=goals.hidden=!S.goals.length;goals.replaceChildren(...S.goals.map(g=>{const d=el('div','gl');d.append(el('span',null,g.title+' '),el('span','meta',g.done+'/'+g.total));const b=el('div','bar');const f=el('i');f.style.width=(g.total?Math.round(100*g.done/g.total):0)+'%';b.append(f);d.append(b);return d}));
-shots.previousSibling.hidden=shots.hidden=!S.shots.length;if(shots.dataset.k!==S.shots.map(s=>s.id).join()){shots.dataset.k=S.shots.map(s=>s.id).join();shots.replaceChildren(...S.shots.map(s=>{const a=el('a');a.href='shot/'+s.id;a.target='_blank';const im=el('img');im.src='shot/'+s.id;im.loading='lazy';im.alt=s.name;a.append(im,el('small',null,s.name+' · '+ago(s.at)));return a}))}
-let fresh=0;feed.replaceChildren();const groups=new Map();for(const c of S.commits){if(!groups.has(c.group))groups.set(c.group,[]);groups.get(c.group).push(c)}
-for(const [g,list] of groups){if(g)feed.append(el('div','grp',g));for(const c of list){const d=el('div','cm');d.append(document.createTextNode(c.text),el('time',null,ago(c.at)));if(!first&&!seen.has(c.sha)){d.classList.add('new');fresh++}seen.add(c.sha);if(Date.now()-c.at<60000&&first)d.classList.add('new');feed.append(d)}}
-if(!S.commits.length)feed.append(el('div','meta',S.git?T.noCommits:T.noGit));
-if(fresh){const n=nodes.weevilsd;n.classList.remove('oiled');void n.offsetWidth;n.classList.add('oiled');setTimeout(()=>n.classList.remove('oiled'),1900)}first=false}
-let wait=4000;async function tick(){try{const r=await fetch('state.json',{cache:'no-store'});if(r.ok){draw(await r.json());wait=4000}else wait=Math.min(wait*2,30000)}catch(e){wait=Math.min(wait*2,30000)}setTimeout(tick,document.hidden?15000:wait)}
-document.addEventListener('visibilitychange',()=>{if(!document.hidden)tick()});tick()`
-  const s = { up: t.mUp, busy: t.mBusy, idle: t.mIdle, error: t.mError, off: t.mOff }
-  const p = { app: t.mApp, weevilsd: t.mDaemon, boss: t.mBoss, autos: t.mAutos, pages: t.mPages, tmux: t.mTmux, hooks: t.mHooks, codex: t.mCodex, sessions: t.mSessions }
-  const data = { at: Date.now(), t: { updated: t.updated, live: t.mLive, unwired: t.mUnwired, now: t.mNow, goals: t.mGoals, shots: t.mShots, better: t.mBetter, more: t.mMore, quiet: t.mQuiet, noCommits: t.mNoCommits, noGit: t.mNoGit, s, p } }
+  const js = `const m=document.getElementById('m');document.getElementById('when').textContent=T.lede;
+const nodes={};let open=null;let step=-1;
+function piece(id,row){const b=el('button','nd',T.p[id].name);b.onclick=()=>toggle(id,row);nodes[id]=b;return b}
+function toggle(id,row){const was=open;if(open){nodes[open].classList.remove('on');open=null}for(const d of document.querySelectorAll('.det.open'))d.classList.remove('open');if(was===id)return;open=id;nodes[id].classList.add('on');const d=row.nextSibling;fill(d,id);void d.offsetHeight;d.classList.add('open')}
+function fill(d,id){const w=el('div');w.append(el('p',null,T.p[id].body));if(D.changed[id])w.append(el('div','meta',T.changed.replace('{t}',ago(D.changed[id]))));for(const f of D.files[id]||[])w.append(el('code',null,f));d.replaceChildren(w)}
+function rows(host,list){for(const [i,r] of list.entries()){if(i&&host.id==='dia'){const l=el('div','ln');l.dataset.i=i;host.append(l)}const row=el('div','row');for(const id of r)row.append(piece(id,row));host.append(row);host.append(el('div','det'))}}
+const dia=el('div');dia.id='dia';m.append(dia);rows(dia,D.rows);
+m.append(el('h2',null,T.around));const around=el('div');around.id='around';m.append(around);rows(around,[D.around]);
+m.append(el('h2',null,T.life));const ol=el('ol');m.append(ol);
+T.steps.forEach((s,i)=>{const li=el('li',null,s);li.onclick=()=>light(i===step?-1:i);ol.append(li)});
+function light(i){step=i;if(i>=0&&open)toggle(open);const on=new Set(i<0?[]:D.steps[i]);for(const [id,n] of Object.entries(nodes))n.classList.toggle('lit',on.has(id));
+dia.classList.toggle('dim',i>=0);around.classList.toggle('dim',i>=0);ol.classList.toggle('dim',i>=0);[...ol.children].forEach((li,k)=>li.classList.toggle('on',k===i));
+const ks=D.rows.map((r,k)=>r.some(x=>on.has(x))?k:-1).filter(k=>k>=0);for(const l of dia.querySelectorAll('.ln')){const k=+l.dataset.i;l.classList.toggle('lit',ks.length>1&&k>ks[0]&&k<=ks[ks.length-1])}
+if(i>=0&&dia.getBoundingClientRect().top<0)dia.scrollIntoView({behavior:'smooth',block:'start'})}
+D.changed={};fetch('state.json',{cache:'no-store'}).then(r=>r.ok?r.json():{}).then(S=>{D.changed=S.changed||{};for(const [id,at] of Object.entries(D.changed))if(nodes[id]&&Date.now()-at<3*86400000)nodes[id].classList.add('new');if(open)fill(nodes[open].parentNode.nextSibling,open)}).catch(()=>{})`
+  const data = { at: Date.now(), rows: ARCH_ROWS, around: ARCH_AROUND, files: ARCH_FILES, steps: ARCH_STEPS, t: { updated: '', lede: t.lede, around: t.around, life: t.life, changed: t.changed, p: Object.fromEntries([...ARCH_ROWS.flat(), ...ARCH_AROUND].map((id) => [id, { name: t[id], body: t[`${id}Body`] }])), steps: ARCH_STEPS.map((_, i) => t[`step${i + 1}`]) } }
   const html = shell(title, 'report', css, js, data)
   const file = path.join(root, 'index.html')
   // Rewritten when opened only if it changed (the words follow the install's language).

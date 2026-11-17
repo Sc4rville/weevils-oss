@@ -4,7 +4,8 @@ import os from 'node:os'
 import path from 'node:path'
 import { afterEach, beforeEach, describe, expect, it } from 'vitest'
 import { pageLink, slugOf } from '../shared/pages.ts'
-import { commitSentence, listItems, MACHINE_SLUG, PageRefused, Pages, scanLibrary } from './pages.ts'
+import { ARCH_AROUND, ARCH_FILES, ARCH_ROWS, changedPieces, listItems, MACHINE_SLUG, PageRefused, Pages, scanLibrary } from './pages.ts'
+import A from './i18n/architecture.ts'
 
 let tmp: string
 let pages: Pages
@@ -128,26 +129,41 @@ describe('Pages', () => {
   })
 })
 
-describe('the weevils machine', () => {
-  it('turns a commit subject into a plain sentence under its feature', () => {
-    expect(commitSentence('feat(for-you): a card shows its link — the quote format kept it')).toEqual({ group: 'For you', text: 'A card shows its link' })
-    expect(commitSentence('fix(ui): nothing else; and more')).toEqual({ group: 'UI', text: 'Nothing else' })
+describe('how weevils works', () => {
+  it('names every piece of its diagram in both languages, with its files', () => {
+    const ids = [...ARCH_ROWS.flat(), ...ARCH_AROUND]
+    expect(new Set(ids).size).toBe(ids.length)
+    for (const l of ['fr', 'en'] as const) for (const id of ids) expect(typeof (A[l] as Record<string, unknown>)[`${id}Body`], id).toBe('string')
+    expect(Object.keys(ARCH_FILES).sort()).toEqual([...ids].sort())
+    for (const files of Object.values(ARCH_FILES)) for (const f of files) expect(fs.existsSync(path.resolve(import.meta.dirname, '..', f)), f).toBe(true)
   })
 
-  it('is one page per install, its state live behind the key, its shots only from the shelf', async () => {
+  it('marks a piece changed by the newest commit that touched one of its files', () => {
+    const c = changedPieces([
+      { at: 2000, files: ['server/relay.ts'] },
+      { at: 1000, files: ['server/relay.ts', 'src/ui/feed.tsx', 'README.md'] },
+    ])
+    expect(c).toEqual({ relay: 2000, phone: 1000 })
+  })
+
+  it('is one page per install, replaces the old live dashboard, and says only what changed', async () => {
+    fs.mkdirSync(path.join(pages.dir, 'weevils-machine'), { recursive: true })
+    fs.writeFileSync(path.join(pages.dir, 'weevils-machine', 'index.html'), 'old')
+    fs.writeFileSync(path.join(pages.dir, 'index.json'), JSON.stringify([{ slug: 'weevils-machine', kind: 'report', title: 'The weevils machine', path: '/p/report/weevils-machine', root: path.join(pages.dir, 'weevils-machine'), entry: 'index.html', build: { type: 'machine' }, createdAt: 1, updatedAt: 1 }]))
     const a = pages.publishMachine()
     expect(pages.publishMachine().slug).toBe(a.slug)
     expect(a.slug).toBe(MACHINE_SLUG)
+    expect(pages.list().map((p) => p.slug)).toEqual([MACHINE_SLUG])
+    expect(fs.existsSync(path.join(pages.dir, 'weevils-machine'))).toBe(false)
     const k = pages.key(a.slug)
-    expect(JSON.parse((await get(`/api/page/${k}/${a.slug}/state.json`)).body)).toEqual({ unwired: true })
-    const shot = write('projects/shot.png', 'png')
-    pages.live = { state: async () => ({ parts: [] }), shot: (id) => (id === 'abc' ? shot : null) }
+    expect(JSON.parse((await get(`/api/page/${k}/${a.slug}/state.json`)).body)).toEqual({ changed: {} })
+    pages.live = { state: async () => ({ changed: { relay: 5 } }) }
     const s = await get(`/api/page/${k}/${a.slug}/state.json`)
     expect(s.headers.get('access-control-allow-origin')).toBe('*')
-    expect(JSON.parse(s.body)).toEqual({ parts: [] })
-    expect((await get(`/api/page/${k}/${a.slug}/shot/abc`)).body).toBe('png')
-    expect((await get(`/api/page/${k}/${a.slug}/shot/nope`)).status).toBe(404)
+    expect(JSON.parse(s.body)).toEqual({ changed: { relay: 5 } })
     expect((await get(`/api/page/${'x'.repeat(22)}/${a.slug}/state.json`)).status).toBe(404)
-    expect((await get(`/api/page/${k}/${a.slug}/`)).body).toContain('state.json')
+    const html = (await get(`/api/page/${k}/${a.slug}/`)).body
+    expect(html).toContain('server/boss-turns.ts')
+    expect(html).not.toMatch(/loadavg|Claude week/)
   })
 })
