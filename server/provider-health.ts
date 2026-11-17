@@ -59,6 +59,14 @@ export class ProviderHealth {
     if (at >= (s.observedAt ?? 0)) s.block = { since: at, resetAt, source: 'transcript' }
     this.save()
   }
+  /** The block is over by another way (another Claude account took over): the stops before `at` no longer count. */
+  clear(tool: Tool, at: number) {
+    const s = this.state[tool]
+    delete s.block
+    s.stopAt = Math.max(s.stopAt ?? 0, at)
+    s.observedAt = Math.max(s.observedAt ?? 0, at)
+    this.save()
+  }
   canUse(tool: Tool) { return this.ready(tool) && !this.state[tool].block }
   block(tool: Tool) { return this.state[tool].block }
   view() { return { claude: { canAttempt: this.canUse('claude'), ...this.state.claude }, codex: { canAttempt: this.canUse('codex'), ...this.state.codex } } }

@@ -143,10 +143,13 @@ export const NO_TMUX = ['env', '-u', 'TMUX', '-u', 'TMUX_PANE', '-u', 'WEEVILS_T
  * session lancée sous un autre nom que celui retenu, introuvable ensuite (« no such session ») mais au travail. */
 export const wvName = (dir: string, short: string) => `wv-${dir.slice(0, 18).replace(/[.:]/g, '_')}-${short}`
 
-export async function spawnWv(name: string, cwd: string, tool: Tool, title: string, command: string[], sessionId?: string, mode?: 'structured') {
+/** extra: more environment for the agent; null unsets the variable (the Claude account, server/claude-accounts.ts). */
+export async function spawnWv(name: string, cwd: string, tool: Tool, title: string, command: string[], sessionId?: string, mode?: 'structured', extra: Record<string, string | null> = {}) {
   // Plusieurs arguments : tmux lance la commande directement, sans shell (pas d'injection possible) ; env non plus.
-  const env = Object.entries({...QUIET_ENV, WEEVILS_FROM:cwd===ORCH_DIR?'weevboss':tool}).flatMap(([k, v]) => ['-e', `${k}=${v}`])
-  await tmux(['new-session', '-d', '-s', name, '-x', '120', '-y', '40', '-c', cwd, ...env, ...NO_TMUX, ...command], cwd)
+  const set = Object.fromEntries(Object.entries(extra).filter((e): e is [string, string] => e[1] !== null))
+  const unset = Object.entries(extra).filter(([, v]) => v === null).flatMap(([k]) => ['-u', k])
+  const env = Object.entries({...QUIET_ENV, WEEVILS_FROM:cwd===ORCH_DIR?'weevboss':tool, ...set}).flatMap(([k, v]) => ['-e', `${k}=${v}`])
+  await tmux(['new-session', '-d', '-s', name, '-x', '120', '-y', '40', '-c', cwd, ...env, ...NO_TMUX, ...unset, ...command], cwd)
   if (mode) await setOpt(name, '@wv_mode', mode)
   await setOpt(name, '@wv_tool', tool)
   await setOpt(name, '@wv_title', title)

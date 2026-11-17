@@ -70,7 +70,7 @@ export async function startSetup(brick: Brick, opened = false, primary = false, 
   focusBoss({ flash: false })
   // Claude Code: the official sign-in page opens from this very tap. The tab is opened now, inside the gesture (later,
   // phones block it), and sent to the page once weevilsd has started the login; the code field waits back here.
-  const tab = brick === 'claude' ? openSignInTab() : null
+  const tab = brick === 'claude' || brick === 'account' ? openSignInTab() : null
   const r = await (primary && (brick === 'claude' || brick === 'codex') ? api.setupProvider(brick, device()) : api.setupAsk(brick, device(), again)).catch((e: unknown) => {
     tab?.close()
     if (opened && flow?.brick === brick && flow.step === 0) setFlow(null)

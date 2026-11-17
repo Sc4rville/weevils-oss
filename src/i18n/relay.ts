@@ -47,6 +47,11 @@ export default defineMessages({
     askPlan: 'demander un plan à Codex',
     planAria: (title: string) => `plan de reprise de ${title}`,
     pref: 'relais Codex',
+    accounts: 'comptes Claude',
+    account: (n: number) => `compte ${n}`,
+    accountInUse: 'utilisé',
+    accountOut: 'déconnecté',
+    addAccount: 'ajouter un autre compte Claude',
   },
   en: {
     title: 'Codex relay',
@@ -89,5 +94,10 @@ export default defineMessages({
     askPlan: 'ask Codex for a plan',
     planAria: (title: string) => `takeover plan of ${title}`,
     pref: 'Codex relay',
+    accounts: 'Claude accounts',
+    account: (n: number) => `account ${n}`,
+    accountInUse: 'in use',
+    accountOut: 'signed out',
+    addAccount: 'add another Claude account',
   },
 })

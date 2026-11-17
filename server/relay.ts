@@ -25,7 +25,7 @@ import type { ProviderHealth } from './provider-health.ts'
 import { ReturnRelay } from './return-relay.ts'
 import os from 'node:os'
 import path from 'node:path'
-import type { RelayMode, RelayPlan, RelayView, Session } from '../shared/api.ts'
+import type { ClaudeAccountLine, RelayMode, RelayPlan, RelayView, Session } from '../shared/api.ts'
 import type { QuotaInfo } from '../shared/infra.ts'
 import { signAs } from './authors.ts'
 import { DATA_DIR, MACHINE } from './config.ts'
@@ -225,6 +225,8 @@ export interface RelayHost {
   autoOwns?(sessionId: string): boolean
   autoRun?(sessionId: string, text: string): Promise<string>
   autoTick?(): void
+  /** Several Claude accounts: closes the session's pane and reopens it (--resume) under the active account. */
+  carryOn?(id: string, text: string): Promise<unknown>
   notify(title: string, body: string, url: string, tag: string): void
   say(text: string): void
   bump(): void
@@ -243,6 +245,21 @@ export interface RelayDeps {
   probe: () => Promise<boolean>
   /** The clock (tests). */
   now?: () => number
+  /** Several Claude accounts of the user's own (server/claude-accounts.ts): tried before Codex. */
+  accounts?: RelayAccounts
+}
+
+/** What the relay asks of the Claude accounts (server/claude-accounts.ts). */
+export interface RelayAccounts {
+  /** The next account with room becomes the active one; false: none. */
+  rotate(now: number, switchAt: number, resetsAt?: number | null): boolean
+  /** A stop under an account that is no longer the active one: the switch deals with it, not the relay. */
+  stale(sessionId: string, at: number): boolean
+  carryOn(host: { sessions(): Session[]; carryOn(id: string, text: string): Promise<unknown> }): void
+  refresh(): void
+  /** Once: the offer to add an account, with its chip ('' otherwise). */
+  offer(): string
+  view?(now?: number): ClaudeAccountLine[] | undefined
 }
 
 const run = (cmd: string, args: string[], cwd: string, timeout: number): Promise<string> =>
@@ -491,6 +508,7 @@ export class Relay {
       ...(e ? { limit: { kind: e.kind, since: e.since, until: e.until, percent: e.percent, window: e.window } } : {}),
       ...(this.bossOn() ? { boss: true } : {}),
       plans,
+      ...(this.deps.accounts?.view ? { accounts: this.deps.accounts.view(now) } : {}),
     }
   }
 
@@ -559,7 +577,7 @@ export class Relay {
       if (this.deps.health) {
         await this.deps.health.refresh(now)
         const all = [...this.host.sessions(now), ...[this.host.codexBossSession?.()].filter((s): s is Session => !!s)].filter(s => s.machineId === MACHINE.id)
-        for (const s of all) if (s.interrupted?.reason === 'quota') this.deps.health.stop(s.tool, s.interrupted.at, parseReset(s.interrupted.detail ?? '', s.interrupted.at)?.until ?? null)
+        for (const s of all) if (s.interrupted?.reason === 'quota' && !(s.tool === 'claude' && this.deps.accounts?.stale(s.id, s.interrupted.at))) this.deps.health.stop(s.tool, s.interrupted.at, parseReset(s.interrupted.detail ?? '', s.interrupted.at)?.until ?? null)
         const boss = this.host.codexBossStop?.()
         if (boss?.reason === 'quota') this.deps.health.stop('codex', boss.at, parseReset(boss.text, boss.at)?.until ?? null)
         if (this.s.mode === 'auto') {
@@ -568,6 +586,10 @@ export class Relay {
           await this.returns?.tick(target === 'claude', target === 'codex')
         }
       }
+      const accounts = this.s.mode === 'never' ? undefined : this.deps.accounts
+      accounts?.refresh()
+      const carry = this.host.carryOn?.bind(this.host)
+      if (accounts && carry) accounts.carryOn({ sessions: () => this.host.sessions(now).filter((s) => s.machineId === MACHINE.id), carryOn: carry })
       await this.readQuota(now)
       const sessions = this.host.sessions(now).filter((s) => s.machineId === MACHINE.id && s.tool === 'claude')
       await this.detect(now, sessions)
@@ -612,7 +634,8 @@ export class Relay {
     const out = sessions.filter((s) => s.status === 'interrupted' && s.interrupted).map((s) => ({ id: s.id, at: s.interrupted!.at, reason: s.interrupted!.reason as string, detail: s.interrupted!.detail }))
     const boss = this.host.bossStop()
     if (boss) out.push({ id: 'weevboss', at: boss.at, reason: boss.reason, detail: boss.text })
-    return out
+    const a = this.s.mode === 'never' ? undefined : this.deps.accounts
+    return a ? out.filter((c) => !a.stale(c.id, c.at)) : out
   }
 
   private async detect(now: number, sessions: Session[]) {
@@ -675,6 +698,8 @@ export class Relay {
     // The end: the reset time has come (and the quota agrees), or Claude answers again.
     const cur = this.s.episode
     if (!cur) return
+    // Another Claude account has room now (one added, or one whose window reset): back to Claude through it.
+    if (cur.kind !== 'down' && this.deps.accounts?.rotate(now, this.s.switchAt, cur.until)) return this.rotated(now, true)
     // Opened on the quota alone, and a fresh read is clearly back under the threshold (the window was reset early,
     // or the threshold was raised): no reason left to keep Claude aside.
     const recovered = () => !!this.q?.ok && !this.q.error && this.q.at > cur.since && now - this.q.at < 2 * QUOTA_HOT_MS && this.q.windows.some(w => w.kind !== 'model') && this.q.windows.filter(w => w.kind !== 'model').every(w => Number.isFinite(w.percent) && w.percent < this.s.switchAt)
@@ -702,6 +727,8 @@ export class Relay {
 
   private begin(e: Episode, now: number) {
     const prev = this.s.episode
+    // Several Claude accounts: the next one with room takes over before Codex is even considered.
+    if (!prev && e.kind !== 'down' && this.deps.accounts?.rotate(now, this.s.switchAt, e.until)) return this.rotated(now, false)
     this.s.episode = e
     if (!prev) console.log(`[relais] Claude indisponible (${e.kind}, signal : ${e.source}${e.percent ? `, ${e.percent} %` : ''}) · retour prévu ${e.until ? new Date(e.until).toISOString() : 'inconnu'} · mode ${this.s.mode} · codex ${this.deps.codexReady() ? 'prêt' : 'absent'}`)
     else if (prev.kind !== e.kind) console.log(`[relais] ${prev.kind} → ${e.kind} (signal : ${e.source})`)
@@ -709,6 +736,16 @@ export class Relay {
     if (!prev && this.can()) this.s.bossBack ??= now
     this.changed()
     this.host.autoTick?.()
+  }
+
+  /** The active Claude account changed: its quota is read afresh, the stops of the previous one no longer count. */
+  private rotated(now: number, during: boolean) {
+    this.q = null
+    this.quotaAt = 0
+    this.deps.health?.clear('claude', now)
+    if (during) return this.end(now)
+    this.s.lastEnd = now
+    this.changed()
   }
 
   private end(now: number) {
@@ -792,7 +829,7 @@ export class Relay {
       const line = ready ? t.warn(hot.percent, hot.window) : t.warnNoCodex(hot.percent, hot.window)
       console.log(`[relais] ${line} · ${drafts.filter((p) => p.text).length}/${drafts.length} plan(s) écrit(s) d'avance`)
       this.host.notify(t.warnTitle, line, '/#relay', 'relay-warn')
-      this.host.say(`${line[0].toUpperCase()}${line.slice(1)}.`)
+      this.host.say([`${line[0].toUpperCase()}${line.slice(1)}.`, this.deps.accounts?.offer()].filter(Boolean).join(' '))
     }
     if (dirty) this.changed()
   }
@@ -969,7 +1006,7 @@ export class Relay {
       const title = e.kind === 'limit' ? t.limitTitle : e.kind === 'near' ? t.nearTitle(e.percent ?? this.s.switchAt, e.window) : t.downTitle
       const body = this.s.mode === 'auto' ? t.takesOver(this.untilText(now)) : t.plansToCome(this.untilText(now))
       this.host.notify(title, body, '/#relay', 'relay') // i18n-ignore : étiquette de notification
-      this.host.say(t.said(title, body))
+      this.host.say([t.said(title, body), e.kind === 'down' ? '' : this.deps.accounts?.offer()].filter(Boolean).join(' '))
       this.changed()
     }
     if (this.s.mode !== 'ask') return

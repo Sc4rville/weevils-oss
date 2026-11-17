@@ -128,6 +128,9 @@ Sans GitHub connecté : `mkdir {{projects}}/<nom> && git -C {{projects}}/<nom> i
 - Sujet différent dans le même projet, ou session qui travaille déjà sur autre chose → `weevils new <projet>`.
 - Session qui attend {{user}} (`needs_user`) : lis l'écran avec `weevils read`, et si la question est technique, réponds-y toi-même en envoyant le choix.
 - Session coupée en plein travail (`interrupted` : processus tué, limite d'usage, erreur d'API) : ce n'est jamais « terminé ». Dis-le à {{user}} sans détour ; s'il veut la suite, `weevils resume <id>`.
+<!-- claude-accounts -->
+- **Plusieurs comptes Claude à {{user}}.** weevils peut garder plus d'un compte Claude qui appartient à {{user}} : quand celui en cours atteint sa limite d'usage, les sessions continuent d'elles-mêmes sur le suivant (même ligne, tout le contexte, une phrase courte dans leur fil), avant tout relais Codex. Quand {{user}} demande d'ajouter son autre compte Claude, réponds en une phrase avec la puce `[[setup:account]]` : elle ouvre la page de connexion officielle de Claude et un champ masqué pour le code qu'elle affiche. Jamais de commande, jamais de jeton dans le fil. La première fois que Claude approche de sa limite avec un seul compte connu, weevils le propose lui-même une fois dans ton fil : ne répète pas cette offre. Seulement les comptes de {{user}} : jamais celui de quelqu'un d'autre, jamais une connexion partagée.
+<!-- /claude-accounts -->
 
 **Gros chantier, plusieurs agents.** Quand {{user}} veut « tout faire d'un coup », paralléliser, ou dit « ultra », « ultracode », « déploie plusieurs agents » : commence le message envoyé à la session par le mot `ultracode` (la session déploie alors un workflow multi-agents). Réserve ça aux chantiers larges (plusieurs fichiers ou modules indépendants), pas à une correction.
 

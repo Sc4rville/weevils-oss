@@ -29,6 +29,8 @@ import { BOSS, resetAuthors, authors } from './authors.ts'
 import { CONFIG_FILE, DATA_DIR, HOME, HOST, MACHINE, PORT, PUBLIC_URL, USER_NAME } from './config.ts'
 import { claudeLoggedIn } from './claude-credentials.ts'
 import * as claudeLogin from './claude-login.ts'
+import { accounts } from './claude-accounts.ts'
+import AccountsM from './i18n/claude-accounts.ts'
 import { servicePath, which as whichIn } from './platform.ts'
 import { devilConfig } from './devil.ts'
 import { facts, macFacts } from './discover.ts'
@@ -790,7 +792,10 @@ export class Setup {
 
   /** The pending « claude auth login » lives in its own folder: it outlives a restart of weevilsd (server/claude-login.ts). */
   private loginDeps(): claudeLogin.LoginDeps {
-    return { dir: path.join(DATA_DIR, 'claude-login'), bin: which('claude') ?? 'claude', env: shellEnv(), logged: claudeLogged }
+    // The main account: never the folder of another Claude account that may be the active one (server/claude-accounts.ts).
+    const env = shellEnv()
+    if (accounts()?.dirOf(accounts()!.active) === env.CLAUDE_CONFIG_DIR) delete env.CLAUDE_CONFIG_DIR
+    return { dir: path.join(DATA_DIR, 'claude-login'), bin: which('claude') ?? 'claude', env, logged: claudeLogged }
   }
 
   /** Codex : connexion par code (une page OpenAI, un code à y taper) ; weevboss confirme quand c'est fait. */
@@ -925,6 +930,8 @@ export class Setup {
       }
       case 'claude':
         return this.askClaude(s, again)
+      case 'account':
+        return this.askAccount(post)
       case 'codex':
         await this.askCodex(s, again)
         return false
@@ -981,6 +988,26 @@ export class Setup {
     if (this.p.log.at(-1)?.text !== t.claudeLink(url)) this.say(t.claudeLink(url))
     this.openUrl = url
     return true
+  }
+
+  /** Another Claude account of the user's own: the official sign-in for a folder of its own; the code is pasted below. */
+  private async askAccount(post: (text: string) => void): Promise<boolean> {
+    const a = accounts()
+    const t = tr(AccountsM)
+    if (!a?.on()) return post(t.off), false
+    const url = await a.startAdd().catch(() => '')
+    if (!url) return this.say(chip(t.failed(tr(M).noAnswer), 'account')), false
+    post(t.ask)
+    this.openUrl = url
+    return true
+  }
+
+  private async applyAccount(v: Record<string, string>) {
+    const a = accounts()
+    const t = tr(AccountsM)
+    if (!a?.on()) return void this.say(t.off)
+    const r = await a.submitAdd(v.code ?? '')
+    this.say(r.ok ? t.added(r.n, r.who) : chip(t.failed(r.why || tr(M).noAnswer), 'account'))
   }
 
   /** Codex : installé s'il manque, puis la connexion par code. */
@@ -1078,6 +1105,7 @@ export class Setup {
       else if (brick === 'mail') await this.applyMail(v)
       else if (brick === 'author') this.applyAuthor(v)
       else if (brick === 'claude') await this.applyClaude(v)
+      else if (brick === 'account') await this.applyAccount(v)
       else if (brick === 'machine') await this.applyMachine(v)
       else if (brick === 'reach') await this.applyReach(v)
     } finally {

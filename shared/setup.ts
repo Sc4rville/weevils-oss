@@ -11,7 +11,7 @@
 // installer) part chez weevboss, qui a un terminal.
 
 /** Ce que weevboss sait détecter, conseiller et brancher. */
-export const BRICKS = ['phone', 'push', 'reach', 'machine', 'claude', 'codex', 'github', 'voice', 'devil', 'mail', 'author', 'quota', 'security', 'shortcut', 'install', 'history'] as const
+export const BRICKS = ['phone', 'push', 'reach', 'machine', 'claude', 'codex', 'github', 'voice', 'devil', 'mail', 'author', 'quota', 'security', 'shortcut', 'install', 'history', 'account'] as const
 export type Brick = (typeof BRICKS)[number]
 export const isBrick = (s: unknown): s is Brick => typeof s === 'string' && (BRICKS as readonly string[]).includes(s)
 
@@ -38,6 +38,8 @@ export const PROVIDERS = ['hetzner', 'ovh', 'hostinger', 'scaleway', 'digitaloce
 export const FIELDS: Partial<Record<Brick, SetupField[]>> = {
   // Le code que la page de connexion de Claude affiche, à coller (weevilsd a lancé « claude auth login »).
   claude: [{ name: 'code', secret: true }],
+  // Another Claude account of the user's own: the same official sign-in, run for a folder of its own (server/claude-accounts.ts).
+  account: [{ name: 'code', secret: true }],
   machine: [
     { name: 'provider', kind: 'choice', options: [...PROVIDERS], stop: ['none'] },
     { name: 'host', kind: 'url' },

@@ -2,7 +2,8 @@ import { noticeKey, quotaReset, relayPlanNoticeKey } from '../../shared/notices.
 import { Notice, useNotices } from './notice'
 import { dismissNotice, isNoticeDismissed } from './notice-store'
 import { useEffect, useState } from 'react'
-import type { RelayMode, RelayPlan, Session } from '../../shared/api.ts'
+import type { ClaudeAccountLine, RelayMode, RelayPlan, Session } from '../../shared/api.ts'
+import { startSetup } from './setup'
 import { api } from '../api'
 import { intlLocale, useT } from '../i18n'
 import M from '../i18n/relay'
@@ -229,6 +230,7 @@ export function RelayPage() {
         {plans.map((p) => (
           <PlanCard key={p.sessionId} plan={p} onError={setErr} />
         ))}
+        {r?.accounts && <Accounts accounts={r.accounts} />}
         <div className="in label">{t.mode}</div>
         <div className="in words" role="group" aria-label={t.mode}>
           {MODES.map((m) => (
@@ -249,6 +251,22 @@ export function RelayPage() {
         </div>
       </div>
     </Shell>
+  )
+}
+
+/** Several Claude accounts of the user's own: one line each (number, e-mail, the fullest window), a tap to add one. */
+function Accounts({ accounts }: { accounts: ClaudeAccountLine[] }) {
+  const t = useT(M)
+  return (
+    <>
+      <div className="in label">{t.accounts}</div>
+      {accounts.map((a) => (
+        <Line key={a.id} go={null} className={a.active ? 'on' : ''} meta={!a.logged ? t.accountOut : a.percent === null ? '' : t.percent(a.percent)}>
+          {[t.account(a.n), a.label, a.active ? t.accountInUse : ''].filter(Boolean).join(' · ')}
+        </Line>
+      ))}
+      <Line onClick={() => void startSetup('account').catch(() => undefined)}>{t.addAccount}</Line>
+    </>
   )
 }
 

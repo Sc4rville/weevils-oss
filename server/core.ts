@@ -69,6 +69,7 @@ import type { Titled } from './titles.ts'
 import type { Transcript } from './transcripts.ts'
 import type { WvSession } from './mux.ts'
 import { pumpCall, pumpCommand, pumpForget, pumpReady, pumpState, structuredOn } from './pump.ts'
+import { accounts, accountsOn } from './claude-accounts.ts'
 import { capture, type ScreenDialog, flatScreen, killWv, listWv, sendKey, sendText, setOpt, spawnWv, wvName } from './mux.ts'
 import TerminalM from './i18n/terminal.ts'
 import { moves, readScreen, redactScreen, screenId, stuckChoices, stuckQuestion, type Hold, type Reading, type TerminalState } from './terminal.ts'
@@ -1737,7 +1738,13 @@ export class Weevils {
     const external = this.store.get(real)
     if (!this.paneFor(real) && external?.originator === 'codex-tui' && external.delegationSources?.size) throw new OutboxError(409, tr(M).unmanaged)
     if (!s.controllable) throw new OutboxError(409, tr(M).unmanaged)
-    const pane = this.paneFor(real)
+    let pane = this.paneFor(real)
+    // Still open under a Claude account that is no longer the active one: reopened under the active one.
+    if (pane && s.tool === 'claude' && !this.isOrchestratorPane(pane) && accounts()?.mustReopen(pane.sessionId)) {
+      await killWv(pane.name).catch(() => undefined)
+      this.panes = this.panes.filter((p) => p.name !== pane!.name)
+      pane = undefined
+    }
     if (pane) {
       console.log(`[sessions] ${pane.name} ← message${author ? ` (${author})` : ''} · ${text.replace(/\s+/g, ' ').slice(0, 60)}`)
       await this.deliver(pane.name, real, text)
@@ -1938,11 +1945,16 @@ export class Weevils {
     const name = wvName(path.basename(cwd), short)
     // Jamais de dialogue de confiance au lancement : le dossier est marqué sûr avant.
     if (tool === 'claude') trustDirs([cwd])
+    // Several Claude accounts (server/claude-accounts.ts): the session starts under the active one.
+    const acc = tool === 'claude' && accounts()?.on() ? accounts() : null
+    acc?.trust(cwd)
+    const extra = acc?.spawnEnv() ?? {}
     const mode = structuredFirst !== undefined && tool === 'claude' ? 'structured' as const : undefined
     // Le message de départ (dernier argument) passe lui aussi par tmux ; en mode structuré, par un fichier.
     command = mode ? pumpCommand(name, command, structuredFirst) : command.map((a) => fitTerminal(a))
     try {
-      await (mode ? spawnWv(name, cwd, tool, title.slice(0, 60), command, sessionId, mode) : spawnWv(name, cwd, tool, title.slice(0, 60), command, sessionId))
+      await (acc ? spawnWv(name, cwd, tool, title.slice(0, 60), command, sessionId, mode, extra) : mode ? spawnWv(name, cwd, tool, title.slice(0, 60), command, sessionId, mode) : spawnWv(name, cwd, tool, title.slice(0, 60), command, sessionId))
+      acc?.noteOwner(sessionId)
     } catch (e) {
       console.error(`[sessions] lancement de ${name} (${tool}, ${cwd}) refusé : ${(e as Error).message}`)
       throw e
@@ -1968,6 +1980,8 @@ export class Weevils {
       const owner = process.env.WEEVILS_GH_OWNER?.trim() || '$(gh api user -q .login)'
       const projects = PROJECTS_DIR.startsWith(HOME + path.sep) ? '~' + PROJECTS_DIR.slice(HOME.length) : PROJECTS_DIR
       const text = fs.readFileSync(src, 'utf8').replaceAll('{{user}}', withLang(installationLang(), user)).replaceAll('{{owner}}', owner).replaceAll('{{projects}}', projects).replaceAll('{{machineProse}}', MachineProse[installationLang()].rule).replaceAll('{{agentMessages}}', AgentMessages[installationLang()].rule + '\n\n' + AgentMessages[installationLang()].automation)
+        // Several Claude accounts: weevboss hears of them only where the feature is on.
+        .replace(/<!-- claude-accounts -->\n([\s\S]*?)<!-- \/claude-accounts -->\n/g, (_m, body: string) => (accountsOn() ? body : ''))
       fs.writeFileSync(path.join(ORCH_DIR, 'CLAUDE.md'), text)
       // Les mêmes consignes pour Codex, qui répond à la place de Claude pendant sa limite d'usage (server/relay.ts).
       fs.writeFileSync(path.join(ORCH_DIR, 'AGENTS.md'), text)
@@ -2681,6 +2695,13 @@ export class Weevils {
       autoOwns: (id) => !!this.optimizers?.owns(id),
       autoRun: (id, text) => this.optimizers!.relayRun(id, text),
       autoTick: () => this.optimizers?.poke(),
+      carryOn: async (id, text) => {
+        await this.send(id, text, 'weevboss')
+        this.cleared.set(id, Date.now())
+        this.cuts.delete(id)
+        this.persist()
+        this.bump()
+      },
       notify: (title, body, url, tag) => {
         if (this.push.enabled) void this.push.send({ title, body: body.replace(/\s+/g, ' ').slice(0, 180), url, tag })
       },

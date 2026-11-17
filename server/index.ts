@@ -41,13 +41,14 @@ import { explain, grepRepo, readExplain } from './explain.ts'
 import { brief, detail as infraDetail, listDir, readAny, startInfra } from './infra.ts'
 import { startDiskUsage } from './disk-usage.ts'
 import { anchorFor, entries as spendEntries, logCalibration, summarize } from './spend.ts'
-import { claudeQuota, quotas, rate as tokenRate, today as usageToday } from './usage.ts'
+import { claudeQuota, claudeWindows, quotas, rate as tokenRate, today as usageToday } from './usage.ts'
 import { Relay, defaultDeps } from './relay.ts'
+import { ClaudeAccounts, accountsOn, defaultRoot, setAccounts } from './claude-accounts.ts'
 import { ProviderHealth } from './provider-health.ts'
 import { providerStatus, setProviderRoute } from './provider.ts'
 import type { InfraDetail, MachineBrief, MachineFacts, Reach, TokenRate, UsageToday } from '../shared/infra.ts'
 import { facts } from './discover.ts'
-import { Setup, installPlan, which, writeConfig } from './setup.ts'
+import { Setup, installPlan, shellEnv, which, writeConfig } from './setup.ts'
 import { isBrick, isSecretName, isSetupKey, type Device } from '../shared/setup.ts'
 import { Memory, memoryRoutes } from './memory.ts'
 import { ledgerRoutes } from './boss-ledger-http.ts'
@@ -266,11 +267,17 @@ const codexReady = () => {
   if (Date.now() - codexSeen.at > 30_000) codexSeen = { at: Date.now(), ok: !!which('codex') && fs.existsSync(path.join(path.dirname(CODEX_DIR), 'auth.json')) }
   return codexSeen.ok
 }
-const health = new ProviderHealth(path.join(DATA_DIR, 'provider-health.json'), quotas, tool => {
+// Several Claude accounts of the user's own (off unless WEEVILS_CLAUDE_ACCOUNTS=1): tried before the Codex relay.
+const claudeAccounts = new ClaudeAccounts({
+  root: defaultRoot(HOME), claudeHome: path.join(HOME, '.claude'), claudeJson: path.join(HOME, '.claude.json'),
+  mainQuota: claudeQuota, windows: claudeWindows, bin: () => which('claude') ?? 'claude', env: () => shellEnv(),
+})
+setAccounts(claudeAccounts)
+const health = new ProviderHealth(path.join(DATA_DIR, 'provider-health.json'), async () => ({ ...(await quotas()), claude: await claudeAccounts.quota() }), tool => {
   const s = providerStatus(tool)
   return s.installed && s.logged
 })
-const relay = new Relay(w.relayHost(), { ...defaultDeps(claudeQuota, codexReady), health })
+const relay = new Relay(w.relayHost(), { ...defaultDeps(() => claudeAccounts.quota(), codexReady), health, ...(accountsOn() ? { accounts: claudeAccounts } : {}) })
 w.relay = relay
 setProviderRoute(tool => relay.executionTool(tool))
 relay.start()

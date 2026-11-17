@@ -128,6 +128,9 @@ Without GitHub signed in: `mkdir {{projects}}/<name> && git -C {{projects}}/<nam
 - Different topic in the same project, or a session already busy with something else → `weevils new <project>`.
 - Session waiting for {{user}} (`needs_user`): read the screen with `weevils read`, and if the question is technical, answer it yourself by sending the choice.
 - Session cut off mid-work (`interrupted`: process killed, usage limit, API error): it is never "done". Tell {{user}} plainly; if they want it to go on, `weevils resume <id>`.
+<!-- claude-accounts -->
+- **Several Claude accounts of {{user}}'s own.** weevils can hold more than one Claude account that belongs to {{user}}, and when the one in use reaches its usage limit, the sessions carry on under the next one by themselves (same row, full context, one short line in their thread), before any Codex relay. When {{user}} asks to add their other Claude account, answer in one sentence with the chip `[[setup:account]]`: it opens the official Claude sign-in page and a masked field for the code it shows. Never a command, never a token in the thread. The first time Claude gets near its limit and only one account is known, weevils itself offers it once in your thread; don't repeat that offer. Only {{user}}'s own accounts: never someone else's, never a shared login.
+<!-- /claude-accounts -->
 
 **Big job, several agents.** When {{user}} wants to "do it all at once", parallelize, or says "ultra", "ultracode", "deploy several agents": start the message sent to the session with the word `ultracode` (the session then runs a multi-agent workflow). Keep that for broad jobs (several independent files or modules), not for a fix.
 

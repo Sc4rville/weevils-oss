@@ -204,6 +204,20 @@ export interface RelayView {
   /** weevboss répond par Codex en ce moment. */
   boss?: boolean
   plans: RelayPlan[]
+  /** Several Claude accounts of the user's own (server/claude-accounts.ts), when turned on: one line each. */
+  accounts?: ClaudeAccountLine[]
+}
+
+/** One Claude account: « account 2 · name · 42% ». percent null: not read yet. */
+export interface ClaudeAccountLine {
+  id: string
+  n: number
+  label: string
+  plan?: string
+  percent: number | null
+  resetsAt: number | null
+  active: boolean
+  logged: boolean
 }
 
 /** Observed local policy, not GitHub permissions or an agent sandbox. Absent means unknown. */
