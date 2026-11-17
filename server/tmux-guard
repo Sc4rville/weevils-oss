@@ -1,0 +1,82 @@
+#!/usr/bin/env bash
+# tmux-guard — installed as ~/.local/bin/tmux, ahead of the real tmux on the PATH of weevils and of every agent session.
+#
+# It runs the real tmux for everything, except one thing: closing the live weevils tmux server or its sessions
+# (kill-server, kill-session) without the weevils server's own token. On 2026-11-14 a test script ran
+# « TMUX_TMPDIR=$H tmux -L weevils kill-server » with an $H that did not exist yet: tmux fell back to /tmp and closed
+# every live agent session, twice. The guard resolves the socket exactly as tmux does (-S; else $TMUX_TMPDIR when it is
+# a folder, else /tmp; then tmux-<uid>/<-L name or "default">; $TMUX when inside a pane without -L/-S), refuses when it
+# is a live weevils socket, says so, and logs the attempt in ~/.local/share/weevils/tmux-guard.log.
+#
+# Live sockets: /tmp/tmux-<uid>/weevils, plus the paths the weevils server lists in ~/.local/share/weevils/tmux-live.
+# Token: ~/.local/share/weevils/tmux-token (mode 600), passed by the server as WEEVILS_TMUX_TOKEN for its own calls.
+# A guard against accidents, not against a determined user: anyone who reads the token file may close sessions.
+
+data=${WEEVILS_GUARD_DATA:-$HOME/.local/share/weevils}
+uid=$(id -u)
+
+# The real tmux: WEEVILS_REAL_TMUX, else the first tmux on the PATH that is not this file.
+self=$(cd "$(dirname "$0")" && pwd -P)/$(basename "$0")
+real=${WEEVILS_REAL_TMUX:-}
+if [ -z "$real" ]; then
+  IFS=: read -r -a dirs <<<"$PATH"
+  for d in "${dirs[@]}"; do
+    [ -x "$d/tmux" ] || continue
+    cand=$(cd "$d" && pwd -P)/tmux
+    [ "$cand" = "$self" ] && continue
+    real=$cand
+    break
+  done
+fi
+[ -n "$real" ] || { echo "tmux: not installed" >&2; exit 127; }
+
+# Global options, then the command words.
+name='' sock='' kill=0
+args=("$@")
+i=0
+while [ $i -lt ${#args[@]} ]; do
+  a=${args[$i]}
+  case "$a" in
+    -L) i=$((i + 1)); name=${args[$i]:-} ;;
+    -L*) name=${a#-L} ;;
+    -S) i=$((i + 1)); sock=${args[$i]:-} ;;
+    -S*) sock=${a#-S} ;;
+    -c|-f|-T) i=$((i + 1)) ;;
+    -*) ;;
+    *) break ;;
+  esac
+  i=$((i + 1))
+done
+# Any command word of the line (commands can be chained with « ; »), unique prefixes included (« kill-ser »).
+while [ $i -lt ${#args[@]} ]; do
+  case "${args[$i]}" in kill-ser*|kill-ses*) kill=1 ;; esac
+  i=$((i + 1))
+done
+[ "$kill" = 1 ] || exec "$real" "$@"
+
+# The socket tmux would use.
+if [ -n "$sock" ]; then
+  target=$sock
+elif [ -z "$name" ] && [ -n "${TMUX:-}" ]; then
+  target=${TMUX%%,*}
+else
+  base=${WEEVILS_GUARD_FALLBACK:-/tmp}
+  [ -n "${TMUX_TMPDIR:-}" ] && [ -d "$TMUX_TMPDIR" ] && base=$TMUX_TMPDIR
+  target=$base/tmux-$uid/${name:-default}
+fi
+resolve() { if [ -e "$1" ]; then (cd "$(dirname "$1")" 2>/dev/null && echo "$(pwd -P)/$(basename "$1")"); else echo "$1"; fi; }
+target=$(resolve "$target")
+
+live=0
+for l in "${WEEVILS_GUARD_FALLBACK:-/tmp}/tmux-$uid/weevils" $(cat "$data/tmux-live" 2>/dev/null); do
+  [ "$(resolve "$l")" = "$target" ] && live=1
+done
+[ "$live" = 1 ] || exec "$real" "$@"
+
+token=$(cat "$data/tmux-token" 2>/dev/null || true)
+if [ -n "$token" ] && [ "${WEEVILS_TMUX_TOKEN:-}" = "$token" ]; then exec "$real" "$@"; fi
+
+mkdir -p "$data" 2>/dev/null
+printf '%s refused: tmux %s (socket %s, cwd %s, parent %s)\n' "$(date '+%F %T')" "$*" "$target" "$PWD" "$(ps -o args= -p "$PPID" 2>/dev/null | cut -c1-120)" >>"$data/tmux-guard.log" 2>/dev/null
+echo "tmux: refused — this would close the live weevils sessions ($target). For a test copy use scripts/test-copy.sh (its own socket)." >&2
+exit 1

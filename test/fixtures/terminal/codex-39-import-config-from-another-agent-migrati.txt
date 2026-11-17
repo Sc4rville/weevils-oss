@@ -1,0 +1,1 @@
+(not seen) external agent config migration prompt: import settings from Claude Code / Cursor

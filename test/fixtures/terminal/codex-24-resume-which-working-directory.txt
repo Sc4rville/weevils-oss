@@ -1,0 +1,9 @@
+  Working directory
+  Session = latest cwd recorded in the resumed session
+  Current = your current working directory
+
+› 1. Use session directory (/home/user/projects/weevils)
+  2. Use current directory (/tmp/x)
+  3. Always use current directory (/tmp/x)
+
+  enter continue · esc back

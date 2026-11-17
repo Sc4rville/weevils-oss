@@ -1,0 +1,8 @@
+> You are in /home/u/projects/app
+
+  Trust this folder? Codex can read, edit, and run files here, subject to your permission settings. ... Your trust decision will be saved.
+
+› 1. Yes, continue
+  2. No, quit
+
+  Press enter to continue

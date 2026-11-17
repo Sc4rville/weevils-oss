@@ -1,0 +1,48 @@
+/* Living links (docs/LINKS.md): bold, in two hues of their kind, drifting slowly like the recursive signature.
+   Dark text on light themes, light text on dark ones, so the link reads on any band. Hues match server/pages.ts. */
+a.living {
+  --lk-l: 0.44;
+  --lk-c: 0.2;
+  --lk-a: oklch(var(--lk-l) var(--lk-c) var(--h1));
+  --lk-b: oklch(var(--lk-l) var(--lk-c) var(--h2));
+  font-weight: 800;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  color: var(--lk-a);
+  background-image: linear-gradient(100deg, var(--lk-a), var(--lk-b), var(--lk-a));
+  background-size: 220% 100%;
+  background-position: 0% 50%;
+  -webkit-background-clip: text;
+  background-clip: text;
+  -webkit-text-fill-color: transparent;
+  animation: lk-drift 7s ease-in-out infinite alternate;
+  -webkit-touch-callout: default;
+}
+[data-theme='dark'] a.living,
+:root[data-theme='graphite'] a.living {
+  --lk-l: 0.86;
+  --lk-c: 0.16;
+}
+a.living.lk-opportunities { --h1: 150; --h2: 115; }
+a.living.lk-library { --h1: 300; --h2: 335; }
+a.living.lk-preview { --h1: 215; --h2: 250; }
+a.living.lk-report { --h1: 70; --h2: 40; }
+a.living.lk-render { --h1: 15; --h2: 350; }
+@keyframes lk-drift { to { background-position: 100% 50%; } }
+@media (prefers-reduced-motion: reduce) {
+  a.living { animation: none; }
+}
+
+.lp-frame {
+  position: relative;
+  height: calc(100dvh - var(--safe-t) - 140px);
+  min-height: 320px;
+}
+.lp-frame iframe {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: transparent;
+}

@@ -1,0 +1,56 @@
+[
+  {
+    "id": "d:mwe2ucee",
+    "kind": "boss",
+    "source": "In Weevils, chat is being integrated into the existing preview reader, so you can message while keeping the page in view. Keeping your browsing position intact as you use the chat is part of that work.",
+    "text": "Chat is being added beside the weevils preview, so you can message while keeping the page in view."
+  },
+  {
+    "id": "i:1b6e4c74eee3",
+    "kind": "improve",
+    "source": "Your recent feed contains many consecutive TLO journey updates, while 31 of your last 34 sessions were on weevils. I suggest asking weevboss to prepare a project rotation for For you, so repeated milestones leave room for your other work.",
+    "text": "TLO updates are crowding For you. Preview a feed order that gives other projects room."
+  },
+  {
+    "id": "d:mwe2nwsq",
+    "kind": "boss",
+    "source": "Weevils can now be installed with Codex alone, and the release candidate passed 1,326 tests plus 129 installation checks. Before it goes public, three reference images still in the old history need their rights resolved or their history cleaned up; they’re already excluded from the release candidate.",
+    "text": "weevils can be installed with Codex alone. Three images in the old history still need a rights decision before public release."
+  },
+  {
+    "id": "i:b2b7af17cd08",
+    "kind": "improve",
+    "source": "You want For you to keep experimenting and improve around what you enjoy, but your preferences already rule out extra header controls. Ask weevboss to prepare a simple feedback habit: tell it which card worked and why, then have it carry that preference into the next formats.",
+    "text": "Tell weevboss which card worked for you and why. Use that feedback when preparing the next layouts."
+  },
+  {
+    "id": "d:mwdzpr02",
+    "kind": "boss",
+    "source": "TLO is live at https://tlo.scarville.tech, with all 992 images integrated. Navigation, feedback and sound have been checked on mobile and desktop, so you can try the complete site now. No GPU pods remain active, and there was no new spend.",
+    "text": "TLO is live. Explore the rooms and finished journeys at https://tlo.scarville.tech."
+  },
+  {
+    "id": "i:7d522374d46a",
+    "kind": "improve",
+    "source": "You want For you cards coloured by project while keeping the header simple. Ask weevboss to prepare a consistent project palette across themes, then preview it on a TLO split-panel card and a horizontal weevils card.",
+    "text": "Preview project colours on a TLO split-panel card and a horizontal weevils card, across themes."
+  },
+  {
+    "id": "d:mwdz1xu6",
+    "kind": "boss",
+    "source": "Weevils’ recovery note is ready, and syncing between copies has stopped as you asked. Your prepared work is preserved, with the app and running instances untouched. The link to share is https://github.com/Sc4rville/weevils; friends will need an invitation while it remains private.",
+    "text": "weevils is still private. Friends need an invitation to access https://github.com/Sc4rville/weevils."
+  },
+  {
+    "id": "i:weevils-content:2026-11-12",
+    "kind": "insight",
+    "source": "Did you know Playwright can test a fresh browser session with no saved login? Ask your agents to check that your friends can open the release and complete its first steps without your private settings.",
+    "text": "Use Playwright to check the first steps in a fresh browser session, without your saved login or private settings."
+  },
+  {
+    "id": "d:mwdy3tz5",
+    "kind": "boss",
+    "source": "Weevils now has an installation package that passed a clean install, with licensing and English setup guidance in place; secret scans also passed across its history and archives. Your existing app, betas and accounts were preserved. It’s still invitation-only: public release needs logo rights confirmed, private context in older material addressed, and first-use plus desktop/mobile checks completed.",
+    "text": "The weevils installation package passed a clean install. Before public release: confirm logo rights, address private context in older material, and finish first-use and desktop/mobile checks."
+  }
+]

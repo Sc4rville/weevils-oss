@@ -1,0 +1,9 @@
+  Working directory
+
+  Session = latest cwd recorded in the session
+  Current = your current working directory
+
+› 1. Use session directory (/home/u/projects/old-name)
+  2. Use current directory (/home/u)
+
+  Press enter to continue

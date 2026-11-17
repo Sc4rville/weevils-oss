@@ -1,0 +1,8 @@
+› fix the tests
+
+■ You've hit your usage limit. Visit https://chatgpt.com/settings/usage to purchase more credits or try again at 6:12 PM.
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol high · ~/projects/weevils
+  ← for agents · ? for shortcuts

@@ -1,0 +1,134 @@
+#!/usr/bin/env bash
+# weevils-update — keeps this weevils up to date by itself: the weevils-update timer runs it every 20 to 30 minutes
+# (server/install.sh sets it up; a crontab line where systemd is missing). Turned off by WEEVILS_AUTO_UPDATE=0 (the
+# app's settings, or `weevils config set WEEVILS_AUTO_UPDATE 0`).
+#
+# - Only a plain install moves: no local change, no extra worktree, nothing of its own (local commits, another
+#   branch). Anything else is someone's working copy, left alone.
+# - Where the new version comes from: GitHub once the repository answers without credentials; until then (it is
+#   private) the setup service, which serves the same snapshot new installs get (WEEVILS_UPDATE_URL, default
+#   https://get.scarville.tech).
+# - Only signed code: a snapshot must carry a valid signature from weevils' release key (get/release-key.pub of the
+#   version installed now), or nothing changes.
+# - Calmly: never while a session is working (weevilsd's own list); it tries again next time.
+# - Then the installer, as on a re-run (`./install.sh --agent --no-update`: every setting kept, the app rebuilt, weevilsd
+#   restarted; agent sessions live in tmux and go on). If it fails, back to the version before.
+# - It says so in « for you ».
+#
+# Usage: weevils-update [--now]   (--now: also while a session works, for a run asked by hand)
+set -euo pipefail
+
+# The whole script is one function, read before it runs: the installer replaces this file during the update.
+_weevils_update() {
+
+conf=${WEEVILS_CONFIG:-$HOME/.config/weevils/env}
+cfgv() { sed -n "s/^[[:space:]]*$1[[:space:]]*=[[:space:]]*[\"']\{0,1\}\([^\"']*\).*/\1/p" "$conf" 2>/dev/null | tail -1; }
+now=0
+[ "${1:-}" != --now ] || now=1
+[ "$(cfgv WEEVILS_AUTO_UPDATE)" != 0 ] || [ "$now" = 1 ] || exit 0
+
+state=$HOME/.local/share/weevils
+mkdir -p "$state"
+log=$state/update.log
+say() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >>"$log"; [ "$now" = 0 ] || printf '  weevils · %s\n' "$*"; }
+# One run at a time.
+exec 9>"$state/update.lock"
+command -v flock >/dev/null && { flock -n 9 || exit 0; }
+
+dir=${WEEVILS_DIR:-$HOME/weevils}
+[ -d "$dir/.git" ] && [ -f "$dir/install.sh" ] && [ -f "$dir/server/install.sh" ] || { say "no weevils in $dir"; exit 0; }
+port=$(cfgv WEEVILS_PORT)
+port=${port:-4179}
+from_url=${WEEVILS_UPDATE_URL:-$(cfgv WEEVILS_UPDATE_URL)}
+from_url=${from_url:-https://get.scarville.tech}
+g() { GIT_TERMINAL_PROMPT=0 git -C "$dir" "$@"; }
+
+# ---------------------------------------------------------------- a plain install only
+if [ -n "$(g status --porcelain --untracked-files=no)" ]; then say "local changes in $dir: left alone"; exit 0; fi
+if [ "$(g worktree list | wc -l)" -gt 1 ]; then say "$dir has other worktrees (a working copy): left alone"; exit 0; fi
+cur=$(g rev-parse HEAD)
+# A snapshot from the setup service says « weevils <revision> » (get/make-bundle.sh).
+snap=$(g log -1 --format=%s | sed -n 's/^weevils \([0-9a-f]\{7,40\}\)$/\1/p')
+
+# ---------------------------------------------------------------- is there a newer version?
+mode='' new='' to=''
+if [ -z "$snap" ] && g ls-remote -q origin main >/dev/null 2>&1; then
+  # A clone of the public repository, on main and with nothing of its own: fast-forward only.
+  [ "$(g rev-parse --abbrev-ref HEAD)" = main ] || { say "not on main: left alone"; exit 0; }
+  g fetch -q origin main
+  new=$(g rev-parse FETCH_HEAD)
+  [ "$new" != "$cur" ] || exit 0
+  g merge-base --is-ancestor "$cur" "$new" || { say "local commits: left alone"; exit 0; }
+  mode=git from=$(g rev-parse --short HEAD) to=$(g rev-parse --short "$new")
+elif [ -n "$snap" ]; then
+  latest=$(curl -fsS -m 20 "$from_url/version" 2>/dev/null | sed -n 's/.*"rev":"\([0-9a-f]\{40\}\)".*/\1/p' || true)
+  [ -n "$latest" ] || { say "no answer from $from_url"; exit 0; }
+  case $latest in "$snap"*) exit 0 ;; esac
+  mode=bundle from=$snap to=${latest:0:7}
+else
+  say "neither a snapshot nor a reachable repository: left alone"
+  exit 0
+fi
+# A version that failed is not tried again: the next one will be.
+[ "$(cat "$state/update.failed" 2>/dev/null || true)" != "$to" ] || exit 0
+
+# ---------------------------------------------------------------- calmly
+if [ "$now" = 0 ]; then
+  working=$(curl -fsS -m 8 "http://127.0.0.1:$port/api/snapshot" 2>/dev/null | python3 -c 'import json,sys
+d=json.load(sys.stdin)
+print(sum(1 for s in d.get("sessions", []) if s.get("status") == "working" and not s.get("archived")))' 2>/dev/null || echo unknown)
+  [ "$working" = 0 ] || { say "$to is out, a session is working ($working): later"; exit 0; }
+fi
+
+# ---------------------------------------------------------------- the new code
+say "updating $from → $to ($mode)"
+if [ "$mode" = bundle ]; then
+  b=$(mktemp)
+  trap 'rm -f "$b"' EXIT
+  curl -fsSL -m 600 "$from_url/weevils.bundle" -o "$b" || { say "could not download $to"; exit 0; }
+  # Signed with weevils' release key: the public half comes from the version installed now (get/release-key.pub), so
+  # only code signed by the same key replaces it. A signature that does not check: nothing changes.
+  key=$dir/get/release-key.pub
+  if [ -s "$key" ]; then
+    sig=$(mktemp) allowed=$(mktemp)
+    printf 'weevils-release %s\n' "$(cat "$key")" >"$allowed"
+    if ! { curl -fsS -m 30 "$from_url/weevils.bundle.sig" -o "$sig" && ssh-keygen -Y verify -f "$allowed" -I weevils-release -n weevils-release -s "$sig" <"$b" >/dev/null 2>&1; }; then
+      rm -f "$sig" "$allowed"
+      say "$to: its signature does not check, not installed"
+      exit 0
+    fi
+    rm -f "$sig" "$allowed"
+  fi
+  g fetch -q "$b" main || { say "could not read the download"; exit 0; }
+  new=$(g rev-parse FETCH_HEAD)
+  # Each snapshot is a single commit: the branch moves to it (the tree had no local change, nothing is lost).
+  g reset -q --hard "$new"
+else
+  g merge -q --ff-only "$new"
+fi
+
+# ---------------------------------------------------------------- the installer, as on a re-run
+run=$state/update-install.log
+install_ok() { (cd "$dir" && WEEVILS_NO_UPDATE=1 ./install.sh --agent --no-update) >"$run" 2>&1 || true; grep -q '^status=ok$' "$run"; }
+lang=$(sed -n 's/.*"lang" *: *"\(fr\|en\)".*"from" *: *"choice".*/\1/p' "$state/prefs.json" 2>/dev/null || true)
+lang=${lang:-$(cfgv WEEVILS_LANG)}
+post() {
+  # weevilsd restarts during the install: wait for it, then a word in « for you ».
+  for _ in $(seq 1 30); do curl -fsS -m 3 -o /dev/null "http://127.0.0.1:$port/api/me" 2>/dev/null && break; sleep 2; done
+  "$HOME/.local/bin/weevils" post "$1" >/dev/null 2>&1 || true
+}
+if install_ok; then
+  rm -f "$state/update.failed"
+  say "updated to $to"
+  if [ "$lang" = fr ]; then post "weevils s'est mis à jour : version $to (avant $from)." # i18n-ignore
+  else post "weevils updated itself: version $to (was $from)."; fi
+else
+  echo "$to" >"$state/update.failed"
+  say "the installer failed on $to (see $run): back to $from"
+  g reset -q --hard "$cur"
+  install_ok || say "the version before did not install again either (see $run)"
+  if [ "$lang" = fr ]; then post "weevils n'a pas pu se mettre à jour vers $to : il reste sur $from (détails dans ~/.local/share/weevils/update.log)." # i18n-ignore
+  else post "weevils could not update to $to: it stays on $from (details in ~/.local/share/weevils/update.log)."; fi
+fi
+}
+_weevils_update "$@"

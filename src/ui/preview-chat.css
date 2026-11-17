@@ -1,0 +1,5 @@
+.preview-chat { flex: none; min-width: 0; background: var(--c); }
+.preview-chat-messages { max-height: min(calc(var(--vvh, 100dvh) * .26), 280px); overflow-y: auto; overscroll-behavior: contain; }
+.preview-chat .composer { padding-bottom: max(8px, env(safe-area-inset-bottom)); }
+.preview-chat .composer input { font-size: max(16px, 1em); }
+.preview-chat .outbox-status { max-height: 12dvh; overflow: auto; }

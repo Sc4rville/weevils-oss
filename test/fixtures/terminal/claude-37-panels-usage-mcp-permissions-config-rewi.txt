@@ -1,0 +1,16 @@
+   Settings  Status   Config   Usage   Stats
+   …
+   Error: Failed to load usage data
+   r to retry · Esc to cancel
+---
+   Manage MCP servers
+   10 servers
+   ❯ ✔ claude.ai Claude Docs       8 tools
+     …
+     ⚠ plugin:runpod:runpod        needs authentication
+   ↑/↓ to navigate · Enter to confirm · Esc to cancel
+---
+   Rewind
+   Restore the code and/or conversation to the point before…
+   ❯ (current)
+   Enter to continue · Esc to cancel

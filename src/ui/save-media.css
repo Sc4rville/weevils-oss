@@ -1,0 +1,42 @@
+/* Save to the camera roll: a small square on the media's corner, the band's ink, never in the way of the picture. */
+.save-media {
+  position: absolute;
+  top: 10px;
+  right: 10px;
+  z-index: 2;
+  min-width: 40px;
+  height: 40px;
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 8px;
+  padding-inline: 10px;
+  background: color-mix(in oklab, var(--ink) 78%, transparent);
+  color: var(--c);
+  font-size: 14px;
+  font-weight: 700;
+}
+.save-media .ic {
+  width: 18px;
+  height: 18px;
+}
+.save-media.saving .ic {
+  animation: save-media-wait 0.9s ease-in-out infinite alternate;
+}
+.save-media.again,
+.save-media.failed {
+  background: var(--ink);
+}
+@keyframes save-media-wait {
+  to { opacity: 0.35; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .save-media.saving .ic { animation: none; opacity: 0.6; }
+}
+/* A long press saves: iOS's own callout and text selection stay out of it. */
+.save-media-host {
+  position: relative;
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}

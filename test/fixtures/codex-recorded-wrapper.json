@@ -1,0 +1,30 @@
+[
+  {
+    "type": "response_item",
+    "timestamp": "2026-11-10T21:51:47.180Z",
+    "payload": {
+      "type": "custom_tool_call",
+      "call_id": "recorded-call",
+      "name": "exec",
+      "input": "text(await tools.exec_command({cmd:\"git status --short; git log -3 --oneline\",\"workdir\":\"/workspace/project\",\"max_output_tokens\":1500}));\n"
+    }
+  },
+  {
+    "type": "response_item",
+    "timestamp": "2026-11-10T21:51:47.262Z",
+    "payload": {
+      "type": "custom_tool_call_output",
+      "call_id": "recorded-call",
+      "output": [
+        {
+          "type": "input_text",
+          "text": "Script completed\nWall time 0.1 seconds\nOutput:\n"
+        },
+        {
+          "type": "input_text",
+          "text": "{\"chunk_id\":\"3a3eac\",\"wall_time_seconds\":0.00001419,\"exit_code\":0,\"original_token_count\":83,\"output\":\" M src/i18n/foryou-formats.ts\\n M src/ui/foryou-formats.css\\n M src/ui/foryou-formats.tsx\\nbed4fd6 feat(feed): add visual format gallery and explicit TLO proposal choices\\nf4788ee fix(feed): stop the editorial voice flood and retire reservoir cards\\n4df0672 feat(session): show verified remote progress separately from agent activity\\n\"}"
+        }
+      ]
+    }
+  }
+]

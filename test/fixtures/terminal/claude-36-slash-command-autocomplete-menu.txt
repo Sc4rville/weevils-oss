@@ -1,0 +1,8 @@
+  ❯ /model                                          Set the AI model for Claude Code (currently Sonnet 5.5)
+    /auto-mode-setup                                Teach auto mode about your environment, plus optional rule tweaks
+    /runpod:runpod-companion-clis                   (Runpod) Companion CLIs for Runpod workflows — HuggingFace,
+                                                    GitHub, Docker, and AWS. Use runpod-build-template for complete t…
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ /model
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)

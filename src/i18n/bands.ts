@@ -1,0 +1,148 @@
+import { defineMessages } from './index'
+
+export default defineMessages({
+  fr: {
+    // Résumé d'un projet replié : « 2 travaillent · 1 à toi · 3 conversations ».
+    working: (n: number) => `${n} ${n > 1 ? 'travaillent' : 'travaille'}`,
+    open: (n: number) => `${n} ${n > 1 ? 'ouvertes' : 'ouverte'}`,
+    improvingWeevils: 'amélioration de weevils en cours',
+    nothingRunning: 'rien ne tourne',
+    yours: (n: number) => `${n} à toi`,
+    /** Sessions coupées en plein travail. */
+    cut: (n: number) => `${n} ${n > 1 ? 'interrompues' : 'interrompue'}`,
+    cutAria: (n: number) => `${n} ${n > 1 ? 'sessions coupées' : 'session coupée'} en plein travail`,
+    conversations: (n: number) => `${n} conversation${n > 1 ? 's' : ''}`,
+
+    // Bande de l'orchestrateur
+    agentBand: 'weevboss, l’orchestrateur',
+    collapseChat: 'réduire la conversation',
+    openChat: 'ouvrir la conversation avec weevboss',
+    agentPlaceholder: 'dis-moi quoi faire',
+    agentLabel: 'message à weevboss',
+    /** Bulle envoyée, pas encore dans le fil : en route, ou en file derrière la réponse en cours. */
+    sending: 'envoi…',
+    queued: 'en attente',
+    /** Dans la pane de weevboss (confirmé par le serveur), pas encore dans son transcript. */
+    received: 'reçu',
+    /** Reçu pendant qu'il travaille : Claude Code le lit à la fin de son tour. */
+    readsSoon: 'en file, il le lira dans un instant',
+    withFiles: (n: number) => `(${n} fichier${n > 1 ? 's' : ''})`,
+    /** Bouton flottant « ↓ » du fil ouvert : du nouveau en bas pendant qu'on relit. */
+    toEnd: 'du nouveau en bas : y descendre',
+
+    // Les deux mots sous le logo (src/ui/foryou-top.tsx) : « weevboss · pour toi », et l'aperçu du flux.
+    forYou: 'pour toi',
+    forYouOpen: 'ouvrir « pour toi » en grand',
+    forYouEmpty: 'rien de neuf pour l’instant',
+    forYouLoading: 'chargement…',
+    forYouUnseen: (n: number) => `${n} pas encore ${n > 1 ? 'vus' : 'vu'}`,
+    forYouSpeaking: 'en cours de lecture',
+
+    // Bande projet
+    projectBand: (name: string) => `projet ${name}`,
+    unread: 'a répondu, pas encore lu',
+    filesOf: (name: string) => `fichiers de ${name}`,
+    machineOf: (name: string) => `machine de ${name}`,
+    waiting: (n: number) => `${n} ${n > 1 ? 'sessions attendent' : 'session attend'} ta réponse`,
+    nothingWaiting: 'rien ne t’attend',
+    conversationsOf: (n: number, name: string) => `${n} conversation${n > 1 ? 's' : ''} de ${name}`,
+    newSessionIn: (name: string) => `nouvelle session dans ${name}`,
+    idleSince: (ago: string) => `rien ne tourne · dernière activité ${ago}`,
+    conversationsLabel: 'conversations',
+    allConversations: (n: number) => `les ${n} conversations`,
+    reposLabel: 'dossiers de code',
+    machinesLabel: 'machines',
+    openSessions: (n: number) => `${n} session${n > 1 ? 's ouvertes' : ' ouverte'}`,
+    h24Label: 'automatisations',
+    running: 'en cours',
+    /** ago: « il y a 2 h » (format.ts). */
+    lastRun: (ago: string) => `dernier passage ${ago}`,
+    failedRun: (ago: string) => `échoué ${ago}`,
+
+    // Notifications
+    testSent: 'notification de test envoyée',
+    notifications: 'notifications',
+    notifyOff: 'te prévenir quand une session t’attend ou a fini',
+    notifyOnSuffix: '· activées',
+    notifyInstall: 'ajoute d’abord weevils à ton écran d’accueil',
+    notifyUnsupported: 'pas possible dans ce navigateur',
+
+    // Bande de fin
+    settings: 'réglages',
+    machines: 'machines',
+    reconnecting: 'reconnexion…',
+    offline: 'hors ligne',
+    onlineOf: (on: number, n: number) => (on === n ? `${n} en ligne` : `${on} sur ${n} en ligne`),
+    newSession: 'nouvelle session',
+    theme: (theme: string) => `thème ${theme === 'dark' ? 'sombre' : theme === 'zen' ? 'zen' : theme === 'graphite' ? 'graphite' : 'clair'}`,
+    logout: 'se déconnecter',
+    memory: 'mémoire',
+    memories: (n: number) => `${n} souvenir${n > 1 ? 's' : ''}`,
+  },
+  en: {
+    working: (n: number) => `${n} working`,
+    open: (n: number) => `${n} open`,
+    improvingWeevils: 'Improving weevils',
+    nothingRunning: 'nothing running',
+    yours: (n: number) => `${n} need${n === 1 ? 's' : ''} you`,
+    cut: (n: number) => `${n} interrupted`,
+    cutAria: (n: number) => `${n} ${n === 1 ? 'session' : 'sessions'} cut off mid-work`,
+    conversations: (n: number) => `${n} conversation${n === 1 ? '' : 's'}`,
+
+    agentBand: 'weevboss, the orchestrator',
+    collapseChat: 'collapse the conversation',
+    openChat: 'open the conversation with weevboss',
+    agentPlaceholder: 'tell me what to do',
+    agentLabel: 'message to weevboss',
+    sending: 'sending…',
+    queued: 'queued',
+    received: 'received',
+    readsSoon: 'queued, it will read it in a moment',
+    withFiles: (n: number) => `(${n} file${n === 1 ? '' : 's'})`,
+    toEnd: 'new messages below: scroll down',
+
+    forYou: 'for you',
+    forYouOpen: 'open “for you” full screen',
+    forYouEmpty: 'nothing new for now',
+    forYouLoading: 'loading…',
+    forYouUnseen: (n: number) => `${n} not seen yet`,
+    forYouSpeaking: 'playing',
+
+    projectBand: (name: string) => `project ${name}`,
+    unread: 'replied, not read yet',
+    filesOf: (name: string) => `files in ${name}`,
+    machineOf: (name: string) => `machine for ${name}`,
+    waiting: (n: number) => `${n} ${n === 1 ? 'session is' : 'sessions are'} waiting for you`,
+    nothingWaiting: 'nothing waiting for you',
+    conversationsOf: (n: number, name: string) => `${n} ${name} conversation${n === 1 ? '' : 's'}`,
+    newSessionIn: (name: string) => `new session in ${name}`,
+    idleSince: (ago: string) => `nothing running · last active ${ago}`,
+    conversationsLabel: 'conversations',
+    allConversations: (n: number) => `all ${n} conversations`,
+    reposLabel: 'code folders',
+    machinesLabel: 'machines',
+    openSessions: (n: number) => `${n} open session${n === 1 ? '' : 's'}`,
+    h24Label: 'automations',
+    running: 'running',
+    lastRun: (ago: string) => `last run ${ago}`,
+    failedRun: (ago: string) => `failed ${ago}`,
+
+    testSent: 'test notification sent',
+    notifications: 'notifications',
+    notifyOff: 'a ping when a session needs you or ends',
+    notifyOnSuffix: '· on',
+    notifyInstall: 'add weevils to your home screen first',
+    notifyUnsupported: 'not possible in this browser',
+
+    settings: 'settings',
+    machines: 'machines',
+    reconnecting: 'reconnecting…',
+    offline: 'offline',
+    onlineOf: (on: number, n: number) => (on === n ? `${n} online` : `${on} of ${n} online`),
+    newSession: 'new session',
+    theme: (theme: string) => `${theme === 'dark' ? 'dark' : theme === 'zen' ? 'zen' : theme === 'graphite' ? 'graphite' : 'light'} theme`,
+    logout: 'log out',
+    memory: 'memory',
+    memories: (n: number) => `${n} ${n === 1 ? 'memory' : 'memories'}`,
+  },
+})

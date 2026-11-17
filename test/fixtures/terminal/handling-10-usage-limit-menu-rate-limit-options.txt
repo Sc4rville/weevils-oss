@@ -1,0 +1,10 @@
+> continue the refactor
+  ⎿  You've hit your limit · resets 3pm (Europe/Paris)
+
+ What do you want to do?
+
+ ❯ 1. Stop and wait for limit to reset
+   2. Switch to extra usage
+   3. Upgrade your plan
+
+ Enter to confirm · Esc to cancel

@@ -1,0 +1,22 @@
+#!/bin/bash
+# curl of the fake Mac: the real one, except for the two installers the tests must not download: Claude Code's
+# and Homebrew's are answered with local fakes (claude-install.sh, homebrew-install.sh). Every other address that is
+# not this machine is noted in calls.log (curl-external).
+state=/var/fakemac
+which='' out='' prev=''
+for a in "$@"; do
+  case "$prev" in -o | --output | -[!-]*o) out=$a ;; esac
+  case "$a" in
+    https://claude.ai/install.sh) which=claude ;;
+    https://raw.githubusercontent.com/Homebrew/install/HEAD/install.sh) which=homebrew ;;
+    http://127.0.0.1[:/]* | http://localhost[:/]* | http://127.0.0.1 | http://localhost) ;;
+    http://* | https://*) echo "curl-external $a" >>"$state/calls.log" ;;
+  esac
+  prev=$a
+done
+if [ -n "$which" ]; then
+  echo "curl-intercept $which" >>"$state/calls.log"
+  if [ -n "$out" ]; then /opt/real/bin/cat "/opt/fakemac/$which-install.sh" >"$out"; else /opt/real/bin/cat "/opt/fakemac/$which-install.sh"; fi
+  exit 0
+fi
+exec /opt/real/bin/curl "$@"

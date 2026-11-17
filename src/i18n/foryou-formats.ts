@@ -1,0 +1,31 @@
+import { defineMessages } from './index'
+export default defineMessages({
+  fr: {
+    browseImages: 'Explorer ces vues', openClip: 'Ouvrir la vidéo entière',
+    streetTitle: 'Devant le café', streetText: 'La lumière du café se reflète sur les pavés de la rue nocturne.',
+    cafeTitle: 'À l’intérieur du café', cafeText: 'Le comptoir et les lanternes réchauffent la salle ; un rideau bleu encadre le passage au fond.',
+    alcoveTitle: 'L’alcôve', alcoveText: 'Deux fauteuils entourent une petite table éclairée sous la voûte.',
+    imageUnavailable: 'L’image ne s’est pas chargée.', retryImage: 'Recharger l’image', clipUnavailable: 'Le clip ne s’est pas chargé.', retryClip: 'Recharger le clip',
+    title: 'Essayer de vrais formats', intro: 'Des exemples TLO à regarder à ton rythme. Choisis le format à garder ; seul le bouton de transmission d’une proposition envoie une consigne.',
+    result: '01 · Résultat visuel', resultTitle: 'Une alcôve pour se poser', resultText: 'TLO · Deux fauteuils, une petite table et une lumière chaude sous la voûte. Ce rendu existant permet de juger l’atmosphère de ce lieu de rencontre.',
+    story: '02 · Parcours en images', storyTitle: 'Du café au couloir', storyText: 'Trois moments du même déplacement existant. Regarde comment le rideau fait passer de la salle chaleureuse aux arches de pierre.',
+    clip: '03 · Mouvement', clipTitle: 'Entrer dans le café', clipText: 'TLO · Un premier aperçu existant du trajet rue → café, ralenti pour observer le mouvement. Lance-le pour juger la transition.',
+    proposal: '04 · À toi de choisir', open: 'Ouvrir l’image complète', step: (n: number, total: number) => `Image ${n} sur ${total}`,
+    recommended: 'Recommandé', instruction: 'ce qui sera envoyé', send: 'Transmettre mon choix à TLO', sending: 'Transmission en cours…', sent: 'Choix transmis à TLO',
+    keep: 'Garder ce format', kept: 'Format retenu sur cet appareil', preference: 'Ton choix de format est conservé sur cet appareil. Tu peux le changer.', missing: 'Cet exemple n’est pas disponible dans le flux actuel.',
+  },
+  en: {
+    browseImages: 'Explore these views', openClip: 'Open full video',
+    streetTitle: 'Outside the café', streetText: 'The café lights reflect on the cobblestones of the street at night.',
+    cafeTitle: 'Inside the café', cafeText: 'The counter and lanterns give the room a warm glow; a blue curtain frames the passage at the back.',
+    alcoveTitle: 'The alcove', alcoveText: 'Two armchairs sit around a small, lit table beneath the vault.',
+    imageUnavailable: 'The image did not load.', retryImage: 'Reload image', clipUnavailable: 'The clip did not load.', retryClip: 'Reload clip',
+    title: 'Try real formats', intro: 'TLO examples to explore at your own pace. Pick a format to keep; only a proposal’s send button transmits instructions.',
+    result: '01 · Visual result', resultTitle: 'An alcove to settle into', resultText: 'TLO · Two armchairs, a small table and warm light beneath the vault. This existing render lets you assess the atmosphere of this meeting place.',
+    story: '02 · Picture journey', storyTitle: 'From café to corridor', storyText: 'Three moments from the same existing movement. See how the curtain leads from the warm room into the stone arches.',
+    clip: '03 · Motion', clipTitle: 'Entering the café', clipText: 'TLO · An existing early preview of the street → café journey, slowed down to observe the movement. Play it to assess the transition.',
+    proposal: '04 · Your choice', open: 'Open full image', step: (n: number, total: number) => `Image ${n} of ${total}`,
+    recommended: 'Recommended', instruction: 'what will be sent', send: 'Send my choice to TLO', sending: 'Sending…', sent: 'Choice sent to TLO',
+    keep: 'Keep this format', kept: 'Format selected on this device', preference: 'Your format choice is saved on this device. You can change it.', missing: 'This example is unavailable in the current feed.',
+  },
+})

@@ -1,0 +1,40 @@
+  Anthropic turns this change off.
+⚠ Allow rule "Write(*)" lets Write run without asking only in the working directories. "Write" alone allows every path.
+  Older versions of Claude Code treat "Write(*)" as "Write", and this version will too if Anthropic turns this change
+  off.
+⚠ Allow rule "Edit(*)" lets Edit run without asking only in the working directories. "Edit" alone allows every path.
+  Older versions of Claude Code treat "Edit(*)" as "Edit", and this version will too if Anthropic turns this change off.
+
+❯ /model
+  ⎿  Kept model as Sonnet 5.5
+
+❯ /effort
+  ⎿  Cancelled
+
+❯ /fast
+  ⎿  Fast mode OFF
+
+❯ /resume
+  ⎿  Resume cancelled
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ /upgrade
+  ⎿  You’re already on the highest individual plan. For additional usage, run /usage-credits.
+
+❯ /usage-credits
+  ⎿  Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ Plan task: run the shell command 'echo hi'. Do not explore anything. Immediately call ExitPlanMode with a one-line
+  plan.
+
+✻ Germinating… (2s · ↓ 25 tokens · thinking)
+  ⎿  Tip: Run /install-slack-app to use Claude in Slack
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle) · esc to interrupt

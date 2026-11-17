@@ -1,0 +1,9 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  LSP plugin recommendation
+  LSP provides code intelligence like go-to-definition and error checking
+  Triggered by: .rs files
+  Would you like to install this LSP plugin?
+  ❯ 1. Yes
+    2. No, not now
+    3. Never for this plugin
+    4. Disable all LSP recommendations

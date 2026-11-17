@@ -1,0 +1,3 @@
+#!/bin/bash
+# open of the fake Mac: logs, opens nothing.
+echo "open $*" >>/var/fakemac/calls.log

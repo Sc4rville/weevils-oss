@@ -1,0 +1,7 @@
+.markdown-editor { padding-block: 12px; }
+.markdown-tools { display: flex; align-items: center; flex-wrap: wrap; gap: 12px; }
+.markdown-editor button { min-height: 44px; color: inherit; background: none; border: 1px solid currentColor; border-radius: 0; padding: 8px 12px; font: inherit; cursor: pointer; }
+.markdown-editor button:disabled { opacity: .5; cursor: default; }
+.markdown-editor textarea { display: block; box-sizing: border-box; width: 100%; min-height: 50dvh; margin-block: 12px; padding: 12px; border: 1px solid currentColor; border-radius: 0; background: transparent; color: inherit; font: 16px/1.5 var(--mono, monospace); resize: vertical; }
+.markdown-editor pre { white-space: pre-wrap; overflow-wrap: anywhere; max-height: 40dvh; overflow: auto; }
+.markdown-editor :is(button,textarea):focus-visible { outline: 2px solid currentColor; outline-offset: 3px; }

@@ -1,0 +1,40 @@
+
+  ⎿  Kept model as Sonnet 5.5
+
+❯ /effort
+  ⎿  Cancelled
+
+❯ /fast
+  ⎿  Fast mode OFF
+
+❯ /resume
+  ⎿  Resume cancelled
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ /upgrade
+  ⎿  You’re already on the highest individual plan. For additional usage, run /usage-credits.
+
+❯ /usage-credits
+  ⎿  Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ Plan task: run the shell command 'echo hi'. Do not explore anything. Immediately call ExitPlanMode with a one-line
+  plan.
+
+● Updated plan
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Create file
+ ../../../home/user/.claude/plans/plan-task-run-the-calm-tulip.md
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+  1 Run `echo hi` in the shell.
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Do you want to create plan-task-run-the-calm-tulip.md?
+ ❯ 1. Yes
+   2. Yes, and allow Claude to edit files in its ~/.claude folder for this session
+   3. No
+
+ Esc to cancel · Tab to amend

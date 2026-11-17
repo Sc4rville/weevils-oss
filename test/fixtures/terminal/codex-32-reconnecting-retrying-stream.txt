@@ -1,0 +1,11 @@
+› hi
+
+• Reconnecting... 4/5 (1s • esc to interrupt)
+  └ Unexpected status 401 Unauthorized: Incorrect API key provided: sk-dummy****************-key. You can find your API
+    key at https://platform.openai.com/account/api-keys., url: wss://api.openai.com/v1/responses, cf-ray:
+    a5a42b7aeed33032-CDG, request id: req_0d8f7d1a5b0a494d934d6b4d7038f5f0, auth error: 401, auth error code:…
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol default · /tmp/demo
+  ← for agents · ? for shortcuts

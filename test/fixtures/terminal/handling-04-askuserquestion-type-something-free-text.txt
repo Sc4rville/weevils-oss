@@ -1,0 +1,10 @@
+ ☐ Storage
+
+Where should the notes be saved?
+
+  1. Local file
+  2. SQLite
+❯ 3. In my Dropbox folder please█
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

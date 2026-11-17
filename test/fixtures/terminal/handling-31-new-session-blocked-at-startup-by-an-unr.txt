@@ -1,0 +1,1 @@
+(placeholder pane: no transcript yet, screenDialog undefined; e.g. OAuth paste, 'Press Enter to continue…', Codex request screens)

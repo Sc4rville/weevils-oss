@@ -1,0 +1,36 @@
+import { defineMessages } from '../i18n.ts'
+
+export default defineMessages({
+  fr: {
+    invalidId: "Identifiant d’automatisation invalide",
+    invalidDirectory: "Le chemin ne correspond pas à un dossier géré",
+    collision: "Ce chemin est déjà occupé ; les fichiers existants sont conservés",
+    incompleteLock: "Verrou de préparation incomplet ; vérification nécessaire avant de réessayer",
+    busy: "La préparation des automatisations est déjà en cours",
+    identity: "L’identité du code de l’automatisation ne correspond pas",
+    revisionRequired: "Une révision complète et commitée du code est nécessaire",
+    contract: "Le contrat du code a changé ; une vérification est nécessaire",
+    revisionMismatch: "La révision de l’automatisation ne correspond pas",
+    tooLarge: "Le code de l’automatisation dépasse les limites de cet exécuteur",
+    unsafeFiles: "Les liens symboliques et sous-modules ne sont pas acceptés dans le code exécutable",
+    invalidPath: "Chemin de code invalide",
+    pinnedChanged: "Le code de la version figée a été modifié",
+    entrypoint: "Le point d’entrée de l’automatisation est absent",
+  },
+  en: {
+    invalidId: "Invalid automation ID",
+    invalidDirectory: "Workspace path is not an owned directory",
+    collision: "Workspace path collision; existing files preserved",
+    incompleteLock: "Provisioning lock incomplete; retry after review",
+    busy: "Automation provisioning is already active",
+    identity: "Automation source identity mismatch",
+    revisionRequired: "A full committed source revision is required",
+    contract: "Automation source contract changed; review required",
+    revisionMismatch: "Automation revision mismatch",
+    tooLarge: "Automation source is too large for this runner",
+    unsafeFiles: "Symlinks and submodules are not executable automation source",
+    invalidPath: "Invalid source path",
+    pinnedChanged: "Pinned automation source changed",
+    entrypoint: "Automation entrypoint missing",
+  },
+})

@@ -1,0 +1,17 @@
+#!/bin/bash
+# sudo of the fake Mac. By default the person is asked for their password (as on any Mac): -n fails, and without a
+# terminal nothing can be typed. With /var/fakemac/sudo-nopasswd (ctl sudo nopasswd) the real sudo runs, without one.
+echo "sudo $*" >>/var/fakemac/calls.log
+if [ "$(id -u)" = 0 ] || [ -e /var/fakemac/sudo-nopasswd ]; then exec /opt/real/hidden/sudo "$@"; fi
+for a in "$@"; do
+  case "$a" in
+    -k | -K) exit 0 ;;
+    -n | --non-interactive) echo 'sudo: a password is required' >&2; exit 1 ;;
+    -[!-]*n*) echo 'sudo: a password is required' >&2; exit 1 ;;
+    -*) ;;
+    *) break ;;
+  esac
+done
+echo 'sudo: a terminal is required to read the password; either use the -S option to read from standard input or configure an askpass helper' >&2
+echo 'sudo: a password is required' >&2
+exit 1

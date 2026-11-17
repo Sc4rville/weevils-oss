@@ -1,0 +1,11 @@
+  Would you like to run the following command?
+
+  Reason: Need network access to fetch the headers
+
+  $ curl -sI https://example.com | head -1
+
+› 1. Yes, proceed (y)
+  2. Yes, and don't ask again for commands that start with `curl -sI` (p)
+  3. No, and tell Codex what to do differently (esc)
+
+  Press enter to confirm or esc to cancel

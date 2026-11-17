@@ -1,0 +1,25 @@
+# GitHub Actions workflow, ready to use: copy it to .github/workflows/macos.yml (pushing it needs a token with the "workflow" scope).
+# weevils on real Macs (Apple Silicon and Intel): installs it from this commit and checks the launchd service, tmux,
+# the Keychain login, restart and uninstall (test/macos/real-mac.sh). macOS runners cost ten times the minutes of
+# Linux ones on a private repository: it runs only on ci/macos-* branches and by hand.
+#   [intel] in the commit message also runs the Intel Mac; [unit] also runs the unit tests on the Mac.
+name: macos
+on:
+  push:
+    branches: ['ci/macos-**']
+  workflow_dispatch:
+jobs:
+  mac:
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [macos-26, macos-15-intel]
+    if: ${{ matrix.os == 'macos-26' || github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[intel]') }}
+    runs-on: ${{ matrix.os }}
+    timeout-minutes: 25
+    steps:
+      - uses: actions/checkout@v4
+      - name: weevils on a real Mac
+        env:
+          RUN_UNIT: ${{ (github.event_name == 'workflow_dispatch' || contains(github.event.head_commit.message, '[unit]')) && matrix.os == 'macos-26' && '1' || '0' }}
+        run: /bin/bash test/macos/real-mac.sh

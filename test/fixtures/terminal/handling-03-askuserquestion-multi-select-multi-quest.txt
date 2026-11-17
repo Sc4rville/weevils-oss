@@ -1,0 +1,13 @@
+ ☐ Features
+
+Which features do you want?
+
+❯ 1. [ ] Auth
+     Login with email
+  2. [ ] Search
+     Full text search
+  3. [ ] Type something
+     Submit
+  4. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

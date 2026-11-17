@@ -1,0 +1,10 @@
+  Approve app tool call?
+
+  geste wants to run the tool "send_message"
+
+› 1. Allow                         Run the tool and continue.
+  2. Allow for this session        Run the tool and remember this choice for this session.
+  3. Allow and don't ask me again  Run the tool and remember this choice for future tool calls.
+  4. Cancel                        Cancel this tool call.
+
+  Press enter to confirm or esc to cancel

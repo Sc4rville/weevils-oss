@@ -1,0 +1,2 @@
+  Your workspace is out of credits. Ask your workspace owner to add more. Notify owner?
+  (or) Usage limit reached. Request a limit increase from your owner to continue using codex. Request increase?

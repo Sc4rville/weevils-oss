@@ -1,0 +1,17 @@
+{
+  "$schema": "https://unpkg.com/knip@5/schema.json",
+  "entry": [
+    "src/main.tsx",
+    "server/index.ts",
+    "server/agent-coordinate.mjs",
+    "server/i18n/api.ts",
+    "public/sw.js",
+    "get/*.{mjs,js}",
+    "scripts/*.{mjs,ts}",
+    "test/**/*.{ts,mjs}"
+  ],
+  "project": ["src/**/*.{ts,tsx}", "server/**/*.{ts,mjs}", "shared/**/*.ts", "get/**/*.{mjs,js}", "scripts/**/*.{mjs,ts}"],
+  "ignore": ["harness-interface-kit/**"],
+  "ignoreDependencies": ["web-push", "@types/web-push"],
+  "ignoreBinaries": ["shellcheck"]
+}

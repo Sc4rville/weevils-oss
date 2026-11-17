@@ -1,0 +1,6 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Make auto mode your default permission mode?
+
+  ❯ Yes, set auto mode as my default permission mode
+    No, keep Manual
+

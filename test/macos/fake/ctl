@@ -1,0 +1,29 @@
+#!/bin/bash
+# ctl — sets up the fake Mac for a scenario (run as root by test/macos/run.sh). Flags are files in /var/fakemac.
+#   ctl arch arm64|x86_64        Apple Silicon (default) or Intel
+#   ctl brew                     Homebrew already installed (prefix by arch), nothing poured yet
+#   ctl gui on|off               a session is open on the Mac's screen (default) or not (SSH only)
+#   ctl sudo password|nopasswd   sudo asks for the password (default) or not
+#   ctl keychain on|off          the Keychain holds Claude Code's login, or not (default)
+#   ctl battery on|off           a MacBook (default) or a desktop Mac
+#   ctl clt on|off               Command Line Tools installed (default) or not (git and python3 are failing stubs)
+#   ctl lan-ip <address>         the Mac's address on the home network (default 192.168.1.42)
+set -euo pipefail
+state=/var/fakemac
+flag() { if [ "$2" = "$3" ]; then : >"$state/$1"; chmod 666 "$state/$1" 2>/dev/null || true; else /opt/real/bin/rm -f "$state/$1"; fi; }
+case "${1:-}" in
+  arch) case "${2:-}" in arm64 | x86_64) echo "$2" >"$state/arch" ;; *) echo "ctl arch arm64|x86_64" >&2; exit 2 ;; esac ;;
+  brew)
+    read -r arch <"$state/arch"
+    prefix=/opt/homebrew; [ "$arch" = arm64 ] || prefix=/usr/local
+    for d in bin sbin etc share Cellar; do /opt/real/bin/mkdir -p "$prefix/$d"; chown mac "$prefix/$d"; done
+    [ "$prefix" = /usr/local ] || chown mac "$prefix"
+    /opt/real/bin/cp /opt/fakemac/brew "$prefix/bin/brew"; chown mac "$prefix/bin/brew" ;;
+  gui) flag no-gui "${2:-}" off ;;
+  sudo) flag sudo-nopasswd "${2:-}" nopasswd ;;
+  keychain) flag keychain-claude "${2:-}" on ;;
+  battery) flag no-battery "${2:-}" off ;;
+  clt) flag no-clt "${2:-}" off ;;
+  lan-ip) echo "${2:?address}" >"$state/lan-ip" ;;
+  *) /opt/real/bin/sed -n '2,11p' "$0" | /opt/real/bin/sed 's/^# \{0,1\}//'; exit 2 ;;
+esac

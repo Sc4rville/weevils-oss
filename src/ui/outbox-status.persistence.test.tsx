@@ -1,0 +1,71 @@
+// @vitest-environment happy-dom
+import { act } from 'react'
+import { createRoot, type Root } from 'react-dom/client'
+import { afterEach, beforeEach, expect, it, vi } from 'vitest'
+Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
+let host: HTMLDivElement, root: Root
+beforeEach(()=>{vi.resetModules();localStorage.clear();host=document.createElement('div');document.body.append(host);root=createRoot(host)})
+afterEach(async()=>{await act(async()=>root.unmount());host.remove();vi.unstubAllGlobals()})
+it('dismiss → updated receipt snapshot → reload never resurfaces a success block or loses action idempotence',async()=>{
+ const fetcher=vi.fn(async()=>new Response(JSON.stringify({enabled:true})))
+ vi.stubGlobal('fetch',fetcher)
+ let box=await import('../outbox')
+ let UI=await import('./outbox-status')
+ const submit=vi.fn(async(messageId?:string)=>({messageId,status:'delivered',updatedAt:1}))
+ const payload={action:'prepare',eventId:'original-event'}
+ const first=await box.deliver('/api/foryou/card/act',payload,submit)
+ await box.deliver('/api/foryou/card/act',{action:'prepare',eventId:'next-event'},submit)
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/foryou/"/>))
+ expect(host.textContent).toBe('')
+ // Invoke the old dismissal entrypoint: neither this receipt nor its predecessor may disappear from storage.
+ await act(async()=>box.forgetReceipt(first.messageId))
+ expect(box.outboxSnapshot()).toHaveLength(2)
+ expect(box.outboxSnapshot().find(r=>r.messageId===first.messageId)?.dismissed).toBe(true)
+ const next=await box.deliver('/api/main',{text:'a separate real intent'},async(messageId?:string)=>({messageId,status:'accepted',updatedAt:2}))
+ fetcher.mockImplementation(async()=>new Response(JSON.stringify({...next,status:'delivered',updatedAt:3})))
+ await act(async()=>box.refreshReceipts())
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/foryou/"/>))
+ expect(host.textContent).toBe('')
+ await act(async()=>root.unmount())
+ vi.resetModules();box=await import('../outbox');UI=await import('./outbox-status')
+ root=createRoot(host)
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/foryou/"/>))
+ expect(host.querySelector('.outbox-status')).toBeNull()
+ expect(box.outboxSnapshot().find(r=>r.messageId===first.messageId)?.dismissed).toBe(true)
+ const duplicate=await box.deliver('/api/foryou/card/act',payload,submit)
+ expect(duplicate.messageId).toBe(first.messageId)
+ expect(submit).toHaveBeenCalledTimes(2)
+})
+
+it('failed receipt is reconciled by exact ID after reload without POST, and late failure cannot restore it',async()=>{
+ const row={messageId:'old-failed',url:'/api/main/attach',fingerprint:'payload',status:'failed',text:'Already received prompt',error:'Read only',updatedAt:1}
+ localStorage.setItem('weevils-outbox-v1',JSON.stringify([row]))
+ const fetcher=vi.fn(async()=>new Response(JSON.stringify({...row,status:'delivered',updatedAt:2})))
+ vi.stubGlobal('fetch',fetcher)
+ let box=await import('../outbox');let UI=await import('./outbox-status')
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/main"/>))
+ await act(async()=>box.refreshReceipts())
+ expect(host.textContent).toBe('')
+ expect(box.outboxSnapshot()[0].status).toBe('delivered')
+ expect(fetcher.mock.calls.every(([url,init]:any[])=>String(url).includes('/api/outbox/old-failed') && !init.method)).toBe(true)
+ await act(async()=>root.unmount());vi.resetModules();box=await import('../outbox');UI=await import('./outbox-status');root=createRoot(host)
+ fetcher.mockImplementation(async()=>new Response(JSON.stringify(row)))
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/main"/>))
+ expect(host.textContent).toBe('')
+ expect(box.outboxSnapshot()).toHaveLength(1)
+})
+it('closing a genuine uncertain notice survives reload while preserving payload and receipt tracking',async()=>{
+ const row={messageId:'uncertain-id',url:'/api/main',fingerprint:'payload',status:'uncertain',text:'Keep this draft',payload:{text:'Keep this draft'},updatedAt:1}
+ localStorage.setItem('weevils-outbox-v1',JSON.stringify([row]))
+ vi.stubGlobal('fetch',vi.fn(async()=>new Response(JSON.stringify(row))))
+ let box=await import('../outbox');let UI=await import('./outbox-status')
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/main"/>))
+ await act(async()=>box.forgetReceipt(row.messageId))
+ expect(host.textContent).toBe('')
+ expect(box.outboxSnapshot()[0].payload).toEqual(row.payload)
+ await act(async()=>root.unmount());vi.resetModules();box=await import('../outbox');UI=await import('./outbox-status');root=createRoot(host)
+ await act(async()=>root.render(<UI.OutboxStatus scope="/api/main"/>))
+ expect(host.textContent).toBe('')
+ expect(box.outboxSnapshot()[0].dismissed).toBe(true)
+ expect(box.outboxSnapshot()[0].status).toBe('uncertain')
+})

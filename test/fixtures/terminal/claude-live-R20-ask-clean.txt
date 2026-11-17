@@ -1,0 +1,14 @@
+● I found two ways to fix this:
+  1. Patch the parser in place
+  2. Rewrite the tokenizer
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+←  ☐ Approach  ✔ Submit  →
+Which approach should I take?
+❯ 1. Patch the parser
+     Smaller change, keeps the old tokenizer
+  2. Rewrite the tokenizer
+     Cleaner, more work
+  3. Type something.
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+Enter to select · Tab/Arrow keys to navigate · Esc to cancel

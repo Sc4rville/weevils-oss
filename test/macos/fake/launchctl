@@ -1,0 +1,378 @@
+#!/opt/real/bin/python3
+"""launchctl of the fake Mac, with a small launchd behind it.
+
+What it keeps of the real one, because the scripts under test depend on it:
+  print gui/<uid>             fails (113) when no session is open on the screen (flag file /var/fakemac/no-gui)
+  bootstrap <domain> <plist>  reads the plist with plistlib: invalid XML, no Label, no Program(Arguments), a file
+                              others can write → refused (5); a label already loaded → refused (5); then the program
+                              is STARTED for real, in the background, with the plist's WorkingDirectory,
+                              EnvironmentVariables, StandardOutPath/StandardErrorPath, and nothing else in its
+                              environment than what launchd gives (HOME, USER, LOGNAME, SHELL, TMPDIR, a bare PATH)
+  KeepAlive                   the program is started again when it exits, ThrottleInterval seconds apart at least
+  AbandonProcessGroup         without it, the program's whole process group dies with it
+  bootout                     returns at once; the job leaves launchd when its process is gone (SIGTERM, then
+                              SIGKILL after ExitTimeOut): until then `print` still finds it and `bootstrap` refuses
+  kickstart [-k]              starts a loaded job that is not running; -k kills and restarts a running one
+  print <domain>/<label>      launchd's format: "state = running", "pid = N"
+  enable, disable             accepted
+Every call is logged in /var/fakemac/calls.log. One supervisor process per loaded job plays launchd.
+"""
+import json
+import os
+import plistlib
+import resource
+import shutil
+import signal
+import subprocess
+import sys
+import time
+
+STATE = '/var/fakemac'
+ROOT = os.path.join(STATE, 'launchd')
+UID = os.getuid()
+
+
+def log(line):
+    try:
+        with open(os.path.join(STATE, 'calls.log'), 'a') as f:
+            f.write(line + '\n')
+    except OSError:
+        pass
+
+
+def die(code, msg):
+    print(msg, file=sys.stderr)
+    sys.exit(code)
+
+
+def target(t):
+    """gui/501 or gui/501/label → (kind, uid, label or None)."""
+    parts = t.split('/')
+    if len(parts) < 2 or parts[0] not in ('gui', 'user', 'system') or not parts[1].isdigit():
+        die(64, 'Unrecognized target specifier, did you mean\n' + t)
+    return parts[0], int(parts[1]), '/'.join(parts[2:]) or None
+
+
+def domain_exists(kind, uid):
+    if uid != UID:
+        return False
+    if kind == 'gui':
+        return not os.path.exists(os.path.join(STATE, 'no-gui'))
+    return kind == 'user'
+
+
+def job_dir(uid, label):
+    return os.path.join(ROOT, str(uid), label)
+
+
+def read(path, default=''):
+    try:
+        with open(path) as f:
+            return f.read().strip()
+    except OSError:
+        return default
+
+
+def write(path, text):
+    tmp = path + '.tmp'
+    with open(tmp, 'w') as f:
+        f.write(str(text))
+    os.replace(tmp, path)
+
+
+def alive(pid):
+    try:
+        os.kill(int(pid), 0)
+        return True
+    except (OSError, ValueError):
+        return False
+
+
+def loaded(kind, uid, label):
+    """The job as launchd knows it, or None. A job whose supervisor died (container cleanup) is forgotten."""
+    d = job_dir(uid, label)
+    try:
+        with open(os.path.join(d, 'job.json')) as f:
+            job = json.load(f)
+    except (OSError, ValueError):
+        return None
+    if not alive(read(os.path.join(d, 'supervisor'), '0')):
+        shutil.rmtree(d, ignore_errors=True)
+        return None
+    return job if job['domain'] == kind else None
+
+
+def not_found(kind, uid, label):
+    die(113, 'Could not find service "%s" in domain for %s: %d' % (label, 'user gui' if kind == 'gui' else kind, uid))
+
+
+# ---------------------------------------------------------------- the supervisor: launchd for one job
+
+def supervise(d, job):
+    plist = job['plist']
+    label = plist['Label']
+    keep = plist.get('KeepAlive', False)
+    throttle = float(plist.get('ThrottleInterval', 10))
+    exit_timeout = float(plist.get('ExitTimeOut', 20))
+    abandon = bool(plist.get('AbandonProcessGroup', False))
+    flags = {'stop': False, 'kick': False, 'kill': False}
+    signal.signal(signal.SIGTERM, lambda *_: flags.update(stop=True))
+    signal.signal(signal.SIGUSR1, lambda *_: flags.update(kick=True, kill=True))  # kickstart -k
+    signal.signal(signal.SIGUSR2, lambda *_: flags.update(kick=True))  # kickstart
+    write(os.path.join(d, 'supervisor'), os.getpid())
+
+    def env():
+        import pwd
+        me = pwd.getpwuid(UID)
+        e = {'HOME': me.pw_dir, 'USER': me.pw_name, 'LOGNAME': me.pw_name, 'SHELL': '/bin/zsh',
+             'PATH': '/usr/bin:/bin:/usr/sbin:/sbin', 'TMPDIR': '/var/folders/zz/fakemac/T/',
+             'XPC_SERVICE_NAME': label, 'XPC_FLAGS': '0x0', '__CF_USER_TEXT_ENCODING': '0x1F5:0x0:0x0'}
+        e.update({k: str(v) for k, v in (plist.get('EnvironmentVariables') or {}).items()})
+        return e
+
+    def limits():
+        os.setpgid(0, 0)
+        n = (plist.get('SoftResourceLimits') or {}).get('NumberOfFiles')
+        if n:
+            hard = resource.getrlimit(resource.RLIMIT_NOFILE)[1]
+            resource.setrlimit(resource.RLIMIT_NOFILE, (min(int(n), hard), hard))
+
+    def spawn():
+        e = env()
+        argv = list(plist.get('ProgramArguments') or [plist['Program']])
+        prog = plist.get('Program') or argv[0]
+        if '/' not in prog:
+            prog = shutil.which(prog, path=e['PATH']) or prog
+        try:
+            out = open(plist['StandardOutPath'], 'ab') if plist.get('StandardOutPath') else subprocess.DEVNULL
+            err = open(plist['StandardErrorPath'], 'ab') if plist.get('StandardErrorPath') else subprocess.DEVNULL
+            p = subprocess.Popen(argv, executable=prog, cwd=plist.get('WorkingDirectory') or '/', env=e,
+                                 stdin=subprocess.DEVNULL, stdout=out, stderr=err, preexec_fn=limits, close_fds=True)
+        except OSError as x:
+            # What launchd reports for a job it can't start (missing program, folder or log folder): EX_CONFIG.
+            write(os.path.join(d, 'last_exit'), '78')
+            write(os.path.join(d, 'spawn_error'), str(x))
+            return None
+        write(os.path.join(d, 'pid'), p.pid)
+        write(os.path.join(d, 'runs'), int(read(os.path.join(d, 'runs'), '0')) + 1)
+        return p
+
+    def kill(p, sig):
+        try:
+            (os.kill if abandon else os.killpg)(p.pid, sig)
+        except OSError:
+            pass
+
+    child = spawn() if plist.get('RunAtLoad') or keep else None
+    started = time.time()
+    stop_at = None
+    ok_exit = False
+    while True:
+        if child is not None and child.poll() is not None:
+            write(os.path.join(d, 'last_exit'), child.returncode)
+            try:
+                os.remove(os.path.join(d, 'pid'))
+            except OSError:
+                pass
+            if not abandon:
+                try:
+                    os.killpg(child.pid, signal.SIGKILL)
+                except OSError:
+                    pass
+            ok_exit = child.returncode == 0
+            child = None
+        if flags['stop']:
+            if child is None:
+                shutil.rmtree(d, ignore_errors=True)
+                return
+            if stop_at is None:
+                kill(child, signal.SIGTERM)
+                stop_at = time.time() + exit_timeout
+            elif time.time() > stop_at:
+                kill(child, signal.SIGKILL)
+        elif child is not None and flags['kill']:
+            flags['kill'] = False
+            kill(child, signal.SIGKILL)
+        elif child is None:
+            again = keep if isinstance(keep, bool) else not (keep.get('SuccessfulExit') is False and ok_exit)
+            if flags['kick'] or (again and time.time() - started >= throttle):
+                flags.update(kick=False, kill=False)
+                child = spawn()
+                started = time.time()
+        time.sleep(0.05)
+
+
+def start_supervisor(d, job):
+    """Double fork: the supervisor belongs to nobody's terminal, like launchd."""
+    pid = os.fork()
+    if pid:
+        os.waitpid(pid, 0)
+        return
+    os.setsid()
+    if os.fork():
+        os._exit(0)
+    null = os.open(os.devnull, os.O_RDWR)
+    for fd in (0, 1, 2):
+        os.dup2(null, fd)
+    try:
+        supervise(d, job)
+    finally:
+        os._exit(0)
+
+
+# ---------------------------------------------------------------- subcommands
+
+def bootstrap(args):
+    if len(args) != 2:
+        die(64, 'Usage: launchctl bootstrap <domain-target> <service-path>')
+    kind, uid, _ = target(args[0])
+    path = args[1]
+    if not domain_exists(kind, uid):
+        die(125, 'Bootstrap failed: 125: Domain does not support specified action')
+
+    def refuse(why):
+        log('launchctl bootstrap refused: ' + why)
+        die(5, 'Bootstrap failed: 5: Input/output error\nTry re-running the command as root for richer errors.')
+
+    try:
+        st = os.stat(path)
+        with open(path, 'rb') as f:
+            plist = plistlib.load(f)
+    except OSError:
+        refuse('no such file ' + path)
+    except Exception as x:  # plistlib raises several kinds of errors on a bad file
+        refuse('invalid property list %s (%s)' % (path, x))
+    if st.st_mode & 0o022:
+        refuse('%s can be written by others (launchd wants 644)' % path)
+    if st.st_uid != UID:
+        refuse('%s does not belong to the user' % path)
+    if not isinstance(plist, dict) or not isinstance(plist.get('Label'), str) or not plist['Label']:
+        refuse('no Label in ' + path)
+    args_ = plist.get('ProgramArguments')
+    if not plist.get('Program') and not (isinstance(args_, list) and args_ and all(isinstance(a, str) for a in args_)):
+        refuse('no Program or ProgramArguments in ' + path)
+    label = plist['Label']
+    if loaded(kind, uid, label) or loaded('user' if kind == 'gui' else 'gui', uid, label):
+        refuse('%s is already loaded' % label)
+    d = job_dir(uid, label)
+    os.makedirs(d, exist_ok=True)
+    job = {'domain': kind, 'path': os.path.abspath(path), 'plist': plist}
+    with open(os.path.join(d, 'job.json'), 'w') as f:
+        json.dump(job, f, default=str)
+    write(os.path.join(d, 'supervisor'), os.getpid())  # ours until the supervisor writes its own
+    start_supervisor(d, job)
+    for _ in range(100):
+        if read(os.path.join(d, 'supervisor')) != str(os.getpid()):
+            break
+        time.sleep(0.02)
+
+
+def bootout(args):
+    if not args:
+        die(64, 'Usage: launchctl bootout <domain-target> [service-path] | <service-target>')
+    kind, uid, label = target(args[0])
+    if label is None and len(args) > 1:
+        try:
+            with open(args[1], 'rb') as f:
+                label = plistlib.load(f).get('Label')
+        except Exception:
+            die(5, 'Boot-out failed: 5: Input/output error')
+    if label is None:
+        die(64, 'Usage: launchctl bootout <domain-target> [service-path] | <service-target>')
+    if not domain_exists(kind, uid) or not loaded(kind, uid, label):
+        die(3, 'Boot-out failed: 3: No such process')
+    os.kill(int(read(os.path.join(job_dir(uid, label), 'supervisor'))), signal.SIGTERM)
+
+
+def kickstart(args):
+    opts = [a for a in args if a.startswith('-')]
+    rest = [a for a in args if not a.startswith('-')]
+    if len(rest) != 1:
+        die(64, 'Usage: launchctl kickstart [-k] [-p] <service-target>')
+    kind, uid, label = target(rest[0])
+    if label is None or not domain_exists(kind, uid) or not loaded(kind, uid, label):
+        not_found(kind, uid, label)
+    d = job_dir(uid, label)
+    running = alive(read(os.path.join(d, 'pid'), '0'))
+    if running and '-k' not in opts:
+        return
+    os.kill(int(read(os.path.join(d, 'supervisor'))), signal.SIGUSR1 if running else signal.SIGUSR2)
+
+
+def print_(args):
+    if len(args) != 1:
+        die(64, 'Usage: launchctl print <domain-target> | <service-target>')
+    kind, uid, label = target(args[0])
+    if not domain_exists(kind, uid):
+        die(113, 'Could not find domain for')
+    if label is None:
+        print('%s/%d = {\n\ttype = %s\n\thandle = %d\n\tactive count = 1\n\tservice count = 1\n\n\tservices = {' % (kind, uid, 'user gui' if kind == 'gui' else 'user', uid))
+        base = os.path.join(ROOT, str(uid))
+        for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+            if loaded(kind, uid, name):
+                print('\t\t%8s      0 \t%s' % (read(os.path.join(base, name, 'pid'), '0'), name))
+        print('\t}\n}')
+        return
+    job = loaded(kind, uid, label)
+    if not job:
+        not_found(kind, uid, label)
+    d = job_dir(uid, label)
+    plist = job['plist']
+    pid = read(os.path.join(d, 'pid'))
+    running = bool(pid) and alive(pid)
+    argv = plist.get('ProgramArguments') or [plist.get('Program')]
+    out = ['%s/%d/%s = {' % (kind, uid, label), '\tactive count = %d' % (1 if running else 0), '\tpath = ' + job['path'],
+           '\ttype = LaunchAgent', '\tstate = ' + ('running' if running else 'not running'), '',
+           '\tprogram = ' + str(plist.get('Program') or argv[0]), '\targuments = {'] + ['\t\t' + str(a) for a in argv] + ['\t}', '']
+    if plist.get('WorkingDirectory'):
+        out += ['\tworking directory = ' + plist['WorkingDirectory'], '']
+    for key, name in (('StandardOutPath', 'stdout path'), ('StandardErrorPath', 'stderr path')):
+        if plist.get(key):
+            out.append('\t%s = %s' % (name, plist[key]))
+    out += ['\tdefault environment = {', '\t\tPATH => /usr/bin:/bin:/usr/sbin:/sbin', '\t}', '', '\tenvironment = {']
+    out += ['\t\t%s => %s' % kv for kv in (plist.get('EnvironmentVariables') or {}).items()]
+    out += ['\t\tXPC_SERVICE_NAME => ' + label, '\t}', '', '\tdomain = %s/%d [100003]' % (kind, uid), '\tasid = 100003',
+            '\tminimum runtime = %s' % plist.get('ThrottleInterval', 10), '\texit timeout = %s' % plist.get('ExitTimeOut', 5),
+            '\truns = ' + read(os.path.join(d, 'runs'), '0')]
+    if running:
+        out.append('\tpid = ' + pid)
+    last = read(os.path.join(d, 'last_exit'))
+    out += ['\timmediate reason = speculative', '\tforks = 0', '\texecs = 1', '\tinitialized = 1',
+            '\tlast exit code = ' + (last or '(never exited)'), '}']
+    print('\n'.join(out))
+
+
+def list_(args):
+    print('PID\tStatus\tLabel')
+    base = os.path.join(ROOT, str(UID))
+    for name in sorted(os.listdir(base)) if os.path.isdir(base) else []:
+        if loaded('gui', UID, name) or loaded('user', UID, name):
+            print('%s\t%s\t%s' % (read(os.path.join(base, name, 'pid')) or '-', read(os.path.join(base, name, 'last_exit')) or '0', name))
+
+
+def main():
+    args = sys.argv[1:]
+    log('launchctl ' + ' '.join(args))
+    if not args:
+        die(64, 'Usage: launchctl <subcommand> ... | help [subcommand]')
+    cmd, rest = args[0], args[1:]
+    if cmd == 'bootstrap':
+        bootstrap(rest)
+    elif cmd == 'bootout':
+        bootout(rest)
+    elif cmd == 'kickstart':
+        kickstart(rest)
+    elif cmd == 'print':
+        print_(rest)
+    elif cmd in ('enable', 'disable'):
+        if len(rest) != 1 or target(rest[0])[2] is None:
+            die(64, 'Usage: launchctl %s <service-target>' % cmd)
+    elif cmd == 'list':
+        list_(rest)
+    elif cmd == 'managername':
+        print('Aqua' if domain_exists('gui', UID) else 'Background')
+    else:
+        die(65, 'fake launchctl: "%s" is not emulated (test/macos/fake/launchctl)' % cmd)
+
+
+main()

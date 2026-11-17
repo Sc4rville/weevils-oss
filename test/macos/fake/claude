@@ -1,0 +1,8 @@
+#!/bin/bash
+# Claude Code, as a stub (the real one is a big download and needs an account). In a terminal (a tmux pane) it
+# stays open like the real one; anywhere else it prints one line and leaves.
+case "${1:-}" in
+  --version | -v) echo "2.0.0 (Claude Code)"; exit 0 ;;
+esac
+echo "fake claude $*"
+if [ -t 0 ]; then exec /opt/real/bin/sleep 3600; fi

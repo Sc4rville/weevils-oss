@@ -1,0 +1,70 @@
+/* Vue d'un fichier qu'on interroge : lignes numérotées, mots qui répondent au tap, barre de mots sous la sélection. */
+
+.code.lines {
+  white-space: normal;
+  /* Le doigt fait défiler verticalement ; l'horizontal est à nous (sélection), les lignes passent donc à la ligne. */
+  touch-action: pan-y;
+  -webkit-user-select: none;
+  user-select: none;
+  -webkit-touch-callout: none;
+  -webkit-tap-highlight-color: transparent;
+}
+
+.code.lines .cl {
+  display: grid;
+  grid-template-columns: calc(var(--gw) + 14px) minmax(0, 1fr);
+}
+
+/* La marge des numéros : un tap prend la ligne, un glissé prend des lignes (aucun défilement depuis la marge). */
+.code.lines .cg {
+  text-align: right;
+  padding-right: 12px;
+  opacity: 0.32;
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.6875rem;
+  font-variant-numeric: tabular-nums;
+  line-height: inherit;
+  touch-action: none;
+  cursor: pointer;
+}
+
+.code.lines .ct {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  min-width: 0;
+  cursor: text;
+}
+
+/* Le surlignage : la couleur du projet, un cran plus franche. */
+.code.lines mark {
+  color: inherit;
+  background: oklch(from var(--c) calc(l + var(--dl) * 2.2) calc(c * 1.7) h);
+  animation: cv-mark 0.16s ease-out;
+}
+
+.code.lines .whole .cg {
+  opacity: 1;
+  font-weight: 750;
+}
+
+.code.lines .flash .ct {
+  animation: cv-flash 1.6s ease-out;
+}
+
+@keyframes cv-mark {
+  from { background: transparent; }
+}
+
+@keyframes cv-flash {
+  0%, 30% { background: oklch(from var(--c) calc(l + var(--dl) * 2.2) calc(c * 1.7) h); }
+  100% { background: transparent; }
+}
+
+/* Sous une ligne du fichier : la réponse s'aligne sur le code, la barre part du bord du texte (elle tient sur une ligne de téléphone). */
+.code.lines .qa {
+  padding-left: calc(var(--gw) + 14px);
+}
+
+.code.lines .qa .words.qa-bar {
+  margin-left: calc(-1 * (var(--gw) + 14px));
+}

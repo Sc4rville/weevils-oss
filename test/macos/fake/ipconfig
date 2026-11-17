@@ -1,0 +1,7 @@
+#!/bin/bash
+# ipconfig of the fake Mac: `ipconfig getifaddr en0` prints the Mac's address on the home network.
+[ "${1:-}" = getifaddr ] || { echo "fake ipconfig: only 'ipconfig getifaddr <interface>' is emulated" >&2; exit 65; }
+[ "${2:-}" = en0 ] && [ ! -e /var/fakemac/no-network ] || exit 1
+ip=192.168.1.42
+[ ! -s /var/fakemac/lan-ip ] || read -r ip </var/fakemac/lan-ip
+echo "$ip"

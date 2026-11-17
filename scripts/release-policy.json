@@ -1,0 +1,40 @@
+{
+  "schemaVersion": 1,
+  "repository": "Sc4rville/weevils",
+  "exclude": [
+    "harness-interface-kit/**",
+    "content/avatar-memes-20261111/**",
+    "docs/incidents/**",
+    "docs/decisions.md",
+    "docs/foryou.md",
+    "docs/plan.md",
+    "docs/vision.md",
+    ".git/**",
+    "**/.git/**",
+    ".claude/**",
+    ".codex/**",
+    ".config/**",
+    ".local/**",
+    ".ssh/**",
+    "node_modules/**",
+    "dist/**",
+    "build/**",
+    "recordings/**",
+    "voice-archive/**",
+    "voice-archives/**",
+    "**/private-previews/**",
+    "**/voice-archive/**",
+    "*.bundle",
+    "*.pem",
+    "*.key",
+    "cookies*.txt"
+  ],
+  "legacyCandidates": {
+    "5798ba21aeab1b817fb8f00a1b816056dde80825": {
+      "name": "0.1.0-rc.2",
+      "sourceCommit": "ba46ee0f0750ebfd1c3cbcd619060b9741fe85e0",
+      "applicationBase": "099b4202f994bcacb02793e4dedb72577f54da75",
+      "validationFile": "docs/release-validation.json"
+    }
+  }
+}

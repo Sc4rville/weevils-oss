@@ -1,0 +1,10 @@
+#!/bin/bash
+# /usr/bin/git and /usr/bin/python3 of the fake Mac: the real tool when the Command Line Tools are installed,
+# otherwise the stub macOS has there, which opens an install dialog and fails.
+tool=${0##*/}
+if [ -e /var/fakemac/no-clt ]; then
+  echo "xcrun: error: invalid active developer path (/Library/Developer/CommandLineTools), missing xcrun at: /Library/Developer/CommandLineTools/usr/bin/xcrun" >&2
+  echo "clt-stub $tool" >>/var/fakemac/calls.log
+  exit 1
+fi
+exec "/opt/real/bin/$tool" "$@"

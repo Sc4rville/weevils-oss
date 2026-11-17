@@ -1,0 +1,15 @@
+#!/bin/bash
+# caffeinate of the fake Mac: logs the call; with -w <pid>, lives as long as that process.
+echo "caffeinate $*" >>/var/fakemac/calls.log
+pid=''
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -w) pid=${2:-}; shift ;;
+    -t) shift ;;
+    -*) ;;
+    *) exec "$@" ;;
+  esac
+  shift
+done
+if [ -n "$pid" ]; then while kill -0 "$pid" 2>/dev/null; do /opt/real/bin/sleep 1; done; exit 0; fi
+exec /opt/real/bin/sleep 2147483647

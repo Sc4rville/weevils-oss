@@ -1,0 +1,49 @@
+/* A project's page (src/ui/project-screen.tsx): small calm lines, weight for what is active, air between the groups. */
+
+.pj {
+  padding-block: 2px 14px;
+}
+
+.pj ul {
+  list-style: none;
+  margin: 0;
+  padding: 0;
+}
+
+.pj-feed + .pj-todo {
+  margin-top: 16px;
+}
+
+.pj-line {
+  display: block;
+  width: 100%;
+  padding-block: 5px;
+  text-align: left;
+  font-size: 0.875rem;
+  line-height: 1.35;
+  font-weight: 400;
+  white-space: nowrap;
+  overflow: hidden;
+  /* No « … »: a long line fades out at the right edge. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+.pj-line.on {
+  font-weight: 650;
+}
+
+.pj-line.rest {
+  opacity: 0.45;
+}
+
+.pj-older {
+  padding-block: 6px 2px;
+}
+
+/* The page body is a flex column: one block so the lines take the page's width, not their max. */
+.pj-page {
+  width: 100%;
+  min-width: 0;
+  padding-top: 12px;
+}

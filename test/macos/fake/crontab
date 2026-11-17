@@ -1,0 +1,6 @@
+#!/bin/bash
+# crontab exists on a Mac, but touching it asks for a privacy permission (and launchd does the job): the scripts
+# must never call it there. A call is a failure of the test (forbidden.log).
+echo "crontab $* :: called on a Mac" >>/var/fakemac/forbidden.log
+echo "crontab: must not be called on a Mac (test/macos)" >&2
+exit 1

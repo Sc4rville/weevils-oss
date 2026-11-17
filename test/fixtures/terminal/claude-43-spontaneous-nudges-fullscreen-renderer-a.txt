@@ -1,0 +1,13 @@
+  Try the new fullscreen renderer?
+   · Flicker-free output
+   · Selected text auto-copies to your clipboard
+  ❯ 1. Yes, try it
+    2. Not now
+    3. Don't show again
+---
+  Make auto mode your default permission mode?
+  ❯ Yes, set auto mode as my default permission mode
+    No, keep Manual
+---
+  LSP plugin recommendation … Would you like to install this LSP plugin?
+  ❯ 1. Yes / 2. No, not now / 3. Never for this plugin / 4. Disable all LSP recommendations

@@ -1,0 +1,28 @@
+{
+ "_about": "What session 68fd4d11 (weevils voice mode, 2026-11-14) published in For you, read back with `weevils read 68fd4d11` and the stored feed. The card's caption claims « interrupt anytime »; the session's own report says interruption mid-answer was never tested on a real iPhone. Regression fixture for evidence labels (shared/evidence.ts).",
+ "session": "68fd4d11-3013-4bab-95cb-e376f28bbfd2",
+ "card": {
+  "id": "v:fa3e957d815b",
+  "kind": "media",
+  "tone": "result",
+  "who": "session",
+  "projectId": "weevils",
+  "title": "weevils · Live voice mode: talk naturally, interrupt anytime, the work still runs on Claude",
+  "file": "live-mode.mp4"
+ },
+ "report": {
+  "summary": "I built the live voice mode for weevboss and published a demo clip, but I still haven't tested an interruption mid-answer on a real iPhone.",
+  "body": "Le clip est publié dans « for you », avec la légende demandée.\n\n- **Contenu du clip :** un iPhone émulé sur ton instance réelle. Appui long sur le logo, puis la ligne « live · 0:07 · … ¢ » et l'état « weevboss s'en occupe ». Il est muet.\n- **Test de l'appui long :** il a lancé une vraie session live, qui a envoyé une demande de plus à weevboss. Ce n'est pas un bug, mais ça s'ajoute à mes tests d'avant dans ton fil.\n- **Interruption :** je ne l'ai toujours pas testée en plein milieu d'une réponse.\n- **Ce qu'il te reste :** essayer toi-même sur l'iPhone et me dire si la coupure de voix te convient. Je l'ai testée en simulation, mais pas encore avec un vrai micro."
+ },
+ "evidence": {
+  "demonstrated": "emulated iPhone on the real instance (silent clip)",
+  "limits": [
+   "Interruption not tested on a real iPhone"
+  ]
+ },
+ "commit": {
+  "sha": "7454d18",
+  "message": "feat(voice): live conversation mode through Gemini Live, the work still goes to weevboss\n\nHold weevboss's logo for a live spoken conversation: Gemini Live (gemini-3.8-live,\nnative audio, its own turn detection and barge-in) is only the voice layer. Every\nconcrete request goes to weevboss through sendMain, the same path as a typed message,\nand Gemini says the gist of weevboss's written answer.\n\n- server/live.ts: /api/live websocket proxied to Gemini by weevilsd (key in a header,\n  never in the browser), same sign-in plus a same-origin check; cost measured from\n  Gemini's usage counts; closes after 2 min of silence (30 min ceiling); billing,\n  quota and key refusals reach the app as one plain word.\n- src/live.ts: 16 kHz PCM capture worklet with a light voice gate, 24 kHz playback\n  dropped at once on interruption.\n- src/ui/live.tsx: one calm line under the logo (live · time · cost), the masked\n  GEMINI_API_KEY field when the key is missing. Cartesia path untouched.\n- English or French following the explicit app locale."
+ },
+ "verifiedCommit": "fix(voice): interruption verified on a real iPhone, works\n\nTested barge-in end to end: verified, works on iPhone Safari PWA."
+}

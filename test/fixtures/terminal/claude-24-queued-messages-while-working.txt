@@ -1,0 +1,7 @@
+❯ add tests
+✶ Reticulating… (34s · ↓ 1.2k tokens)
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ also update the README
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Press up to edit queued messages
+  ⏵⏵ bypass permissions on (shift+tab to cycle) · esc to interrupt

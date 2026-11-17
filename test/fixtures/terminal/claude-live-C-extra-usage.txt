@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  Sonnet 5.5 · Claude Ultra
+ ▝▝   ▝▝   /tmp/demo/proj
+
+⚠ Allow rule "Read(*)" adds nothing to Read's default, which already runs without asking in the working directories.
+  "Read" alone allows every path. Older versions of Claude Code treat "Read(*)" as "Read", and this version will too if
+  Anthropic turns this change off.
+⚠ Allow rule "Write(*)" lets Write run without asking only in the working directories. "Write" alone allows every path.
+  Older versions of Claude Code treat "Write(*)" as "Write", and this version will too if Anthropic turns this change
+  off.
+⚠ Allow rule "Edit(*)" lets Edit run without asking only in the working directories. "Edit" alone allows every path.
+  Older versions of Claude Code treat "Edit(*)" as "Edit", and this version will too if Anthropic turns this change off.
+
+❯ /model
+  ⎿  Kept model as Sonnet 5.5
+
+❯ /effort
+  ⎿  Cancelled
+
+❯ /fast
+  ⎿  Fast mode OFF
+
+❯ /resume
+  ⎿  Resume cancelled
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+
+
+
+
+                                                                                                    ◐ medium · /effort
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ auto mode on (shift+tab to cycle)

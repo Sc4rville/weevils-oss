@@ -1,0 +1,1 @@
+(MCP server asks for input: text fields or 'open this URL to authenticate'; no numbered ❯ option row)

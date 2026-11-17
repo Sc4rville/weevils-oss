@@ -1,0 +1,1 @@
+(any dialog screenDialog misses, e.g. footer more than 8 lines above the bottom, or description lines breaking the no-footer fallback)

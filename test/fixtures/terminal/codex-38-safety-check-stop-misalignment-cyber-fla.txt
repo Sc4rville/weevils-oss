@@ -1,0 +1,3 @@
+■ We couldn't confirm the agent was acting safely and following your instructions. To continue working, start or resume another chat.
+  Acknowledge findings and continue
+(or) Your conversations have multiple flags for possible cybersecurity risk. Responses may take longer because extra safety checks are on.

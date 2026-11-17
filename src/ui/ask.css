@@ -1,0 +1,147 @@
+/* Questions sur une sélection (src/ui/ask.tsx) : barre de mots, question, réponse sur place, logo de weevboss en haut de page. */
+
+/* Sous la sélection : la barre de mots, la question, la réponse. Police de l'app, texte sélectionnable. */
+.qa {
+  white-space: normal;
+  font-family: var(--font);
+  -webkit-user-select: text;
+  user-select: text;
+  padding: 2px 0 12px;
+  touch-action: auto;
+  /* Amenée sous les yeux (reveal), elle s'arrête au-dessus du logo flottant des pages (48 px + 8 px + de l'air). */
+  scroll-margin-bottom: 72px;
+}
+
+.qa .words.qa-bar {
+  column-gap: 12px;
+  flex-wrap: nowrap;
+  overflow-x: auto;
+  scrollbar-width: none;
+  white-space: nowrap;
+  min-height: 42px;
+}
+
+.qa .qa-bar .word {
+  font-size: 0.9rem;
+  font-weight: 650;
+  opacity: 0.55;
+  flex: none;
+  min-height: 40px;
+}
+
+.qa .qa-bar .word.on {
+  font-weight: 800;
+  opacity: 1;
+}
+
+.qa-ask {
+  scroll-margin-bottom: 72px;
+  display: flex;
+  align-items: center;
+  gap: 8px;
+  min-height: 44px;
+  font-size: 1.0625rem;
+}
+
+.qa-ask input {
+  flex: 1;
+  min-width: 0;
+  font-weight: 650;
+}
+
+.qa-answer {
+  padding-top: 4px;
+  font-size: 1.0625rem;
+}
+
+.qa-text {
+  margin: 0;
+  font-weight: 600;
+  line-height: 1.4;
+  animation: cv-in 0.22s ease-out;
+}
+
+@keyframes cv-in {
+  from { opacity: 0; transform: translateY(4px); }
+}
+
+.qa-hits {
+  display: grid;
+  padding-top: 6px;
+}
+
+.qa-hit {
+  display: grid;
+  padding-block: 6px;
+  font-size: 0.875rem;
+  min-width: 0;
+}
+
+.qa-snip {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.75rem;
+  opacity: 0.7;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+/* Le logo de weevboss dans une page : il flotte par-dessus le fil, en bas à gauche à portée du pouce, juste au-dessus de
+   la saisie (il ne la masque jamais et suit sa hauteur). L'ancre n'a aucune hauteur : il ne prend aucune place. */
+.page-dock {
+  flex: none;
+  position: relative;
+  height: 0;
+  z-index: 5;
+}
+
+.page-voice {
+  position: absolute;
+  left: calc(var(--pad) - 6px);
+  bottom: 8px;
+}
+
+.page-main.no-foot .page-voice {
+  bottom: calc(8px + var(--safe-b));
+}
+
+/* Sous la dernière ligne du fil, la place du logo (48 px + 8 px de marge, + un peu d'air) : en bas du fil, rien n'est caché dessous. */
+.page-main:has(> .page-dock) > .page-body > .fill {
+  min-height: 64px;
+}
+
+.page-main.no-foot:has(> .page-dock) > .page-body > .fill {
+  min-height: calc(64px + var(--safe-b));
+}
+
+.page-voice .voice-logo {
+  height: 48px;
+  min-height: 0;
+}
+
+/* Pendant un glissé : la barre reste en place, en retrait. */
+.qa.held {
+  opacity: 0.25;
+  pointer-events: none;
+}
+
+/* ---------- Dans un fil (askthread.tsx) ---------- */
+
+/* Le doigt fait défiler verticalement ; un glissé horizontal sur un mot sélectionne. */
+.ask-thread {
+  touch-action: pan-y;
+}
+
+/* La barre et la réponse, sous le message, dans la couleur de la page. */
+.qa-band {
+  background: transparent;
+}
+
+/* Le surlignage du mot ou de la sélection, sans toucher au rendu du message : la couleur du fond, un cran plus franche. */
+::highlight(wv-ask) {
+  background-color: rgb(0 0 0 / 0.16);
+}
+
+[data-theme='dark'] ::highlight(wv-ask) {
+  background-color: rgb(255 255 255 / 0.24);
+}

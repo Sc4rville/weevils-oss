@@ -1,0 +1,8 @@
+#!/bin/bash
+# scutil of the fake Mac: the names set in System Settings.
+case "$*" in
+  '--get ComputerName') echo "Fake Mac" ;;
+  '--get LocalHostName') echo "Fake-Mac" ;;
+  '--get HostName') echo 'HostName: not set' >&2; exit 1 ;;
+  *) echo "fake scutil: only 'scutil --get <name>' is emulated" >&2; exit 65 ;;
+esac

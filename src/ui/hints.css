@@ -1,0 +1,52 @@
+/* First-tap hints: one small flat ink bubble next to the element, bold text, sharp corners, no shadow. A square
+   notch points at the element. */
+
+.hint-live {
+  position: fixed;
+  inset: 0;
+  z-index: 55;
+  pointer-events: none;
+}
+
+.hint {
+  position: fixed;
+  width: min(300px, calc(100vw - 20px));
+  background: #000;
+  color: #fff;
+  pointer-events: auto;
+  cursor: pointer;
+}
+
+/* Ink on whatever band is under it: black in light, white in dark. */
+[data-theme='dark'] .hint {
+  background: #fff;
+  color: #000;
+}
+
+.hint-text {
+  margin: 0;
+  padding: 12px 14px 13px;
+  font-size: 1.0625rem;
+  font-weight: 800;
+  line-height: 1.22;
+  letter-spacing: -0.01em;
+  overflow-wrap: anywhere;
+}
+
+/* The notch: a small square of the bubble's color turned 45°, half outside it, on the side of the element. */
+.hint-notch {
+  position: absolute;
+  left: calc(var(--notch) - 7px);
+  width: 14px;
+  height: 14px;
+  background: inherit;
+  transform: rotate(45deg);
+}
+
+.hint.below .hint-notch {
+  top: -7px;
+}
+
+.hint.above .hint-notch {
+  bottom: -7px;
+}

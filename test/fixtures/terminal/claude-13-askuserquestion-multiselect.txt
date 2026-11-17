@@ -1,0 +1,12 @@
+←  ☒ File name  ☐ Words  ✔ Submit  →
+Which words to include?
+❯ 1. [ ] hi
+         Include the word hi
+  2. [ ] hello
+         Include the word hello
+  3. [ ] Type something
+     Submit
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  4. Chat about this
+Enter to select · Tab/Arrow keys to navigate · Esc to cancel
+───────────────────────────────────────────────────────────────────────────────────────────────────── run-echo-command ─

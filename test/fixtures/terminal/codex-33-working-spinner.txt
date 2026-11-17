@@ -1,0 +1,10 @@
+› Run exactly this shell command and nothing else: curl -sI https://example.com | head -1
+
+• Working (0s • esc to interrupt)
+
+                                                                                     ⚠ weekly limit: 16% left · /status
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol high · /tmp/demo · Create hello.txt
+  ← for agents · ? for shortcuts                                                               ⚠ 1 warning · f2 to view

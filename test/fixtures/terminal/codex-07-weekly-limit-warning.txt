@@ -1,0 +1,8 @@
+⚠ Heads up, you have less than 25% of your weekly limit left. Run /status for a breakdown.
+
+                                                                                     ⚠ weekly limit: 16% left · /status
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol high · /tmp/demo
+  ← for agents · ? for shortcuts                                                               ⚠ 1 warning · f2 to view

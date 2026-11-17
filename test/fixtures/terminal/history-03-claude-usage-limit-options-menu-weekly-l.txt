@@ -1,0 +1,10 @@
+[log verbatim: 'dernier écran : What do you want to do?'; transcript verbatim: "You've hit your weekly limit · resets Nov 13, 4pm (UTC)" (isApiErrorMessage, error rate_limit); menu reconstructed from claude 2.1.322 strings]
+  ⎿  You've hit your weekly limit · resets Nov 13, 4pm (UTC)
+
+ What do you want to do?
+
+ ❯ 1. Wait here, then continue automatically at Nov 13, 4pm
+   2. Wait for limit to reset
+   3. Upgrade your plan
+
+ Enter to confirm · Esc to cancel

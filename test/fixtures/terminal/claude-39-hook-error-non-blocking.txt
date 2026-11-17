@@ -1,0 +1,7 @@
+  Ran 1 shell command
+  ⎿  PostToolUse:Bash hook error
+  ⎿  Failed with non-blocking status code: inventory-hook-failed
+
+● echo hi a affiché hi.
+
+✻ Baked for 9s · done 7:08 AM

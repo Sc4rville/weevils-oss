@@ -1,0 +1,5 @@
+#!/bin/bash
+# pmset of the fake Mac: a MacBook on mains power, or a desktop Mac (ctl battery off).
+[ "${1:-}" = -g ] && [ "${2:-}" = batt ] || { echo "fake pmset: only 'pmset -g batt' is emulated" >&2; exit 65; }
+echo "Now drawing from 'AC Power'"
+[ -e /var/fakemac/no-battery ] || printf ' -InternalBattery-0 (id=23855203)\t100%%; charged; 0:00 remaining present: true\n'

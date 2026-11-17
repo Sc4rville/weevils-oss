@@ -1,0 +1,955 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#c9b6ff">
+<title>weevils — your AI dev team, in your pocket</title>
+<meta name="description" content="Run Claude Code and Codex agents on your own server and drive them from your phone, set up in a few minutes.">
+<!-- The preview when the link is pasted (Twitter/X, iMessage, WhatsApp…): og.png, from Sc4rville/weevils-content (productions/og/weevils-og-ask.png); ?v= is its sha256, so X fetches a new card. -->
+<link rel="canonical" href="https://tryweevils.scarville.tech/">
+<meta property="og:type" content="website">
+<meta property="og:site_name" content="weevils">
+<meta property="og:url" content="https://tryweevils.scarville.tech/">
+<meta property="og:title" content="weevils — your AI dev team, in your pocket">
+<meta property="og:description" content="Run Claude Code and Codex agents on your own server and drive them from your phone, set up in a few minutes.">
+<meta property="og:image" content="https://tryweevils.scarville.tech/og.png?v=c698e215">
+<meta property="og:image:type" content="image/png">
+<meta property="og:image:width" content="1200">
+<meta property="og:image:height" content="630">
+<meta property="og:image:alt" content="weevils: you can ask weevils to build weevils">
+<meta name="twitter:card" content="summary_large_image">
+<meta name="twitter:title" content="weevils — your AI dev team, in your pocket">
+<meta name="twitter:description" content="Run Claude Code and Codex agents on your own server and drive them from your phone, set up in a few minutes.">
+<meta name="twitter:image" content="https://tryweevils.scarville.tech/og.png?v=c698e215">
+<meta name="twitter:image:alt" content="weevils: you can ask weevils to build weevils">
+<link rel="icon" href="/favicon-32.png">
+<link rel="apple-touch-icon" href="/icon-180.png">
+<style>
+  :root {
+    --font: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+    --ink: #000;
+    --a: oklch(0.80 0.14 297.5); --b: oklch(0.80 0.14 162.5); --c: oklch(0.80 0.14 72.5); --d: oklch(0.80 0.14 230);
+    --e: oklch(0.80 0.14 27.5); --soft: oklch(0.96 0.02 297.5);
+    --pad: 20px;
+  }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: #fff; color: var(--ink); font-family: var(--font); -webkit-text-size-adjust: 100%; }
+  body { min-height: 100dvh; padding-bottom: env(safe-area-inset-bottom, 0); }
+  a { color: inherit; }
+  .band { padding: 22px var(--pad); }
+  .wrap { max-width: 560px; margin: 0 auto; }
+  header.band { background: var(--a); padding-top: calc(18px + env(safe-area-inset-top, 0px)); }
+  .brand { display: flex; align-items: center; gap: 10px; font-weight: 800; font-size: 20px; letter-spacing: -0.02em; }
+  .brand img { width: 40px; height: 40px; }
+  .lang { margin-left: auto; background: none; border: 2px solid #000; border-radius: 99px; font: 700 13px var(--font); padding: 4px 10px; color: #000; cursor: pointer; }
+  h1 { font-size: clamp(30px, 8.5vw, 44px); line-height: 1.04; letter-spacing: -0.035em; margin: 18px 0 10px; }
+  h2 { font-size: 22px; letter-spacing: -0.02em; margin: 0 0 8px; }
+  p { font-size: 17px; line-height: 1.4; margin: 0 0 10px; }
+  .lead { font-size: 18px; }
+  .small { font-size: 14px; opacity: .75; }
+  .choice { display: block; width: 100%; text-align: left; border: 0; border-radius: 0; padding: 20px var(--pad); font: inherit; color: var(--ink); cursor: pointer; }
+  .choice .wrap { display: flex; align-items: center; gap: 14px; }
+  .choice b { display: block; font-size: 19px; letter-spacing: -0.015em; margin-bottom: 3px; }
+  .choice span { display: block; font-size: 15px; line-height: 1.35; opacity: .8; }
+  .choice .go { margin-left: auto; font-size: 26px; font-weight: 700; }
+  .choice:active { filter: brightness(.94); }
+  .tag { display: inline-block; font-size: 12px; font-weight: 700; text-transform: uppercase; letter-spacing: .04em; background: #000; color: #fff; padding: 2px 7px; border-radius: 99px; margin-left: 6px; vertical-align: 2px; }
+  .b1 { background: var(--b); } .b2 { background: var(--c); } .b3 { background: var(--d); } .b4 { background: var(--e); } .b5 { background: var(--soft); }
+  label { display: block; font-weight: 600; font-size: 15px; margin: 14px 0 6px; }
+  input, textarea { width: 100%; font: inherit; font-size: 17px; padding: 13px 14px; border: 2px solid #000; border-radius: 12px; background: #fff; color: #000; }
+  textarea { min-height: 120px; font-family: ui-monospace, 'SF Mono', Menlo, monospace; font-size: 12px; }
+  .row { display: flex; gap: 10px; }
+  .row > :first-child { flex: 1; }
+  .btn { display: inline-flex; align-items: center; justify-content: center; gap: 8px; width: 100%; margin-top: 16px; padding: 16px 18px; font: inherit; font-size: 18px; font-weight: 700; border: 0; border-radius: 14px; background: #000; color: #fff; cursor: pointer; text-decoration: none; }
+  .btn.light { background: #fff; color: #000; border: 2px solid #000; }
+  .btn[disabled] { opacity: .45; }
+  .link { background: none; border: 0; font: inherit; font-size: 15px; text-decoration: underline; padding: 8px 0; cursor: pointer; color: inherit; }
+  .back { background: none; border: 0; font: inherit; font-size: 16px; font-weight: 600; padding: 0; margin-bottom: 8px; cursor: pointer; color: inherit; }
+  ol.how { padding-left: 22px; margin: 6px 0 0; } ol.how li { font-size: 16px; line-height: 1.4; margin: 6px 0; }
+  .cmd { display: flex; align-items: stretch; margin-top: 10px; border: 2px solid #000; border-radius: 12px; overflow: hidden; background: #fff; }
+  .cmd code { flex: 1; padding: 13px 12px; font: 600 14px/1.35 ui-monospace, 'SF Mono', Menlo, monospace; word-break: break-all; user-select: all; -webkit-user-select: all; }
+  .cmd button { border: 0; border-left: 2px solid #000; background: #000; color: #fff; font: inherit; font-weight: 700; padding: 0 16px; cursor: pointer; }
+  .sizes { display: grid; gap: 10px; margin-top: 14px; }
+  .size { display: grid; gap: 3px; text-align: left; padding: 14px; border: 2px solid #000; border-radius: 12px; background: #fff; color: #000; font: inherit; cursor: pointer; }
+  .size b { font-size: 18px; } .size span { font-size: 15px; opacity: .8; } .size strong { font-size: 16px; }
+  .size.on { background: #000; color: #fff; } .size.on .tag { background: #fff; color: #000; }
+  .sizes + p.small { margin-top: 10px; }
+  .quote { margin-top: 14px; padding: 14px; border: 2px solid #000; border-radius: 12px; background: #fff; }
+  .quote b { font-size: 22px; }
+  .srvs { display: grid; gap: 10px; margin-top: 12px; }
+  .srv { display: grid; gap: 3px; padding: 12px; border: 2px solid #000; border-radius: 12px; background: #fff; }
+  .srv b { font-size: 16px; } .srv span { font-size: 14px; opacity: .8; } .srv .btn { margin-top: 8px; padding: 12px; font-size: 16px; }
+  .quote .btn { margin-top: 10px; }
+  .err { margin-top: 14px; padding: 12px 14px; border-radius: 12px; background: #000; color: #fff; font-size: 15px; line-height: 1.4; }
+  ul.steps { list-style: none; padding: 0; margin: 14px 0 0; }
+  ul.steps li { display: flex; align-items: center; gap: 12px; padding: 9px 0; font-size: 17px; opacity: .45; }
+  ul.steps li.done, ul.steps li.now { opacity: 1; }
+  ul.steps li.now { font-weight: 700; }
+  ul.steps i { width: 22px; height: 22px; flex: none; border-radius: 50%; border: 2px solid #000; display: grid; place-items: center; font-style: normal; font-size: 13px; font-weight: 800; }
+  ul.steps li.done i { background: #000; color: #fff; }
+  ul.steps li.now i { border-color: #000 transparent #000 transparent; animation: spin 1s linear infinite; }
+  @keyframes spin { to { transform: rotate(360deg); } }
+  .bar { height: 10px; border: 2px solid #000; border-radius: 99px; overflow: hidden; margin-top: 14px; background: #fff; }
+  .bar div { height: 100%; background: #000; width: 4%; transition: width .6s; }
+  .qr { display: grid; place-items: center; margin: 16px 0 8px; }
+  .qr img, .qr svg { width: min(280px, 80vw); height: auto; background: #fff; padding: 10px; border: 2px solid #000; border-radius: 12px; }
+  .note { font-size: 14px; line-height: 1.4; opacity: .8; margin-top: 12px; }
+  .note code { overflow-wrap: anywhere; }
+  footer.band { background: #000; color: #fff; }
+  footer p { font-size: 14px; opacity: .85; }
+  #backbtn { position: fixed; top: calc(10px + env(safe-area-inset-top, 0px)); left: 10px; z-index: 50; min-height: 48px; min-width: 104px; padding: 0 18px; border: 2px solid #fff; border-radius: 99px; background: #000; color: #fff; font: 700 17px var(--font); box-shadow: 0 2px 10px rgba(0,0,0,.25); cursor: pointer; touch-action: manipulation; -webkit-tap-highlight-color: transparent; }
+  body.hasback header.band { padding-top: calc(70px + env(safe-area-inset-top, 0px)); }
+  [hidden] { display: none !important; }
+  body.deep header h1, body.deep header .lead { display: none; }
+  @media (min-width: 760px) { :root { --pad: 32px; } }
+</style>
+</head>
+<body>
+<button id="backbtn" type="button" hidden></button>
+<header class="band">
+  <div class="wrap">
+    <div class="brand"><img src="/logo.svg" alt="">weevils<button class="lang" id="lang" type="button"></button></div>
+    <h1 data-t="h1"></h1>
+    <p class="lead" data-t="lead"></p>
+    <p class="lead" id="count" hidden></p>
+  </div>
+</header>
+
+<main id="app"></main>
+
+<footer class="band">
+  <div class="wrap">
+    <p data-t="trust"></p>
+    <p><a href="/security" data-t="secLink"></a></p>
+    <!-- The code's link only once the repository is public (the service asks GitHub): until then, the X account. -->
+    <p id="code"><a href="https://x.com/weevilscode" data-t="soon"></a></p>
+    <p data-t="stats"></p>
+  </div>
+</footer>
+
+<script src="/qrcode.js"></script>
+<script>
+'use strict'
+// ------------------------------------------------------------------ words
+// English by default (the community is English-speaking); a small switch offers French.
+const FR = (() => { try { return localStorage.getItem('wvlang') === 'fr' } catch { return false } })()
+const W = FR ? {
+  h1: 'Tes agents IA, dans ta poche.',
+  lead: 'weevils met sur ton téléphone les sessions Claude Code et Codex qui tournent sur ta propre machine : tu les suis, tu leur parles, tu leur confies du travail. Branche une machine, weevboss s’occupe du reste.',
+  secLink: 'Sécurité : ce que l’installation fait, ne fait jamais, et comment la retirer',
+  trust: 'Aucun mot de passe ni jeton n’arrive jamais au service de cette page : ton jeton Hetzner reste dans ton navigateur et ne part que chez Hetzner, et un serveur s’installe avec une commande que tu colles toi-même dessus. Une fois installé, weevils tourne chez toi, et cette page n’a plus aucun accès à ta machine.',
+  source: 'Le code est ouvert, sur GitHub',
+  soon: 'Bientôt open source — réponds au tweet pour un accès anticipé',
+  stats: 'Statistiques anonymes : des compteurs seulement, sans cookie ni adresse IP gardée, conservés 90 jours.',
+  count: (n) => n > 1 ? `${n} personnes utilisent déjà weevils` : `${n} personne utilise déjà weevils`,
+  plug: 'Branche ta machine',
+  plugSub: 'Un serveur fait tourner tes agents même téléphone et ordinateur éteints. Prêt en quelques minutes.',
+  rec: 'conseillé',
+  hz: 'Crée-moi un serveur chez Hetzner', hzSub: 'On crée le serveur pour toi. Conseillé pour des agents qui tournent 24 h/24 : facturé à l’heure, vérification d’identité à l’inscription.',
+  vps: 'J’ai déjà un VPS', vpsSub: 'Loué n’importe où : une commande à coller sur le serveur, weevils s’y installe tout seul.',
+  pc: 'Mon ordinateur', pcSub: 'Mac, Linux, ou Windows avec WSL. Les agents tournent sur cet ordinateur, avec tes droits, et seulement quand il est allumé.',
+  thisPc: 'Branche cet ordinateur', thisPcSub: 'Colle cette commande dans un terminal de cet ordinateur, ou donne-la à ton assistant IA. Ensuite, un QR code ouvre weevils sur ton téléphone. Les agents tourneront ici, avec tes droits.',
+  pcWhat: 'Elle installe weevils dans ton dossier personnel et vérifie la signature du code. Ton mot de passe n’est demandé que s’il manque un outil système, pour cette seule commande. Ici, les agents demandent avant d’agir. Elle se retire en une ligne.', pcRead: 'Lire le script', pcSec: 'Notes de sécurité',
+  better: 'Mieux : un serveur', betterSub: 'Un serveur fait tourner tes agents même téléphone et ordinateur éteints, et ton téléphone les joint de partout. Même parcours, 2 minutes de plus.',
+  macNote: 'Sur un Mac, le terminal est l’app Terminal. Elle peut demander une fois le mot de passe du Mac (rien ne s’affiche quand tu le tapes).',
+  winNote: 'Sous Windows, colle-la dans PowerShell : weevils s’installe dans Ubuntu (WSL). Un VPS reste le plus simple.',
+  onWindows: 'Sous Windows (PowerShell) :',
+  hzTitle: 'Un serveur rien qu’à toi, chez Hetzner',
+  hz1: 'Crée un compte Hetzner, avec un moyen de paiement. Ils vérifient ton identité (une photo de ta pièce d’identité et un selfie), puis valident le compte à la main : reviens ici une fois qu’il l’est.',
+  hz1b: 'Créer mon compte Hetzner',
+  hz2: 'Dans la console Hetzner, ouvre ton projet (ou crée-en un), puis Sécurité → Jetons API → Générer, avec « Lecture et écriture ».',
+  hz2b: 'Ouvrir la console Hetzner',
+  hz3: 'Colle le jeton ici. Il reste dans ton navigateur et ne part que chez Hetzner, pour créer ton serveur : notre service ne le voit jamais.',
+  hzTip: 'Crée le jeton dans un projet rien que pour weevils, et supprime-le dès que ton serveur tourne : weevils n’en a plus jamais besoin.',
+  rootTitle: 'Relancer l’installation sur ce serveur',
+  root1: 'Hetzner vient de donner un nouveau mot de passe root au serveur. Il reste sur cette page : copie-le, puis ouvre la console du serveur chez Hetzner (ton projet → le serveur → le bouton console >_) et connecte-toi en root avec.',
+  rootConsole: 'Ouvrir la console Hetzner', rootPw: 'Mot de passe root',
+  root2: 'Puis colle cette commande dans la console :',
+  rootNote: 'Cette page suit l’installation dès que la commande démarre. Le mot de passe ne quitte jamais ton navigateur.',
+  token: 'Jeton API', 
+  size_light: 'Léger', size_recommended: 'Recommandé', size_strong: 'Costaud',
+  agents: (n) => ({ '2-3': '2 à 3 agents', 6: 'environ 6 agents', 12: 'une douzaine d’agents' })[n] + ' en même temps', gb: 'Go',
+  firstOnly: (a) => `${a} le premier mois`,
+  perMonth: '/mois', firstMonth: (a, b) => `${a} le premier mois, puis ${b}/mois`,
+  hourly: (a, b) => `${a}/h · max ${b}/mois`,
+  billed_hetzner: (ip) => `${ip ? 'Serveur et adresse IPv4, TTC' : 'TTC'}. Hetzner facture à l’heure, jamais plus que le maximum du mois. Supprimer le serveur dans leur console arrête la facturation.`,
+  createHourly: 'Créer mon serveur · facturé à l’heure',
+  createFor: (p) => `Créer mon serveur (${p})`,
+  create: 'Créer mon serveur',
+  vpsTitle: 'Ton VPS', vpsCmd: 'Ubuntu ou Debian, de préférence tout neuf. Connecte-toi au serveur (SSH) en root ou avec un utilisateur sudo, et colle cette commande dans son terminal :',
+  vpsWait: 'Cette page suit l’installation dès que la commande démarre. Aucun mot de passe ne quitte ton serveur.',
+  pcTitle: 'Ton ordinateur', pcIntro: 'Sur l’ordinateur, ouvre un terminal, colle cette commande et appuie sur Entrée :',
+  pcPhone: 'Envoie-la-toi pour la coller là-bas :', share: 'M’envoyer la commande', copy: 'Copier', copied: 'Copié',
+  pcWait: 'Cette page suit l’installation dès que la commande démarre.',
+  pcLimit: 'Ton téléphone joindra l’ordinateur tant qu’il est allumé. Pour un lien permanent, weevboss te proposera un VPS ou Tailscale.',
+  progTitle: 'Installation de weevils', progNote: 'Compte 3 à 8 minutes. Tu peux fermer cette page : l’installation continue sur ton serveur, et rouvrir ce lien te ramène ici.',
+  s_created_hetzner: 'Serveur créé', s_created_ssh: 'Connecté à ton serveur', s_created_pc: 'Commande lancée',
+  s_start: 'La machine démarre l’installation', s_system: 'Vérification du système et des outils', s_source: 'Récupération de weevils', s_build: 'Construction de l’app',
+  s_service: 'Démarrage de weevils', s_https: 'Lien sécurisé (HTTPS)', s_tunnel: 'Lien sécurisé pour ton téléphone', s_done: 'Prêt',
+  doneTitle: 'Ton weevils est prêt !', donePhone: 'J’ouvre ton weevils…', open: 'Ouvrir mon weevils',
+  home: 'Ensuite, ajoute-le à ton écran d’accueil (iPhone : Partager → Sur l’écran d’accueil ; Android : ⋮ → Installer l’app). weevboss t’accueille et connecte Claude Code ou Codex avec toi.',
+  scan: 'Scanne ce code avec l’appareil photo de ton téléphone :', scanNote: 'Ce code te connecte : garde-le pour toi, comme un mot de passe.',
+  openHere: 'L’ouvrir ici', noSeal: 'Ton weevils répond ici. Ton code d’accès est dans ~/weevils-install.log sur la machine.',
+  failTitle: 'L’installation s’est arrêtée', tryAgain: 'Réessayer',
+  backTo: 'Je retrouve ton installation…',
+  back: '← Retour',
+  existingTitle: (n) => n > 1 ? 'Tu as déjà des serveurs weevils sur ce compte' : 'Tu as déjà un serveur weevils sur ce compte',
+  existingSub: 'Continue dessus plutôt que d’en payer un nouveau.', continueBtn: 'Continuer sur celui-ci', another: 'Créer quand même un autre serveur',
+
+  srvRunning: (step) => `Installation en cours : ${step}`, srvDone: 'Installé', srvFailed: 'Installation arrêtée', srvNone: 'Installation à terminer',
+  ago: (m) => m < 1 ? 'à l’instant' : m < 60 ? `il y a ${m} min` : m < 1440 ? `il y a ${Math.round(m / 60)} h` : `il y a ${Math.round(m / 1440)} j`,
+  createdAgo: (a) => `créé ${a}`,
+  continuing: 'Je retourne sur ton serveur… (jusqu’à une minute)',
+  creatingNow: 'Création de ton serveur…', slow: 'C’est plus long que d’habitude.', 
+  yourAddress: 'L’adresse de ton weevils :', yourCode: 'Ton code d’accès (il te connecte : garde-le pour toi, comme un mot de passe) :', copyLink: 'Copier le lien',
+  inApp: 'Tu es dans le navigateur d’une app (X, Instagram…) : copie le lien et ouvre-le dans Safari ou Chrome pour ajouter weevils à ton écran d’accueil.',
+  keptHere: 'Cette page garde ton lien 7 jours, jusqu’à ta première connexion à ton weevils.',
+  lostKey: 'Ton weevils est prêt, mais ce navigateur ne peut pas ouvrir son lien (il a été scellé pour la page qui a lancé l’installation).',
+  claimedNote: 'Tu t’es déjà connecté à ton weevils : cette page ne garde plus son lien.', freshLink: 'Obtenir un nouveau lien',
+  nearTitle: 'Ton installation continue', nearSub: 'Lancée depuis cet appareil, elle continue toute seule. Ce navigateur a perdu sa clé : pour recevoir ici le lien de ton weevils, recolle ton jeton (ou l’accès à ton VPS).', nearReady: 'C’est installé ! Pour recevoir son lien ici :', nearLink: 'Recevoir mon lien ici', notMine: 'Ce n’est pas la mienne : en commencer une',
+  expired: 'Cette installation n’est plus gardée ici (au bout de 7 jours).',
+  e: {
+    exists: 'Tu as déjà un serveur weevils sur ce compte {host}.', creating: 'Ton serveur est déjà en cours de création : un instant.', bad_server: 'Choisis un serveur.',
+    not_weevils: 'Ce serveur n’a pas été créé par weevils.', no_ip: 'Ce serveur n’a pas encore d’adresse IPv4 : réessaie dans une minute.',
+    reset_failed: '{host} n’a pas pu donner un nouveau mot de passe root à ce serveur. Dans la console {host}, réinitialise son mot de passe root, puis prends « J’ai déjà un VPS » avec son IP et ce mot de passe.',
+    interrupted: 'La page a été coupée pendant la création de ton serveur. Recolle ton jeton : weevils regarde si le serveur existe avant d’en créer un.',
+    slow_down: 'Trop d’essais d’un coup : réessaie dans quelques minutes.', busy: 'Beaucoup de monde en ce moment : réessaie dans une minute.',
+    bad_token: 'Ce jeton n’a pas la bonne forme : copie-le en entier depuis {host}.', unauthorized: '{host} refuse ce jeton : vérifie qu’il est complet et pas supprimé.',
+    forbidden: 'Ce jeton n’a pas le droit de créer un serveur : génères-en un avec tous les droits (« Lecture et écriture » chez Hetzner).', resource_limit_exceeded: 'Ton compte {host} a atteint sa limite de serveurs (nouveau compte : vérifie ton e-mail et ton moyen de paiement).',
+    no_type: '{host} ne propose aucun serveur adapté en ce moment : réessaie plus tard.', host_down: '{host} ne répond pas : réessaie dans un instant.', no_template: '{host} ne propose pas Ubuntu 24.04 en ce moment.',
+    bad_size: 'Choisis une taille.',
+    no_job: 'Cette installation a expiré : recommence.', network: 'Pas de réseau : réessaie.',
+  },
+} : {
+  h1: 'Your AI agents, in your pocket.',
+  lead: 'weevils puts the Claude Code and Codex sessions running on your own machine on your phone: follow them, talk to them, hand them work. Plug in a machine, weevboss takes care of the rest.',
+  secLink: 'Security: what the install does, never does, and how to remove it',
+  trust: 'No password or token ever reaches this page’s service: your Hetzner token stays in your browser and goes only to Hetzner, and a server installs itself with a command you paste there yourself. Once installed, weevils runs on your machine, and this page has no access to it anymore.',
+  source: 'The code is open, on GitHub',
+  soon: 'Open source soon — reply to the tweet for early access',
+  stats: 'Anonymous stats: counters only, no cookie and no IP address kept, deleted after 90 days.',
+  count: (n) => n > 1 ? `${n} people already run weevils` : `${n} person already runs weevils`,
+  plug: 'Plug in your machine',
+  plugSub: 'A server keeps your agents working while your phone and computer are off. Ready in a few minutes.',
+  rec: 'recommended',
+  hz: 'Create a server for me at Hetzner', hzSub: 'We create the server for you. Recommended for agents that run 24/7: billed by the hour, ID check at sign-up.',
+  vps: 'I already have a VPS', vpsSub: 'Rented anywhere: one command to paste on the server, and weevils installs itself.',
+  pc: 'My computer', pcSub: 'Mac, Linux, or Windows with WSL. Agents run on this computer, with your rights, and only while it’s on.',
+  thisPc: 'Connect this computer', thisPcSub: 'Paste this command in a terminal on this computer, or give it to your AI assistant. Then a QR code opens weevils on your phone. Agents will run here, with your rights.',
+  pcWhat: 'It installs weevils in your home folder and checks the code’s signature. Your password is asked only if a system tool is missing, for that one command. Agents here ask before acting. It comes off in one line.', pcRead: 'Read the script', pcSec: 'Security notes',
+  better: 'Better: a server', betterSub: 'A server keeps your agents working while your phone and computer are off, and your phone reaches them from anywhere. Same flow, 2 more minutes.',
+  macNote: 'On a Mac, the terminal is the Terminal app. It may ask for your Mac password once (nothing shows while you type).',
+  winNote: 'On Windows, paste it in PowerShell: weevils installs in Ubuntu (WSL). A VPS is still the simplest.',
+  onWindows: 'On Windows (PowerShell):',
+  hzTitle: 'A server of your own, at Hetzner',
+  hz1: 'Create a Hetzner account, with a payment method. They check your ID (a photo of it and a selfie), then approve the account by hand: come back here once it’s approved.',
+  hz1b: 'Create my Hetzner account',
+  hz2: 'In the Hetzner console, open your project (or create one), then Security → API tokens → Generate API token, with “Read & Write”.',
+  hz2b: 'Open the Hetzner console',
+  hz3: 'Paste the token here. It stays in your browser and goes only to Hetzner, to create your server: our service never sees it.',
+  hzTip: 'Create the token in a project just for weevils, and delete it once your server is running: weevils never needs it again.',
+  rootTitle: 'Start the install again on this server',
+  root1: 'Hetzner just gave the server a new root password. It stays on this page: copy it, then open the server’s console at Hetzner (your project → the server → the >_ console button) and log in as root with it.',
+  rootConsole: 'Open the Hetzner console', rootPw: 'Root password',
+  root2: 'Then paste this command in the console:',
+  rootNote: 'This page follows the install as soon as the command starts. The password never leaves your browser.',
+  token: 'API token', 
+  size_light: 'Light', size_recommended: 'Recommended', size_strong: 'Strong',
+  agents: (n) => ({ '2-3': '2 to 3 agents', 6: 'about 6 agents', 12: 'about a dozen agents' })[n] + ' at once', gb: 'GB',
+  firstOnly: (a) => `${a} the first month`,
+  perMonth: '/month', firstMonth: (a, b) => `${a} the first month, then ${b}/month`,
+  hourly: (a, b) => `${a}/h · max ${b}/month`,
+  billed_hetzner: (ip) => `${ip ? 'Server and IPv4 address, VAT included' : 'VAT included'}. Hetzner bills by the hour, never more than the monthly max. Deleting the server in their console stops the billing.`,
+  createHourly: 'Create my server · billed by the hour',
+  createFor: (p) => `Create my server (${p})`,
+  create: 'Create my server',
+  vpsTitle: 'Your VPS', vpsCmd: 'Ubuntu or Debian, ideally brand new. Log in to the server (SSH) as root or a user with sudo, and paste this command in its terminal:',
+  vpsWait: 'This page follows the install as soon as the command starts. No password leaves your server.',
+  pcTitle: 'Your computer', pcIntro: 'On the computer, open a terminal, paste this command and press Enter:',
+  pcPhone: 'Send it to yourself to paste it there:', share: 'Send me the command', copy: 'Copy', copied: 'Copied',
+  pcWait: 'This page follows the install as soon as the command starts.',
+  pcLimit: 'Your phone reaches the computer while it’s on. For a permanent link, weevboss will offer a VPS or Tailscale.',
+  progTitle: 'Installing weevils', progNote: 'Takes 3 to 8 minutes. You can close this page: the install keeps going on your server, and opening this link again brings you back here.',
+  s_created_hetzner: 'Server created', s_created_ssh: 'Connected to your server', s_created_pc: 'Command started',
+  s_start: 'The machine starts the install', s_system: 'Checking the system and tools', s_source: 'Getting weevils', s_build: 'Building the app',
+  s_service: 'Starting weevils', s_https: 'Secure link (HTTPS)', s_tunnel: 'Secure link for your phone', s_done: 'Ready',
+  doneTitle: 'Your weevils is ready!', donePhone: 'Opening your weevils…', open: 'Open my weevils',
+  home: 'Then add it to your home screen (iPhone: Share → Add to Home Screen; Android: ⋮ → Install app). weevboss welcomes you and connects Claude Code or Codex with you.',
+  scan: 'Scan this code with your phone’s camera:', scanNote: 'This code logs you in: keep it to yourself, like a password.',
+  openHere: 'Open it here', noSeal: 'Your weevils answers here. Your access code is in ~/weevils-install.log on the machine.',
+  failTitle: 'The install stopped', tryAgain: 'Try again',
+  backTo: 'Getting back to your install…',
+  back: '← Back',
+  existingTitle: (n) => n > 1 ? 'You already have weevils servers on this account' : 'You already have a weevils server on this account',
+  existingSub: 'Continue on it instead of paying for a new one.', continueBtn: 'Continue on this one', another: 'Create another server anyway',
+
+  srvRunning: (step) => `Installing: ${step}`, srvDone: 'Installed', srvFailed: 'Install stopped', srvNone: 'Install to finish',
+  ago: (m) => m < 1 ? 'just now' : m < 60 ? `${m} min ago` : m < 1440 ? `${Math.round(m / 60)} h ago` : `${Math.round(m / 1440)} days ago`,
+  createdAgo: (a) => `created ${a}`,
+  continuing: 'Getting back into your server… (up to a minute)',
+  creatingNow: 'Creating your server…', slow: 'This is taking longer than usual.', 
+  yourAddress: 'Your weevils’ address:', yourCode: 'Your access code (it logs you in: keep it to yourself, like a password):', copyLink: 'Copy the link',
+  inApp: 'You’re in an app’s browser (X, Instagram…): copy the link and open it in Safari or Chrome to add weevils to your home screen.',
+  keptHere: 'This page keeps your link for 7 days, until you first log in to your weevils.',
+  lostKey: 'Your weevils is ready, but this browser can’t open its link (it was sealed for the page that started the install).',
+  claimedNote: 'You already logged in to your weevils: this page no longer keeps its link.', freshLink: 'Get a fresh link',
+  nearTitle: 'Your install is still going', nearSub: 'Started from this device, it keeps going by itself. This browser lost its key: to get your weevils’ link here, paste your token again (or your VPS access).', nearReady: 'It’s installed! To get its link here:', nearLink: 'Get my link here', notMine: 'Not mine: start a new one',
+  expired: 'That setup is no longer kept here (they expire after 7 days).',
+  e: {
+    exists: 'You already have a weevils server on this {host} account.', creating: 'Your server is already being created: one moment.', bad_server: 'Pick a server.',
+    not_weevils: 'This server wasn’t made by weevils.', no_ip: 'This server has no IPv4 address yet: try again in a minute.',
+    reset_failed: '{host} couldn’t set a new root password on this server. In the {host} console, reset its root password, then pick “I already have a VPS” with its IP and that password.',
+    interrupted: 'This page was cut off while your server was being created. Paste your token again: weevils checks for the server before making another.',
+    slow_down: 'Too many tries at once: try again in a few minutes.', busy: 'Lots of people right now: try again in a minute.',
+    bad_token: 'This token doesn’t look right: copy all of it from {host}.', unauthorized: '{host} refuses this token: check it’s complete and not deleted.',
+    forbidden: 'This token can’t create a server: generate one with full rights (“Read & Write” at Hetzner).', resource_limit_exceeded: 'Your {host} account reached its server limit (new account: check your e-mail and payment method).',
+    no_type: '{host} has no suitable server right now: try again later.', host_down: '{host} doesn’t answer: try again in a moment.', no_template: '{host} doesn’t offer Ubuntu 24.04 right now.',
+    bad_size: 'Pick a size.',
+    no_job: 'This setup expired: start again.', network: 'No network: try again.',
+  },
+}
+document.documentElement.lang = FR ? 'fr' : 'en'
+for (const el of document.querySelectorAll('[data-t]')) el.textContent = W[el.dataset.t]
+// The code's link only once the service has seen the public repository open on GitHub.
+if (/^https:\/\/github\.com\//.test(document.documentElement.dataset.code || '')) Object.assign(document.querySelector('#code a'), { href: document.documentElement.dataset.code, textContent: W.source })
+// « N people already run weevils »: only when the service turns it on (it writes the number in the page).
+if (Number(document.documentElement.dataset.count) > 0) Object.assign(document.getElementById('count'), { hidden: false, textContent: W.count(Number(document.documentElement.dataset.count)) })
+const langBtn = document.getElementById('lang')
+langBtn.textContent = FR ? 'EN' : 'FR'
+langBtn.setAttribute('aria-label', FR ? 'English' : 'Français')
+langBtn.onclick = () => { try { localStorage.setItem('wvlang', FR ? 'en' : 'fr') } catch {} location.reload() }
+
+// ------------------------------------------------------------------ device
+const ua = navigator.userAgent
+const phone = /iPhone|iPod|Android.+Mobile|Mobile.+Firefox|Windows Phone/i.test(ua) || (/iPad|Android/i.test(ua) && matchMedia('(pointer: coarse)').matches) || (/Macintosh/.test(ua) && navigator.maxTouchPoints > 1)
+const os = phone ? 'phone' : /Windows/.test(ua) ? 'windows' : /Macintosh|Mac OS X/.test(ua) ? 'mac' : /Linux|X11|CrOS/.test(ua) ? 'linux' : 'other'
+// A computer weevils installs on: the command is offered right on the first screen.
+const computer = os === 'linux' || os === 'windows' || os === 'mac'
+
+// ------------------------------------------------------------------ tiny DOM
+const app = document.getElementById('app')
+const h = (tag, attrs = {}, ...kids) => {
+  const el = document.createElement(tag)
+  for (const [k, v] of Object.entries(attrs)) {
+    if (k.startsWith('on')) el.addEventListener(k.slice(2), v)
+    else if (k === 'class') el.className = v
+    else if (v !== false && v != null) el.setAttribute(k, v === true ? '' : v)
+  }
+  for (const k of kids.flat()) if (k != null && k !== false) el.append(k.nodeType ? k : document.createTextNode(k))
+  return el
+}
+const band = (cls, ...kids) => h('section', { class: `band ${cls}` }, h('div', { class: 'wrap' }, ...kids))
+const show = (...sections) => { setBack(null); document.body.classList.toggle('deep', show.deep); show.deep = true; app.replaceChildren(...sections.filter(Boolean)); scrollTo({ top: 0 }) }
+const errBox = () => h('div', { class: 'err', hidden: true, role: 'alert' })
+let HOSTNAME = 'Hetzner'
+const showErr = (box, code) => { box.textContent = (W.e[code] || W.e[code?.replace?.(/^http_\d+$/, 'host_down')] || code || W.e.network).replace(/\{host\}/g, HOSTNAME); box.hidden = false }
+// Where to put a new server: near the person, from the browser's region.
+const REGION = (() => { const r = (/-([A-Z]{2})\b/.exec(navigator.language || '') || [])[1] || ''; return /^(US|CA|MX|BR|AR|CL|CO|PE)$/.test(r) ? 'america' : /^(SG|IN|JP|KR|ID|MY|TH|VN|PH|HK|TW|AU|NZ)$/.test(r) ? 'asia' : 'europe' })()
+
+// ------------------------------------------------------------------ API
+// The preview key (until launch), from the link: kept for this browser and sent with every call (no cookie needed).
+const GK = (() => {
+  const k = new URLSearchParams(location.search).get('k') || (/[#&]k=([^&]+)/.exec(location.hash) || [])[1]
+  try { if (k) localStorage.setItem('wvgk', k); return k || localStorage.getItem('wvgk') || '' } catch { return k || '' }
+})()
+async function api(p, body) {
+  let r
+  try {
+    r = await fetch(p, { method: 'POST', headers: { 'content-type': 'application/json', ...(GK && { 'x-get-key': GK }) }, body: JSON.stringify(body) })
+  } catch { throw new Error('network') }
+  const data = await r.json().catch(() => ({}))
+  if (!r.ok) throw Object.assign(new Error(data.error || `http_${r.status}`), { data })
+  return data
+}
+
+// Anonymous counters (the line at the bottom of the page): what happened, never who. The referring site's address
+// only, the time zone for a rough country; no cookie, no identifier.
+const TZ = (() => { try { return Intl.DateTimeFormat().resolvedOptions().timeZone || '' } catch { return '' } })()
+function hit(e, kind) {
+  let ref = ''
+  try { if (e === 'open' && document.referrer) ref = new URL(document.referrer).origin } catch {}
+  const body = JSON.stringify({ e, kind, tz: TZ, ref, touch: navigator.maxTouchPoints > 1 })
+  try { if (navigator.sendBeacon && navigator.sendBeacon('/api/hit', new Blob([body], { type: 'application/json' }))) return } catch {}
+  fetch('/api/hit', { method: 'POST', headers: { 'content-type': 'application/json' }, body, keepalive: true }).catch(() => {})
+}
+
+// ------------------------------------------------------------------ the setup, kept three ways
+// 1. This browser (localStorage): the setup and the page's private key.
+// 2. The address bar (#job=<sid>.<secret>): a reload, or this link opened anywhere, finds the setup again. The secret
+//    never reaches a server (it is after the #); from it the page derives the token that opens the setup's status here,
+//    and the key that seals its private key, which this service keeps for a page opened elsewhere.
+// 3. The service: the setup itself, kept up to 7 days after the end.
+// The install encrypts your login link with the public half of the page's key: only a page holding the private half
+// (this browser, or any browser with the resume link) can open it.
+const enc = new TextEncoder()
+const b64 = (bytes) => { let s = ''; for (const b of bytes) s += String.fromCharCode(b); return btoa(s) }
+const b64u = (bytes) => b64(bytes).replace(/\+/g, '-').replace(/\//g, '_').replace(/=+$/, '')
+const unb64 = (s) => Uint8Array.from(atob(s.replace(/-/g, '+').replace(/_/g, '/')), (c) => c.charCodeAt(0))
+const sha = async (text) => new Uint8Array(await crypto.subtle.digest('SHA-256', enc.encode(text)))
+const viewOf = async (secret) => b64u(await sha(`weevils-view:${secret}`))
+const boxKey = async (secret) => crypto.subtle.importKey('raw', await sha(`weevils-key:${secret}`), 'AES-GCM', false, ['encrypt', 'decrypt'])
+async function wrapKey(secret, jwk) {
+  const iv = crypto.getRandomValues(new Uint8Array(12))
+  const ct = new Uint8Array(await crypto.subtle.encrypt({ name: 'AES-GCM', iv }, await boxKey(secret), enc.encode(JSON.stringify(jwk))))
+  const out = new Uint8Array(12 + ct.length)
+  out.set(iv)
+  out.set(ct, 12)
+  return b64(out)
+}
+async function unwrapKey(secret, wrapped) {
+  const all = unb64(wrapped)
+  return JSON.parse(new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'AES-GCM', iv: all.slice(0, 12) }, await boxKey(secret), all.slice(12))))
+}
+const KEEP_MS = 7 * 864e5
+const savedJob = () => { try { const s = JSON.parse(localStorage.getItem('wvget') || 'null'); return s && s.sid && Date.now() - s.at < KEEP_MS ? s : null } catch { return null } }
+const resumeLink = (job) => job.secret ? `${location.origin}/#job=${job.sid}.${job.secret}` : ''
+/** Saves the setup in this browser and in the address bar (a reload or a reopened tab comes back to it). */
+function keep(job) {
+  try { localStorage.setItem('wvget', JSON.stringify(job)) } catch {}
+  try { if (job.secret) history.replaceState(history.state, '', `${location.pathname}${location.search}#job=${job.sid}.${job.secret}`) } catch {}
+  return job
+}
+/** The screen picked before any setup exists (Hetzner, VPS): a reload, or a return from Hetzner's site, lands on it. */
+function step(name) {
+  try { name ? localStorage.setItem('wvstep', JSON.stringify({ name, at: Date.now() })) : localStorage.removeItem('wvstep') } catch {}
+  try {
+    const url = location.pathname + location.search + (name ? `#${name}` : '')
+    // A new step: a new entry, so Back (the button or the phone's gesture) returns to the one before.
+    if (name && replaceStep) history.replaceState({ ...history.state, wv: 1, form: name, prog: 0 }, '', url)
+    else if (name && history.state?.form !== name) {
+      if (location.hash === `#${name}`) history.replaceState({ ...history.state, wv: 1, form: name, prog: 0 }, '', url)
+      else history.pushState({ wv: 1, doc: DOC, pushed: 1, form: name }, '', url)
+    }
+    else if (!name) history.replaceState({ ...history.state, wv: 1, form: '', prog: 0 }, '', url)
+  } catch {}
+}
+/** The Back button (fixed, top left, on every step after the first): exactly one step back. When the step before
+ * is an entry this page made, it is the same as the phone's gesture (history.back); otherwise (a link opened fresh,
+ * a reload) the screen's own step before, put in place of this entry. */
+const DOC = Math.random().toString(36).slice(2)
+let replaceStep = false, backFn = null
+const backBtn = document.getElementById('backbtn')
+function setBack(fn) { backFn = fn; backBtn.textContent = W.back; backBtn.hidden = !fn; document.body.classList.toggle('hasback', !!fn) }
+backBtn.onclick = () => {
+  if (!backFn) return
+  if (history.state?.doc === DOC && history.state.pushed) return history.back()
+  const fn = backFn
+  replaceStep = true
+  try { fn() } finally { replaceStep = false }
+}
+/** A setup just started from its form: the progress gets its own entry, so Back returns to the form. */
+function ahead() { try { history.pushState({ wv: 1, doc: DOC, pushed: 1, prog: 1 }, '', location.href) } catch {} }
+/** The step before a setup's progress: its form, filled as it was (a new setup from there; the Hetzner token finds the
+ * server weevils made, « Continue on this one », never a second server without asking). */
+function formOf(kind) {
+  watching++
+  const s = savedJob(), given = s && s.kind === kind ? s : null
+  if (kind === 'ssh') return ssh(given, true)
+  if (kind === 'pc') return computer ? home() : pc(true)
+  return provider(HOSTS[kind] ? kind : 'hetzner', given, '', true)
+}
+/** What was typed on a step, kept when going back and forth. Secrets (token, password, key) stay in memory only. */
+const draft = (() => { try { return { hetzner: {}, ...JSON.parse(localStorage.getItem('wvdraft') || '{}'), } } catch { return { hetzner: {} } } })()
+/** Back to the start (the phone's back gesture): a setup that never started is dropped; one that did stays on screen. */
+function toStart() {
+  watching++
+  const s = savedJob()
+  // One that never started is dropped; one that did stays kept (a reload or its link brings its progress back).
+  if (s && !s.started && !s.done) { try { localStorage.removeItem('wvget') } catch {} }
+  home()
+}
+const savedStep = () => {
+  const m = /^#(hetzner|vps|computer)$/.exec(location.hash)
+  if (m) return m[1]
+  try { const s = JSON.parse(localStorage.getItem('wvstep') || 'null'); return s && Date.now() - s.at < 24 * 3600_000 ? s.name : '' } catch { return '' }
+}
+function forget() {
+  try { localStorage.removeItem('wvget'); localStorage.removeItem('wvstep'); localStorage.removeItem('wvdraft') } catch {}
+  draft.hetzner = {}
+  try { history.replaceState(null, '', location.pathname + location.search) } catch {}
+}
+const fromLink = (text) => { const m = /(?:^|[#&\s/])(?:job=)?([a-z2-9]{10})\.([A-Za-z0-9_-]{22})(?:$|[&\s])/.exec(String(text || '').trim()); return m ? { sid: m[1], secret: m[2] } : null }
+
+async function newJob(kind) {
+  const pair = await crypto.subtle.generateKey({ name: 'RSA-OAEP', modulusLength: 2048, publicExponent: new Uint8Array([1, 0, 1]), hash: 'SHA-256' }, true, ['encrypt', 'decrypt'])
+  const pub = b64(new Uint8Array(await crypto.subtle.exportKey('spki', pair.publicKey)))
+  const jwk = await crypto.subtle.exportKey('jwk', pair.privateKey)
+  const secret = b64u(crypto.getRandomValues(new Uint8Array(16)))
+  const view = await viewOf(secret)
+  const j = await api('/api/job', { kind, lang: FR ? 'fr' : 'en', pub, tz: TZ, view, wrapped: await wrapKey(secret, jwk) })
+  // A service from before resume links picks its own token: then this browser is the only way back.
+  return keep({ sid: j.sid, view: j.view, secret: j.view === view ? secret : '', kind, jwk, command: j.command || '', win: j.win || '', userData: j.userData || '', at: Date.now() })
+}
+/** A resume link: this browser's copy when it has it, else the setup and its sealed key from the service. */
+async function restore(ref) {
+  const s = savedJob()
+  if (s && s.sid === ref.sid && s.secret === ref.secret) return keep(s)
+  const view = await viewOf(ref.secret)
+  const st = await api('/api/status', { sid: ref.sid, view, full: true })
+  let jwk = null
+  try { if (st.wrapped) jwk = await unwrapKey(ref.secret, st.wrapped) } catch {}
+  return keep({ sid: ref.sid, view, secret: ref.secret, kind: st.kind, jwk, command: st.command || '', win: st.win || '', userData: st.userData || '', at: st.created || Date.now() })
+}
+async function unseal(job, sealed) {
+  const key = await crypto.subtle.importKey('jwk', job.jwk, { name: 'RSA-OAEP', hash: 'SHA-256' }, false, ['decrypt'])
+  return new TextDecoder().decode(await crypto.subtle.decrypt({ name: 'RSA-OAEP' }, key, unb64(sealed)))
+}
+
+// ------------------------------------------------------------------ screens
+function choiceBtn(cls, title, sub, onclick, tag) {
+  return h('button', { class: `choice ${cls}`, onclick }, h('div', { class: 'wrap' }, h('div', {}, h('b', {}, title, tag ? h('em', { class: 'tag' }, tag) : null), h('span', {}, sub)), h('div', { class: 'go' }, '→')))
+}
+const HOSTS = { hetzner: 'Hetzner' }
+const copyBtn = (text, label = W.copy) => {
+  const b = h('button', { type: 'button' }, label)
+  b.onclick = async () => {
+    try { await navigator.clipboard.writeText(text) } catch { const c = b.parentNode?.querySelector('code'); if (c) getSelection().selectAllChildren(c) }
+    b.textContent = W.copied
+    setTimeout(() => (b.textContent = label), 1600)
+  }
+  return b
+}
+
+function home(notice) {
+  show.deep = false
+  step('')
+  // Coming back needs no button: the link, this browser, or the Hetzner token (it finds the server weevils made).
+  const top = typeof notice === 'string' && notice ? h('div', { class: 'err' }, notice) : null
+  const intro = band('b5', top, h('h2', {}, W.plug), h('p', { class: 'small' }, W.plugSub))
+  const hz = [choiceBtn('b1', W.hz, W.hzSub, () => provider('hetzner'), W.rec)]
+  const vps = choiceBtn('b2', W.vps, W.vpsSub, () => ssh())
+  if (computer) {
+    // A computer: connect it right here, and still suggest a VPS.
+    const note = os === 'windows' ? W.winNote : os === 'mac' ? W.macNote : ''
+    const cmdBand = band('b3', top, h('h2', {}, W.thisPc), h('p', {}, W.thisPcSub), note ? h('p', { class: 'small' }, note) : null, pcBox(true))
+    return show(cmdBand, band('b5', h('h2', {}, W.better), h('p', { class: 'small' }, W.betterSub)), ...hz, vps)
+  }
+  show(intro, ...hz, vps, choiceBtn('b3', W.pc, W.pcSub, () => pc()))
+}
+
+// --- (a) a server created for you, at Hetzner
+const money = (v, cur) => new Intl.NumberFormat(FR ? 'fr-FR' : 'en-IE', { style: 'currency', currency: cur || 'EUR' }).format(v)
+const stepName = (k) => W[`s_${String(FOLD[k] || k).replace(/^s_/, '')}`] || ''
+/** The servers weevils already made on the account, each with « Continue on this one ». */
+function serverList(kind, list, onPick) {
+  return h('div', { class: 'srvs' }, ...list.map((s) => {
+    const st = s.setup
+    const state = !st ? W.srvNone : st.state === 'done' ? W.srvDone : st.state === 'failed' ? W.srvFailed : W.srvRunning(stepName(st.step) || '…')
+    const where = [s.name, s.location, s.created ? W.createdAgo(W.ago(Math.round((Date.now() - s.created) / 60000))) : ''].filter(Boolean).join(' · ')
+    const btn = h('button', { class: 'btn' }, W.continueBtn)
+    btn.onclick = () => onPick(s, btn)
+    return h('div', { class: 'srv' }, h('b', {}, where), h('span', {}, `${s.ip ? s.ip + ' · ' : ''}${state}`), btn)
+  }))
+}
+// Hetzner's API, called from this browser with the person's token (get/hetzner.js): the token goes to Hetzner only,
+// never to this page's service, which is told just the new server's id, address and size.
+let HZ = null
+const hzLib = () => (HZ ||= import('/hetzner.js'))
+const hzErr = (e) => e?.hz || e?.message || 'host_down'
+/** The servers found on the account, each with how far its setup is (asked by its « weevils-sid » label, no token). */
+async function withSetups(job, list) {
+  const sids = list.map((s) => s.sid).filter(Boolean)
+  let setups = {}
+  if (sids.length) try { setups = (await api('/api/hetzner/setups', { sid: job.sid, view: job.view, sids })).setups || {} } catch {}
+  return list.map((s) => ({ ...s, setup: (s.sid && setups[s.sid]) || null }))
+}
+/** Back on a server weevils made: the setup takes over the one still installing, or starts the install again. */
+async function continueOn(kind, job, token, s, btn, err) {
+  err.hidden = true
+  btn.disabled = true
+  const label = btn.textContent
+  btn.textContent = W.continuing
+  try {
+    // Made by this very setup (the page was closed right after): it boots and installs by itself.
+    if (s.sid && s.sid === job.sid) {
+      await api('/api/hetzner/created', { sid: job.sid, view: job.view, server: { id: s.id, name: s.name, ip: s.ip, type: s.type } })
+      keep(job)
+      return progress(job, { push: true })
+    }
+    // Still installing: this page now follows that setup (its key opens the link at the end).
+    if (s.sid && s.setup && s.setup.state !== 'done' && s.setup.state !== 'failed') {
+      try {
+        const r = await api('/api/hetzner/attach', { sid: job.sid, view: job.view, label: s.sid, server: s.id })
+        if (r.attached && r.sid !== job.sid) job.sid = r.sid
+        keep(job)
+        return progress(job, { push: true })
+      } catch (e) { if (e.message !== 'not_live') throw e }
+    }
+    // Over, or forgotten: Hetzner gives the server a new root password (asked from here, with the token). It is shown
+    // on this page only, never sent anywhere else: the person logs in to the server's console with it and pastes this
+    // setup's command there. The install keeps what is there and ends with a fresh link for this page.
+    const password = await (await hzLib()).rootPassword(token, s.id)
+    keep(job)
+    rootScreen(job, password)
+  } catch (e) { showErr(err, hzErr(e)); btn.disabled = false; btn.textContent = label }
+}
+/** A text to copy, in the command's box. */
+function copyBox(text) {
+  const code = h('code', {}, text)
+  const copy = h('button', { type: 'button' }, W.copy)
+  copy.onclick = async () => {
+    try { await navigator.clipboard.writeText(text) } catch { getSelection().selectAllChildren(code) }
+    copy.textContent = W.copied
+    setTimeout(() => (copy.textContent = W.copy), 1600)
+  }
+  return h('div', { class: 'cmd' }, code, copy)
+}
+/** A server weevils made, whose setup is over or lost: its new root password (from Hetzner, held by this page only),
+ * its console at Hetzner, and this setup's command to paste there. */
+function rootScreen(job, password) {
+  const err = errBox()
+  show(band('b1', h('h2', {}, W.rootTitle), h('p', {}, W.root1),
+    h('a', { class: 'btn light', href: 'https://console.hetzner.cloud/projects', target: '_blank', rel: 'noopener' }, W.rootConsole),
+    h('label', {}, W.rootPw), copyBox(password),
+    h('p', {}, W.root2), cmdBox(Promise.resolve(job), err), h('p', { class: 'note' }, W.rootNote), err))
+  setBack(() => provider('hetzner', job, '', true))
+}
+function provider(kind, given, lastError, reopened) {
+  // A setup from a host this page no longer offers: back to the choices.
+  if (!HOSTS[kind]) return home()
+  if (!given && !reopened) hit('chose', kind)
+  if (!given || reopened) step(kind)
+  HOSTNAME = HOSTS[kind]
+  const d = draft.hetzner
+  let job = given, token = '', size = d.size || 'recommended', sizes = [], another = false
+  const err = errBox()
+  const tok = h('input', { type: 'password', autocomplete: 'off', autocapitalize: 'off', spellcheck: 'false', placeholder: '••••••••••••••••', 'aria-label': W.token })
+  const pick = h('div', { class: 'sizes', hidden: true })
+  const note = h('p', { class: 'small' })
+  const createBtn = h('button', { class: 'btn', hidden: true }, W.create)
+  const priceBtn = h('button', { class: 'btn light', hidden: true }, W.tryAgain)
+  const had = h('div', { hidden: true })
+  const price = (z) => money(z.monthly, z.currency)
+  // Billed by the hour (Hetzner): the real hourly price, and the monthly one as its cap.
+  const hourly = (z) => z.hourly > 0 && new Intl.NumberFormat(FR ? 'fr-FR' : 'en-IE', { style: 'currency', currency: z.currency || 'EUR', minimumFractionDigits: 3, maximumFractionDigits: 4 }).format(z.hourly)
+  const label = (z) => hourly(z) ? W.hourly(hourly(z), price(z)) : z.first && z.first !== z.monthly ? W.firstMonth(money(z.first, z.currency), price(z)) : `${price(z)}${W.perMonth}`
+  const draw = () => {
+    pick.replaceChildren(...sizes.map((z) => h('button', { class: `size${z.size === size ? ' on' : ''}`, type: 'button', onclick: () => { size = d.size = z.size; draw() } },
+      h('b', {}, W[`size_${z.size}`]),
+      h('span', {}, `${z.memory} ${W.gb} · ${W.agents(z.agents)}`),
+      h('strong', {}, label(z)))))
+    const z = sizes.find((x) => x.size === size) || sizes[0]
+    if (z) createBtn.textContent = hourly(z) ? W.createHourly : W.createFor(z.first && z.first !== z.monthly ? W.firstOnly(money(z.first, z.currency)) : `${price(z)}${W.perMonth}`)
+  }
+  const showSizes = (on) => { pick.hidden = !on; createBtn.hidden = !on; note.hidden = !on }
+  /** Servers weevils already made there: continue on one, or (on purpose) create another. */
+  const showHad = (list) => {
+    if (!list?.length) return (had.hidden = true), showSizes(true)
+    const more = h('button', { class: 'link', type: 'button', onclick: () => { another = true; more.hidden = true; showSizes(true) } }, W.another)
+    had.replaceChildren(h('div', { class: 'quote' }, h('b', {}, W.existingTitle(list.length)), h('p', { class: 'small' }, W.existingSub),
+      serverList(kind, list, (s, btn) => continueOn(kind, job, token, s, btn, err))), more)
+    had.hidden = false
+    showSizes(false)
+  }
+  priceBtn.onclick = async () => {
+    err.hidden = true
+    token = tok.value.trim()
+    priceBtn.disabled = true
+    try {
+      job ||= await newJob(kind)
+      const hz = await hzLib()
+      const [q, ex] = await Promise.all([hz.quote(token, REGION), hz.servers(token).catch(() => [])])
+      sizes = q.sizes
+      if (!sizes.some((z) => z.size === size)) size = sizes[0].size
+      draw()
+      const billed = W[`billed_${kind}`]
+      note.textContent = typeof billed === 'function' ? billed(sizes.some((z) => z.ipv4)) : billed
+      priceBtn.hidden = true
+      showHad(another ? [] : await withSetups(job, ex))
+    } catch (e) { showErr(err, hzErr(e)); priceBtn.hidden = false } finally { priceBtn.disabled = false }
+  }
+  createBtn.onclick = async () => {
+    err.hidden = true
+    createBtn.disabled = true
+    try {
+      const hz = await hzLib()
+      // Made in the meantime (another tab, or a page cut off): the list, never a second server without asking.
+      if (!another) {
+        const ex = await hz.servers(token)
+        if (ex.length) { createBtn.disabled = false; return showHad(await withSetups(job, ex)) }
+      }
+      job.userData ||= (await api('/api/status', { sid: job.sid, view: job.view, full: true })).userData || ''
+      if (!job.userData) throw new Error('no_job')
+      // Saved before the call: closed while the server is being made, this page comes back to it (the token lists it).
+      job.started = true
+      keep(job)
+      const server = await hz.create(token, { sid: job.sid, size, where: REGION, userData: job.userData })
+      tok.value = ''
+      d.token = ''
+      await api('/api/hetzner/created', { sid: job.sid, view: job.view, server })
+      progress(job, { push: true })
+    } catch (e) {
+      createBtn.disabled = false
+      if (e?.hz) api('/api/hetzner/failed', { sid: job.sid, view: job.view, error: hzErr(e) }).catch(() => {})
+      showErr(err, hzErr(e))
+    }
+  }
+  // Pasting the token is enough: the sizes come by themselves (recommended picked), one tap on Create starts it.
+  let auto = 0
+  tok.oninput = () => {
+    d.token = tok.value
+    showSizes(false); had.hidden = true; priceBtn.hidden = true; err.hidden = true
+    clearTimeout(auto)
+    const t = tok.value.trim()
+    if (/^[A-Za-z0-9|._-]{40,256}$/.test(t)) auto = setTimeout(() => { if (!priceBtn.disabled) priceBtn.onclick() }, 500)
+    else if (t) auto = setTimeout(() => showErr(err, 'bad_token'), 1500)
+  }
+  showSizes(false)
+  const steps = [h('li', {}, W.hz1, h('a', { class: 'btn light', href: 'https://accounts.hetzner.com/signUp', target: '_blank', rel: 'noopener' }, W.hz1b)),
+       h('li', {}, W.hz2, h('a', { class: 'btn light', href: 'https://console.hetzner.cloud/projects', target: '_blank', rel: 'noopener' }, W.hz2b))]
+  show(band('b1', h('h2', {}, W.hzTitle),
+    h('ol', { class: 'how' }, ...steps, h('li', {}, W.hz3, h('p', { class: 'small' }, W.hzTip), h('label', {}, W.token), tok, priceBtn, had, pick, note, createBtn)),
+    err))
+  setBack(() => toStart())
+  if (lastError) showErr(err, lastError)
+  // Back here (Back, or the phone's gesture): the token typed before, and its sizes again.
+  if (d.token) { tok.value = d.token; if (!lastError) priceBtn.onclick() }
+}
+
+/** A setup's one-line command, to paste in a terminal on the machine (no secret leaves it), with Copy. The page
+ * follows the install as soon as the command starts. */
+function cmdBox(jobP, err) {
+  let job = null
+  const code = h('code', {}, '…')
+  const copy = h('button', { type: 'button' }, W.copy)
+  copy.onclick = async () => {
+    if (!job?.command) return
+    try { await navigator.clipboard.writeText(code.textContent) } catch { getSelection().selectAllChildren(code) }
+    copy.textContent = W.copied
+    setTimeout(() => (copy.textContent = W.copy), 1600)
+  }
+  jobP.then(async (j) => {
+    job = j
+    if (!j.command) j.command = (await api('/api/status', { sid: j.sid, view: j.view, full: true })).command || ''
+    code.textContent = j.command || '…'
+    if (!j.started) watch(j, () => progress(j, { push: true }))
+  }).catch((e) => showErr(err, e.message))
+  return h('div', { class: 'cmd' }, code, copy)
+}
+
+// --- (b) your VPS: the same one-line command as a computer, pasted in the server's own terminal. Nothing secret is
+// ever typed on this page.
+function ssh(given, reopened) {
+  if (!given && !reopened) hit('chose', 'ssh')
+  if (!given || reopened) step('vps')
+  const err = errBox()
+  show(band('b2', h('h2', {}, W.vpsTitle), h('p', {}, W.vpsCmd), cmdBox(given ? Promise.resolve(given) : newJob('ssh'), err), h('p', { class: 'note' }, W.vpsWait), err))
+  setBack(() => toStart())
+}
+
+// --- (c) a computer
+function pcBox(here) {
+  const err = errBox()
+  const code = h('code', {}, '…')
+  const copy = h('button', { type: 'button' }, W.copy)
+  const winLine = h('p', { class: 'note' })
+  const box = h('div', {}, h('div', { class: 'cmd' }, code, copy), winLine, err)
+  let job
+  ;(async () => {
+    try {
+      const s = savedJob()
+      job = s && s.kind === 'pc' && s.command ? s : await newJob('pc')
+      // Windows: its own command (PowerShell, which hands the install to Ubuntu in WSL); a phone shows both.
+      code.textContent = os === 'windows' && job.win ? job.win : job.command
+      if (os === 'phone' && job.win) winLine.replaceChildren(W.onWindows, ' ', h('code', {}, job.win))
+      // Back here from its install: the same command, no jump forward (the install stays one step ahead).
+      if (!job.started) watch(job, () => progress(job, { push: true }))
+    } catch (e) { showErr(err, e.message) }
+  })()
+  let chose = !here
+  copy.onclick = async () => {
+    if (!job) return
+    if (!chose) (chose = true), hit('chose', 'pc')
+    try { await navigator.clipboard.writeText(code.textContent) } catch { getSelection().selectAllChildren(code) }
+    copy.textContent = W.copied
+    setTimeout(() => (copy.textContent = W.copy), 1600)
+  }
+  if (!here && navigator.share) box.append(h('button', { class: 'btn light', onclick: () => job && navigator.share({ text: code.textContent }).catch(() => {}) }, W.share))
+  box.append(h('p', { class: 'note' }, W.pcWhat, ' ', h('a', { href: '/install.sh', target: '_blank', rel: 'noopener' }, W.pcRead), ' · ', h('a', { href: '/security', target: '_blank', rel: 'noopener' }, W.pcSec)), h('p', { class: 'note' }, W.pcWait), h('p', { class: 'note' }, W.pcLimit))
+  return box
+}
+function pc(reopened) {
+  if (!reopened) hit('chose', 'pc')
+  step('computer')
+  show(band('b3', h('h2', {}, W.pcTitle), h('p', {}, W.pcIntro), pcBox(false)))
+  setBack(() => toStart())
+}
+
+// ------------------------------------------------------------------ progress, then your weevils
+const ORDER = ['created', 'start', 's_system', 's_source', 's_build', 's_service', 'https', 'done']
+const FOLD = { s_config: 's_source', waiting: 's_service', s_https: 'https', tunnel: 'https' }
+let watching = 0
+/** Polls the setup; calls onMove when the install starts (the PC command was run), onState on every answer. */
+function watch(job, onMove, onState, source) {
+  const me = ++watching
+  let moved = false
+  const tick = async () => {
+    if (me !== watching) return
+    try {
+      const s = source ? await source() : await api('/api/status', { sid: job.sid, view: job.view })
+      if (me !== watching) return
+      if (s.state !== 'waiting' && !moved && onMove) { moved = true; return onMove(s) }
+      // A computer's failed install keeps being followed: its command pasted again starts it over.
+      if (onState?.(s) === 'stop' || s.state === 'done' || (s.state === 'failed' && job.kind !== 'pc')) return
+    } catch (e) {
+      if (e.message === 'no_job') { forget(); return onState?.({ state: 'failed', steps: [], error: W.expired }) }
+    }
+    setTimeout(tick, 2000)
+  }
+  tick()
+}
+const hosted = (kind) => kind !== 'ssh' && kind !== 'pc'
+/** « Try again », the one way after a failure or a lost key: the token again (its screen lists the server weevils made,
+ * « Continue on this one »), the VPS access again, or the computer's command again. */
+const tryAgain = (job) => () => { watching++; if (hosted(job.kind)) provider(HOSTS[job.kind] ? job.kind : 'hetzner'); else if (job.kind === 'ssh') ssh(); else { forget(); home() } }
+
+function progress(job, opts = {}) {
+  const near = opts.near
+  if (!near && job.sid && !job.started) { job.started = true; keep(job) }
+  if (opts.push) ahead()
+  else try { history.replaceState({ ...history.state, wv: 1, prog: 1, form: '' }, '') } catch {}
+  const labels = ORDER.map((k) => k === 'created' ? W[`s_created_${hosted(job.kind) ? 'hetzner' : job.kind}`] : k === 'https' ? (job.kind === 'pc' ? W.s_tunnel : W.s_https) : W[`s_${k.replace(/^s_/, '')}`])
+  const items = ORDER.map((k, i) => h('li', {}, h('i', {}, ''), labels[i]))
+  const bar = h('div', {}, '')
+  const err = errBox()
+  const clock = h('p', { class: 'small' }, '')
+  const slow = h('div', { class: 'quote', hidden: true }, h('p', {}, W.slow), h('button', { class: 'btn light', onclick: tryAgain(job) }, W.tryAgain))
+  const head = near
+    ? [h('h2', {}, W.nearTitle), h('p', { class: 'small' }, W.nearSub), h('button', { class: 'btn light', onclick: tryAgain(job) }, W.nearLink), h('button', { class: 'link', onclick: () => { watching++; home() } }, W.notMine)]
+    : [h('h2', {}, W.progTitle)]
+  show(band('b5', ...head, h('div', { class: 'bar' }, bar), h('ul', { class: 'steps' }, items), clock, slow, near ? null : h('p', { class: 'note' }, W.progNote), err))
+  setBack(() => formOf(job.kind))
+  let since = 0, stepSeen = '', moved = Date.now()
+  const timer = setInterval(() => {
+    if (!since) return
+    const s = Math.max(0, Math.round((Date.now() - since) / 1000))
+    clock.textContent = `${Math.floor(s / 60)}:${String(s % 60).padStart(2, '0')}`
+    // No step for 20 minutes: the install may have died on the server. Same server, from the start.
+    slow.hidden = !(hosted(job.kind) || job.kind === 'ssh') || Date.now() - moved < 20 * 60_000
+  }, 1000)
+  watch(job, null, (s) => {
+    // Nothing started yet (a page reopened before its server was asked for, or the host said no): back to the form.
+    if (!near && s.state === 'waiting' && !s.creating && job.kind !== 'pc') {
+      clearInterval(timer)
+      watching++
+      job.kind === 'ssh' ? ssh(job) : provider(job.kind, job, s.createError || '')
+      return 'stop'
+    }
+    since ||= s.created || Date.now()
+    const steps = s.steps || []
+    if (steps.join() !== stepSeen) (stepSeen = steps.join()), (moved = Date.now())
+    const seen = new Set(steps.map((k) => FOLD[k] || k))
+    let last = -1
+    ORDER.forEach((k, i) => { if (seen.has(k)) last = i })
+    // A reported step has started; 'created' is reported once finished.
+    const now = ORDER[last] === 'created' || last < 0 ? last + 1 : last
+    items.forEach((li, i) => { li.className = i < now || s.state === 'done' ? 'done' : i === now && s.state !== 'failed' ? 'now' : ''; li.firstChild.textContent = li.className === 'done' ? '✓' : '' })
+    if (s.creating && !steps.length) items[0].lastChild.textContent = job.kind === 'ssh' ? labels[0] : W.creatingNow
+    bar.style.width = `${Math.max(4, Math.round((now / (ORDER.length - 1)) * 100))}%`
+    err.hidden = s.state !== 'failed'
+    if (s.state === 'failed') {
+      if (job.kind !== 'pc') clearInterval(timer)
+      slow.hidden = true
+      err.replaceChildren(h('b', {}, W.failTitle), h('br'), s.error || '', h('button', { class: 'btn', onclick: tryAgain(job) }, W.tryAgain))
+      err.hidden = false
+    }
+    if (s.state === 'done') {
+      clearInterval(timer)
+      if (near) { head[0].textContent = W.nearReady; head[1].textContent = ''; return 'stop' }
+      ready(job, s)
+    }
+  }, near ? opts.source : undefined)
+}
+
+const IN_APP = /FBAN|FBAV|FB_IAB|Instagram|Twitter|Line\/|LinkedInApp|Snapchat|TikTok|musical_ly|GSA\/|; wv\)/.test(ua)
+async function ready(job, s) {
+  let link = ''
+  if (s.result?.sealed && job.jwk) {
+    try { link = await unseal(job, s.result.sealed) } catch {}
+  }
+  // Only a link to the address the install reported, on that exact origin.
+  if (!link || !s.result.url || !link.startsWith(s.result.url + '/#k=')) link = ''
+  // Kept: reopening this page (or the resume link) shows this again, until the first login on the new weevils.
+  keep({ ...job, done: true })
+  const url = s.result?.url || ''
+  const sec = [h('h2', {}, W.doneTitle)]
+  let switched = false
+  const opened = () => { if (!switched) (switched = true), hit('switch', job.kind) }
+  if (link) {
+    const code = link.slice(link.indexOf('#k=') + 3)
+    sec.push(h('p', {}, W.yourAddress), h('p', {}, h('a', { href: link, onclick: opened }, h('b', {}, url.replace(/^https?:\/\//, '')))))
+    sec.push(h('p', { class: 'small' }, W.yourCode), h('div', { class: 'cmd' }, h('code', {}, code), copyBtn(code)))
+    if (phone) {
+      sec.push(h('a', { class: 'btn', href: link, onclick: opened }, W.open), h('div', { class: 'cmd' }, h('code', {}, link), copyBtn(link, W.copyLink)))
+      if (IN_APP) sec.push(h('p', { class: 'note' }, h('b', {}, W.inApp)))
+    } else if (window.qrcode) {
+      const q = qrcode(0, 'M')
+      q.addData(link)
+      q.make()
+      sec.push(h('p', {}, W.scan), Object.assign(h('div', { class: 'qr' }), { innerHTML: q.createSvgTag({ cellSize: 6, margin: 2, scalable: true }) }), h('p', { class: 'note' }, W.scanNote), h('a', { class: 'btn light', href: link, onclick: opened }, W.openHere))
+    }
+    sec.push(h('p', { class: 'small' }, W.home), h('p', { class: 'note' }, W.keptHere))
+  } else {
+    sec.push(h('p', {}, h('a', { href: url }, h('b', {}, url.replace(/^https?:\/\//, '')))))
+    sec.push(h('p', { class: 'small' }, s.claimed ? W.claimedNote : job.kind === 'pc' ? W.noSeal : W.lostKey))
+    if (job.kind !== 'pc') sec.push(h('button', { class: 'btn', onclick: tryAgain(job) }, W.freshLink))
+  }
+  show(band('b1', ...sec))
+  setBack(() => formOf(job.kind))
+}
+
+// ------------------------------------------------------------------ start: back to the setup, wherever it is kept
+/** The setup's current state decides the screen: never the start while something is installing. */
+async function route(job) {
+  let s
+  try { s = await api('/api/status', { sid: job.sid, view: job.view }) } catch (e) {
+    if (e.message === 'no_job') { forget(); return home(W.expired) }
+    // No network for now: the progress screen keeps asking.
+    return progress(job)
+  }
+  // Logged in to the new weevils and its link gone from here: this setup is over, the page starts fresh.
+  if (s.state === 'done' && s.claimed && !s.result?.sealed) { forget(); return home() }
+  if (s.state === 'done') return ready(job, s)
+  if (s.state !== 'waiting' || s.creating) return progress(job)
+  if (job.kind === 'pc') { home(); if (!computer) pc(); return }
+  if (job.kind === 'ssh') return ssh(job)
+  return provider(job.kind, job, s.createError)
+}
+// Back and forward (the phone's gesture, the browser's arrows): the step at that entry, with what was typed on it.
+window.addEventListener('popstate', () => {
+  watching++
+  const st = history.state || {}
+  const ref = fromLink(location.hash)
+  const f = st.form || (/^#(hetzner|vps|computer)$/.exec(location.hash) || [])[1]
+  if (f) {
+    // This browser's setup for that form stays the same one (never a second setup replacing a started one).
+    const kind = f === 'vps' ? 'ssh' : f === 'computer' ? 'pc' : f
+    if (kind === 'pc' && computer) return toStart()
+    return formOf(kind)
+  }
+  if (ref && (st.prog || !st.wv)) return restore(ref).then(route, () => toStart())
+  toStart()
+})
+hit('open')
+;(async () => {
+  const ref = fromLink(location.hash)
+  const s = savedJob()
+  // Something to come back to: never the start screen meanwhile, even for a moment.
+  if (ref || s) show(band('b5', h('p', {}, W.backTo)))
+  if (ref) {
+    try { return await route(await restore(ref)) } catch (e) {
+      if (e.message === 'no_job') { forget(); return home(W.expired) }
+    }
+  }
+  if (s) return route(keep(s))
+  // Left for Hetzner's site (or a reload) before anything started: the same screen, the token field waiting.
+  const at = savedStep()
+  if (at === 'hetzner') return provider('hetzner', null, '', true)
+  if (at === 'vps') return ssh(null, true)
+  if (at === 'computer' && !computer) return pc(true)
+  home()
+})()
+</script>
+</body>
+</html>

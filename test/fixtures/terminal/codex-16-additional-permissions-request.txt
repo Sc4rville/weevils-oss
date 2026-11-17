@@ -1,0 +1,11 @@
+  Would you like to grant these permissions?
+
+  Reason: write access to ~/.cache/pip
+  write /home/user/.cache/pip
+
+› 1. Yes, grant these permissions for this turn (y)
+  2. Yes, grant for this turn with strict auto review
+  3. Yes, grant these permissions for this session (a)
+  4. No, continue without running it (esc)
+
+  Press enter to confirm or esc to cancel

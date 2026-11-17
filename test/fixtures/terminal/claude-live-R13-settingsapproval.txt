@@ -1,0 +1,15 @@
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  Managed settings require approval
+
+  Your organization has configured managed settings that could allow execution of arbitrary code or interception of
+  your prompts and responses.
+
+  Settings requiring approval:
+    apiKeyHelper
+
+  Only accept if you trust your organization's IT administration and expect these settings to be configured.
+
+  ❯ 1. Yes, I trust these settings
+    2. No, exit Claude Code
+
+  Enter to confirm · Esc to cancel

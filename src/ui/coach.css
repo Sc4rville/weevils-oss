@@ -1,0 +1,15 @@
+/* Le doigt fantôme (src/ui/coach.tsx) : un carré d'encre, plat, angles vifs, qui mime un geste au-dessus de tout. */
+.coach-ghost {
+  position: fixed;
+  inset: 0;
+  pointer-events: none;
+  z-index: 60;
+}
+
+.coach-dot {
+  position: absolute;
+  width: 26px;
+  height: 26px;
+  background: var(--ink);
+  outline: 3px solid color-mix(in srgb, var(--ink) 25%, transparent);
+}

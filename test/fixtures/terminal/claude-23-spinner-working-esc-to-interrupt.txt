@@ -1,0 +1,10 @@
+❯ Plan task: run the shell command 'echo hi'. Do not explore anything. Immediately call ExitPlanMode with a one-line
+  plan.
+
+✻ Germinating… (2s · ↓ 25 tokens · thinking)
+  ⎿  Tip: Run /install-slack-app to use Claude in Slack
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ plan mode on (shift+tab to cycle) · esc to interrupt

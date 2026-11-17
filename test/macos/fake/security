@@ -1,0 +1,26 @@
+#!/bin/bash
+# security of the fake Mac: the login Keychain holds Claude Code's credentials when /var/fakemac/keychain-claude
+# exists (ctl keychain on). Only find-generic-password is emulated.
+state=/var/fakemac
+echo "security $*" >>"$state/calls.log"
+[ "${1:-}" = find-generic-password ] || { echo "fake security: '${1:-}' is not emulated (test/macos/fake/security)" >&2; exit 65; }
+shift
+service='' secret=0
+while [ $# -gt 0 ]; do
+  case "$1" in
+    -s) service=${2:-}; shift ;;
+    -a | -l | -c | -C | -D | -G | -j) shift ;;
+    -w) secret=1 ;;
+  esac
+  shift
+done
+if [ "$service" = 'Claude Code-credentials' ] && [ -e "$state/keychain-claude" ]; then
+  if [ "$secret" = 1 ]; then
+    echo '{"claudeAiOauth":{"accessToken":"sk-ant-oat01-FAKE-KEYCHAIN","refreshToken":"sk-ant-ort01-FAKE-KEYCHAIN","expiresAt":4102444800000,"scopes":["user:inference","user:profile"],"subscriptionType":"max"}}'
+  else
+    printf 'keychain: "/Users/mac/Library/Keychains/login.keychain-db"\nversion: 512\nclass: "genp"\nattributes:\n    0x00000007 <blob>="Claude Code-credentials"\n    "acct"<blob>="mac"\n    "svce"<blob>="Claude Code-credentials"\n'
+  fi
+  exit 0
+fi
+echo 'security: SecKeychainSearchCopyNext: The specified item could not be found in the keychain.' >&2
+exit 44

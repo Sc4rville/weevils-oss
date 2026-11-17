@@ -1,0 +1,5 @@
+[recorded fixture server/weevils.test.ts / delivery.test.ts:234, commit 658bfbc]
+  Switch model?
+  Your next response will be slower and use more tokens
+  ❯ 1. Yes, switch to Sonnet 5.5
+    2. No, go back

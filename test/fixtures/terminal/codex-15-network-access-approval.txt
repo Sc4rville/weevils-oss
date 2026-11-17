@@ -1,0 +1,11 @@
+  Do you want to approve network access to "example.com"?
+
+  Reason: curl needs network access
+
+› 1. Yes, just this once (y)
+  2. Yes, and allow this host for this conversation (a)
+  3. Yes, and allow this host in the future (p)
+  4. No, and block this host in the future (d)
+  5. No, continue without running it (esc)
+
+  Press enter to confirm or esc to cancel

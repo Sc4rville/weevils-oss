@@ -1,0 +1,42 @@
+[
+  {
+    "cardId": "i:18e68b96ede8",
+    "actionId": "a1",
+    "brief": "Prepare a first Think canvas beside For you in weevils, using discreet transparent cards for free text and images. Preserve their positions between visits, ground AI suggestions in the viewport, zoom and selection, and let Yann preview and undo a rearrangement. Check by placing a text note and an image, reopening the canvas, then rearranging a selection and restoring its original positions.",
+    "sessionId": "01a1d4a3-4424-7502-8312-d2b4dae610d5",
+    "messageId": "msg_01a1d4a3-4823-7232-90a7-741ae2ad9a7c",
+    "intentId": "request:01a1d4a3-4424-7502-8312-d2b4dae610d5:msg_01a1d4a3-4823-7232-90a7-741ae2ad9a7c:think-canvas"
+  },
+  {
+    "cardId": "i:6e904fcaed17",
+    "actionId": "a1",
+    "brief": "Prepare the preview feedback flow in weevils using the exact standard app chat composer, without rounded controls or a manual session picker. Route messages to the session associated with the current preview and attach its screenshot when sending. Check on mobile and desktop that switching previews updates both the destination session and the screenshot.",
+    "sessionId": "01a1c624-8308-7321-9492-bfc0924fd135",
+    "messageId": "msg_01a1d1c5-e6bc-7bc2-b509-34d45b06ac11",
+    "intentId": "request:01a1c624-8308-7321-9492-bfc0924fd135:msg_01a1d1c5-e6bc-7bc2-b509-34d45b06ac11:preview-feedback"
+  },
+  {
+    "cardId": "i:7d522374d46a",
+    "actionId": "a1",
+    "brief": "Prepare project-based colours for For you cards in each existing theme, keeping the header unchanged. Use existing TLO imagery for a split-panel preview and existing weevils updates for a horizontally scrolling preview. Keep each project's identity recognizable across both layouts, retain readable source labels, and check contrast and horizontal scrolling on mobile before presenting the previews to Yann.",
+    "sessionId": "01a1c619-d1c8-7302-be9f-c74b0b216c81",
+    "messageId": "msg_01a1caff-8fa0-7fc3-bce0-1fb33f81e095",
+    "intentId": "request:01a1c619-d1c8-7302-be9f-c74b0b216c81:msg_01a1caff-8fa0-7fc3-bce0-1fb33f81e095:project-colours"
+  },
+  {
+    "cardId": "i:c948af309c47",
+    "actionId": "a1",
+    "brief": "Prepare weevils to create a dedicated automation workspace on the first automation request, with a separate versioned project for each automation containing its source, purpose, configuration and run instructions. Check that a later maintenance request finds and updates the existing project, and that the workspace is created only once.",
+    "sessionId": "01a1c5d5-5671-7db3-bda9-7eb63cd8e8be",
+    "messageId": "msg_01a1d4ac-acc2-7400-9249-20c085ba9c62",
+    "intentId": "request:01a1c5d5-5671-7db3-bda9-7eb63cd8e8be:msg_01a1d4ac-acc2-7400-9249-20c085ba9c62:automation-workspace"
+  },
+  {
+    "cardId": "d:mwevorzk",
+    "actionId": "a1",
+    "brief": "Implement the proposed automation workspace in weevils: create it automatically on the first request, give each automation an independent versioned project, preserve existing automation history and active jobs, and require explicit authorization before creating or pushing to GitHub.",
+    "sessionId": "01a1c5d5-5671-7db3-bda9-7eb63cd8e8be",
+    "messageId": "msg_01a1d4ac-acc2-7400-9249-20c085ba9c62",
+    "intentId": "request:01a1c5d5-5671-7db3-bda9-7eb63cd8e8be:msg_01a1d4ac-acc2-7400-9249-20c085ba9c62:automation-workspace"
+  }
+]

@@ -1,0 +1,14 @@
+ ☐ Storage
+
+Where should the notes be saved?
+
+❯ 1. Local file
+     Notes stay on this machine in a JSON file
+  2. SQLite
+     No server needed, one file database
+  3. Postgres
+     Allows several users at once
+  4. Type something.
+  5. Chat about this
+
+Enter to select · ↑/↓ to navigate · Esc to cancel

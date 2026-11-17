@@ -1,0 +1,11 @@
+› hi
+
+■ unexpected status 401 Unauthorized: Incorrect API key provided: sk-dummy****************-key. You can find your API
+key at https://platform.openai.com/account/api-keys., url: https://api.openai.com/v1/responses, cf-ray:
+a5a42bc0fea17879-CDG, request id: req_104b281b43234ab7b5c32d84fbd72913, auth error: 401, auth error code:
+invalid_api_key
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol default · /tmp/demo
+  ← for agents · ? for shortcuts                                                               ⚠ 1 warning · f2 to view

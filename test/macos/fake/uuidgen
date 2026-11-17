@@ -1,0 +1,3 @@
+#!/bin/bash
+# uuidgen of the fake Mac: upper case, as on macOS.
+/opt/real/bin/uuidgen | /opt/real/bin/tr 'a-f' 'A-F'

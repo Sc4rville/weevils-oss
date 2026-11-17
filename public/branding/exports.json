@@ -1,0 +1,39 @@
+{
+  "sourceSha256": "966644aad59fc8b7852bb7bfca260ee0382978c013a881763cc17fb12d1d9149",
+  "source": "weevboss-cutout.png",
+  "component": "src/ui/logo.tsx",
+  "appIcon": {
+    "source": "app-icon.svg",
+    "reference": "app-icon-reference.jpg",
+    "referenceSha256": "2092981a52fbdc5dfaad0ebb4ddd08583752a4f97a5235edf581025daa1f5677",
+    "background": "#ffffff",
+    "maskableSafeRadius": 0.4
+  },
+  "files": {
+    "favicon-32.png": {
+      "width": 32,
+      "height": 32,
+      "sha256": "807944508e0bd9f3cd795cfd14de12a285a9adeea7ab2c253e8788e0349e464f"
+    },
+    "badge-96.png": {
+      "width": 96,
+      "height": 96,
+      "sha256": "a391e6f73e13f22b9f7467c896735a33cb88832b7d812eb0db7018ebfab8e3cd"
+    },
+    "icon-180.png": {
+      "width": 180,
+      "height": 180,
+      "sha256": "c19fcc97ee25d8e0942923151c7d0fb19f32c333f06c9df06dd58c0687d0131d"
+    },
+    "icon-192.png": {
+      "width": 192,
+      "height": 192,
+      "sha256": "7097fb6eff20ad565de1e43f9e8215cd538d63f11b02d7509b9b79f4cfac0f1c"
+    },
+    "icon-512.png": {
+      "width": 512,
+      "height": 512,
+      "sha256": "d02fcfd97e7551b41110b88b608efd30c055db0708dbe51e08c26ab7cfd17440"
+    }
+  }
+}

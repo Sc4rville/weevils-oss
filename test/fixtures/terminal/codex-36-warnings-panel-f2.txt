@@ -1,0 +1,6 @@
+  Warnings · 1 of 1 · Warning
+  Falling back from WebSockets to HTTPS transport. unexpected status 401 Unauthorized: Incorrect API key provided: sk-
+  dummy****************-key. You can find your API key at https://platform.openai.com/account/api-keys., url: wss://
+  api.openai.com/v1/responses, cf-ray: a5a42b987921285d-CDG, request id: req_6f40aaa54c7b4bf1a93e9932286a32eb, auth
+  error: 401, auth error code: invalid_api_key
+  k keep & next · esc dismiss & close · ^o copy · ←/→ warning

@@ -1,0 +1,40 @@
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ /upgrade
+  ⎿  You’re already on the highest individual plan. For additional usage, run /usage-credits.
+
+❯ /usage-credits
+  ⎿  Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ Plan task: run the shell command 'echo hi'. Do not explore anything. Immediately call ExitPlanMode with a one-line
+  plan.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/plan-task-run-the-calm-tulip.md · /plan to edit
+     Run echo hi in the shell.
+
+● Printing hi
+  ⎿  $ echo hi
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+ Bash command
+ Print hi
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ echo hi
+╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌╌
+ Permission rule Bash requires confirmation for this command.
+ /permissions to update rules
+
+ Do you want to proceed?
+ ❯ 1. Yes
+   2. No
+
+ Esc to cancel · Tab to amend
+───────────────────────────────────────────────────────────────────────────────────────────────────── run-echo-command ─

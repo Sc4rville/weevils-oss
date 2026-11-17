@@ -1,0 +1,2 @@
+(reconstructed) /mcp list row:  ⚠ plugin:runpod:runpod        needs authentication
+notice: 'MCP server needs authentication' / ' needs authentication before its tools answer'

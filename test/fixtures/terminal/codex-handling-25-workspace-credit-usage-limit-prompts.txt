@@ -1,0 +1,7 @@
+  Usage limit reached
+  Request a limit increase from your owner to continue using codex. Request increase?
+
+› 1. Yes
+  2. No
+
+  Press enter to confirm or esc to cancel

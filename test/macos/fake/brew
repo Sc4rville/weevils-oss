@@ -1,0 +1,58 @@
+#!/bin/bash
+# brew — the fake Homebrew, copied to <prefix>/bin/brew (/opt/homebrew on Apple Silicon, /usr/local on Intel).
+#   brew shellenv        the exports the real one prints for its prefix (nothing when they are already in place)
+#   brew --prefix        the prefix
+#   brew install <f>…    "installs" a formula: the real tool, kept out of the PATH in /opt/cellar, is linked into
+#                        <prefix>/bin. Refuses to run as root, like the real one. Every call is logged (calls.log).
+prefix=${0%/bin/brew}
+case "$prefix" in /*) ;; *) prefix=$(cd "${0%/*}/.." && pwd) ;; esac
+state=/var/fakemac cellar=/opt/cellar
+repo=$prefix; [ "$prefix" != /usr/local ] || repo=/usr/local/Homebrew
+echo "brew $* :: uid=$(id -u)" >>"$state/calls.log"
+no_root() {
+  [ "$(id -u)" != 0 ] || {
+    echo "Error: Running Homebrew as root is extremely dangerous and no longer supported." >&2
+    echo "As Homebrew does not drop privileges on installation you would be giving all" >&2
+    echo "build scripts full access to your system." >&2
+    exit 1
+  }
+}
+link() { /opt/real/bin/mkdir -p "$prefix/bin" && /opt/real/bin/ln -sf "$1" "$prefix/bin/${1##*/}"; }
+case "${1:-}" in
+  shellenv)
+    case "${HOMEBREW_PREFIX:-}|${HOMEBREW_CELLAR:-}|${HOMEBREW_REPOSITORY:-}|$PATH" in
+      "$prefix|$prefix/Cellar|$repo|$prefix/bin:$prefix/sbin"*) exit 0 ;;
+    esac
+    echo "export HOMEBREW_PREFIX=\"$prefix\";"
+    echo "export HOMEBREW_CELLAR=\"$prefix/Cellar\";"
+    echo "export HOMEBREW_REPOSITORY=\"$repo\";"
+    echo "export PATH=\"$prefix/bin:$prefix/sbin\${PATH+:\$PATH}\";"
+    echo "[ -z \"\${MANPATH-}\" ] || export MANPATH=\":\${MANPATH#:}\";"
+    echo "export INFOPATH=\"$prefix/share/info:\${INFOPATH:-}\";" ;;
+  --prefix) if [ -n "${2:-}" ]; then echo "$prefix/opt/$2"; else echo "$prefix"; fi ;;
+  --repository | --repo) echo "$repo" ;;
+  --cellar) echo "$prefix/Cellar" ;;
+  --version | -v) echo "Homebrew 4.5.2 (fake)" ;;
+  install)
+    no_root
+    shift
+    for f in "$@"; do
+      case "$f" in
+        -*) ;;
+        tmux | jq | qrencode) link "$cellar/$f/bin/$f" ;;
+        node | node@2[2-9])
+          for c in node npm npx; do link "$cellar/node/bin/$c"; done
+          # Homebrew's node gives npm Homebrew's prefix for global installs.
+          echo "prefix=$prefix" >"$state/npmrc" ;;
+        git) link /opt/real/bin/git ;;
+        python3 | python | python@3*) link /opt/real/bin/python3 ;;
+        *)
+          echo "Warning: No available formula with the name \"$f\". (fake brew: tmux, jq, qrencode, node, git, python3)" >&2
+          exit 1 ;;
+      esac
+      echo "==> Pouring $f (fake)"
+      echo "$f" >>"$prefix/.fake-installed"
+    done ;;
+  list | ls) /opt/real/bin/sort -u "$prefix/.fake-installed" 2>/dev/null || true ;;
+  *) echo "fake brew: '${1:-}' is not emulated (test/macos/fake/brew)" >&2; exit 65 ;;
+esac

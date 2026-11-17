@@ -1,0 +1,10 @@
+/* Model and effort: rows of words in the page flow. Nothing floats, nothing is fixed: the rows wrap inside their
+   band, so they can neither spill past the screen edges nor cover the header, the input field or the bottom bar. */
+.model-controls { padding-block: 10px; min-width: 0; max-width: 100%; }
+.model-controls .mc-row { min-width: 0; padding-block: 4px; }
+.model-controls .mc-row + .mc-row { margin-top: 12px; }
+.model-controls .mc-label { display: block; }
+.model-controls .words { min-width: 0; max-width: 100%; }
+.model-controls .word { max-width: 100%; min-width: 0; text-align: left; white-space: normal; overflow-wrap: anywhere; }
+.model-controls p { overflow-wrap: anywhere; margin: 0; }
+.model-controls .link { min-height: 44px; }

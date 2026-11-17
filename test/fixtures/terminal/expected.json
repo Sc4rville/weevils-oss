@@ -1,0 +1,1071 @@
+{
+ "claude-00-trust-folder-launch.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Yes, I trust this folder"
+ },
+ "claude-01-new-project-mcp-server-mcp-json-approval.txt": {
+  "kind": "question",
+  "name": "mcp-new",
+  "question": "This project wants to start a tool called “invdummy”. Allow it?",
+  "labels": [
+   "Yes",
+   "Yes, and future ones in this project",
+   "No"
+  ]
+ },
+ "claude-02-bash-permission-ask-rule-no-always-optio.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: print hi",
+  "detail": "echo hi",
+  "labels": [
+   "Allow",
+   "Deny"
+  ]
+ },
+ "claude-03-bash-permission-with-don-t-ask-again-def.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: run the test suite",
+  "detail": "npm test",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "claude-04-dangerous-rm-bypass-immune-safety-check.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: remove build output",
+  "detail": "rm -rf build dist · Dangerous rm operation on a path outside the project",
+  "labels": [
+   "Allow",
+   "Deny"
+  ]
+ },
+ "claude-05-file-create-edit-permission.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to create a.txt",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Deny"
+  ]
+ },
+ "claude-06-webfetch-permission.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to open https://example.com/docs",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "claude-07-mcp-tool-permission.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to use notion - notion-search",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "claude-09-plan-approval-ready-to-code-exitplanmode.txt": {
+  "kind": "question",
+  "name": "plan",
+  "question": "Claude’s plan is ready. Go ahead?",
+  "labels": [
+   "Go ahead",
+   "Go ahead, ask before each edit"
+  ]
+ },
+ "claude-10-plan-file-write-permission-in-plan-mode.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to create plan-task-run-the-calm-tulip.md",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Deny"
+  ]
+ },
+ "claude-11-enter-plan-mode-request-enterplanmode.txt": {
+  "kind": "question",
+  "name": "enter-plan",
+  "question": "Claude suggests making a plan first",
+  "labels": [
+   "Yes, plan first",
+   "No, just start"
+  ]
+ },
+ "claude-12-askuserquestion-single-choice-with-type.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which file name?",
+  "labels": [
+   "a.txt",
+   "b.txt"
+  ],
+  "typeIndex": 2
+ },
+ "claude-13-askuserquestion-multiselect.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which words to include?",
+  "labels": [
+   "hi",
+   "hello",
+   "Send my answers"
+  ],
+  "typeIndex": 2
+ },
+ "claude-14-askuserquestion-review-submit-step.txt": {
+  "kind": "auto",
+  "name": "submit-answers",
+  "pick": "Submit answers"
+ },
+ "claude-15-model-picker.txt": {
+  "kind": "picker"
+ },
+ "claude-16-effort-slider.txt": {
+  "kind": "picker"
+ },
+ "claude-17-switch-model-change-effort-level-confir.txt": {
+  "kind": "auto",
+  "name": "switch-model",
+  "pick": "Yes, switch to Haiku 5.5"
+ },
+ "claude-18-fast-dialog.txt": {
+  "kind": "picker"
+ },
+ "claude-19-usage-limit-hit-rate-limit-options-menu.txt": {
+  "kind": "auto",
+  "name": "usage-limit",
+  "pick": "Wait here, then continue automatically at 5am",
+  "hold": "Paused until the usage limit resets (5am)"
+ },
+ "claude-20-usage-limit-notices-no-menu-approaching.txt": {
+  "kind": "hold",
+  "reason": "quota",
+  "text": "Paused until the usage limit resets (Nov 13, 2am (UTC))"
+ },
+ "claude-21-invalid-api-key-expired-login-login-need.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Claude needs to be signed in again on this machine"
+ },
+ "claude-22-api-overload-connection-retry.txt": {
+  "kind": "none"
+ },
+ "claude-23-spinner-working-esc-to-interrupt.txt": {
+  "kind": "none"
+ },
+ "claude-24-queued-messages-while-working.txt": {
+  "kind": "none"
+ },
+ "claude-25-interrupted-turn.txt": {
+  "kind": "none"
+ },
+ "claude-26-context-low-auto-compact-compacting.txt": {
+  "kind": "none"
+ },
+ "claude-27-session-quality-survey.txt": {
+  "kind": "none"
+ },
+ "claude-28-external-claude-md-imports-approval-laun.txt": {
+  "kind": "question",
+  "name": "external-imports",
+  "question": "This project wants to read instructions from outside its folder. Allow it?",
+  "labels": [
+   "No",
+   "Yes"
+  ]
+ },
+ "claude-29-bypass-permissions-warning-launch.txt": {
+  "kind": "auto",
+  "name": "bypass-warning",
+  "pick": "Yes, I accept"
+ },
+ "claude-30-managed-org-settings-approval-launch.txt": {
+  "kind": "question",
+  "name": "managed-settings",
+  "question": "Your organization sets some settings. Accept them?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "claude-31-onboarding-theme-picker-blank-config.txt": {
+  "kind": "auto",
+  "name": "theme",
+  "pick": "Dark mode"
+ },
+ "claude-32-onboarding-login-method-not-logged-in.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Claude needs to be signed in again on this machine"
+ },
+ "claude-33-onboarding-custom-api-key-detected.txt": {
+  "kind": "question",
+  "name": "api-key",
+  "question": "Claude found an API key. Use it?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "claude-34-onboarding-security-notes-press-enter-to.txt": {
+  "kind": "auto",
+  "name": "press-enter",
+  "pick": "enter"
+ },
+ "claude-35-resume-session-picker-resume-resume.txt": {
+  "kind": "picker"
+ },
+ "claude-36-slash-command-autocomplete-menu.txt": {
+  "kind": "none"
+ },
+ "claude-37-panels-usage-mcp-permissions-config-rewi.txt": {
+  "kind": "picker"
+ },
+ "claude-38-mcp-server-needs-authentication.txt": {
+  "kind": "none"
+ },
+ "claude-39-hook-error-non-blocking.txt": {
+  "kind": "none"
+ },
+ "claude-40-startup-warnings-allow-rule-remote-setti.txt": {
+  "kind": "none"
+ },
+ "claude-41-ctrl-c-esc-exit-hints.txt": {
+  "kind": "none"
+ },
+ "claude-42-suspended-ctrl-z-crashed-back-to-shell.txt": {
+  "kind": "hold",
+  "reason": "died",
+  "text": "Claude has stopped"
+ },
+ "claude-43-spontaneous-nudges-fullscreen-renderer-a.txt": {
+  "kind": "none"
+ },
+ "claude-live-A1-theme.txt": {
+  "kind": "auto",
+  "name": "theme",
+  "pick": "Dark mode"
+ },
+ "claude-live-A2-login.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Claude needs to be signed in again on this machine"
+ },
+ "claude-live-B1-apikey.txt": {
+  "kind": "question",
+  "name": "api-key",
+  "question": "Claude found an API key. Use it?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "claude-live-B2-next.txt": {
+  "kind": "auto",
+  "name": "press-enter",
+  "pick": "enter"
+ },
+ "claude-live-B3-next.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Yes, I trust this folder"
+ },
+ "claude-live-B4-next.txt": {
+  "kind": "auto",
+  "name": "bypass-warning",
+  "pick": "Yes, I accept"
+ },
+ "claude-live-B5-next.txt": {
+  "kind": "none"
+ },
+ "claude-live-B6-invalidkey.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Claude needs to be signed in again on this machine"
+ },
+ "claude-live-C-extra-usage.txt": {
+  "kind": "none"
+ },
+ "claude-live-C-mcp.txt": {
+  "kind": "picker"
+ },
+ "claude-live-C-permissions.txt": {
+  "kind": "picker"
+ },
+ "claude-live-C-theme.txt": {
+  "kind": "auto",
+  "name": "theme",
+  "pick": "Dark mode"
+ },
+ "claude-live-C-upgrade.txt": {
+  "kind": "none"
+ },
+ "claude-live-C-usage-credits.txt": {
+  "kind": "none"
+ },
+ "claude-live-C-usage.txt": {
+  "kind": "picker"
+ },
+ "claude-live-C1-trust.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Yes, I trust this folder"
+ },
+ "claude-live-C2-mcpjson.txt": {
+  "kind": "question",
+  "name": "mcp-new",
+  "question": "This project wants to start a tool called “invdummy”. Allow it?",
+  "labels": [
+   "Yes",
+   "Yes, and future ones in this project",
+   "No"
+  ]
+ },
+ "claude-live-C3-idle.txt": {
+  "kind": "none"
+ },
+ "claude-live-C4-slashmenu.txt": {
+  "kind": "none"
+ },
+ "claude-live-C5-model.txt": {
+  "kind": "picker"
+ },
+ "claude-live-C6-afteresc.txt": {
+  "kind": "none"
+ },
+ "claude-live-C7-effort.txt": {
+  "kind": "picker"
+ },
+ "claude-live-C8-fast.txt": {
+  "kind": "picker"
+ },
+ "claude-live-C9-resume.txt": {
+  "kind": "picker"
+ },
+ "claude-live-D0-working.txt": {
+  "kind": "none"
+ },
+ "claude-live-D1-planexit.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to create plan-task-run-the-calm-tulip.md",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Deny"
+  ]
+ },
+ "claude-live-D2-planexit.txt": {
+  "kind": "question",
+  "name": "plan",
+  "question": "Claude’s plan is ready. Go ahead?",
+  "labels": [
+   "Go ahead",
+   "Go ahead, ask before each edit"
+  ]
+ },
+ "claude-live-D2b.txt": {
+  "kind": "question",
+  "name": "plan",
+  "question": "Claude’s plan is ready. Go ahead?",
+  "labels": [
+   "Go ahead",
+   "Go ahead, ask before each edit"
+  ]
+ },
+ "claude-live-D3-bash.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: print hi",
+  "detail": "echo hi",
+  "labels": [
+   "Allow",
+   "Deny"
+  ]
+ },
+ "claude-live-D4-hookerr.txt": {
+  "kind": "none"
+ },
+ "claude-live-E1-ask.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which file name?",
+  "labels": [
+   "a.txt",
+   "b.txt"
+  ],
+  "typeIndex": 2
+ },
+ "claude-live-E2-multi.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which words to include?",
+  "labels": [
+   "hi",
+   "hello",
+   "Send my answers"
+  ],
+  "typeIndex": 2
+ },
+ "claude-live-E3-review.txt": {
+  "kind": "auto",
+  "name": "submit-answers",
+  "pick": "Submit answers"
+ },
+ "claude-live-E4-write.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to create a.txt",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Deny"
+  ]
+ },
+ "claude-live-E5-denied.txt": {
+  "kind": "none"
+ },
+ "claude-live-F1-rewind.txt": {
+  "kind": "picker"
+ },
+ "claude-live-G1-resume-launch.txt": {
+  "kind": "picker"
+ },
+ "claude-live-G2-resumed.txt": {
+  "kind": "none"
+ },
+ "claude-live-G3-escesc.txt": {
+  "kind": "none"
+ },
+ "claude-live-G4-ctrlc.txt": {
+  "kind": "none"
+ },
+ "claude-live-G5-config.txt": {
+  "kind": "picker"
+ },
+ "claude-live-R1-ratelimit.txt": {
+  "kind": "auto",
+  "name": "usage-limit",
+  "pick": "Wait here, then continue automatically at 5am",
+  "hold": "Paused until the usage limit resets (5am)"
+ },
+ "claude-live-R10-loginerr.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Claude needs to be signed in again on this machine"
+ },
+ "claude-live-R11-context.txt": {
+  "kind": "none"
+ },
+ "claude-live-R12-enterplan.txt": {
+  "kind": "question",
+  "name": "enter-plan",
+  "question": "Claude suggests making a plan first",
+  "labels": [
+   "Yes, plan first",
+   "No, just start"
+  ]
+ },
+ "claude-live-R13-settingsapproval.txt": {
+  "kind": "question",
+  "name": "managed-settings",
+  "question": "Your organization sets some settings. Accept them?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "claude-live-R14-fullscreen.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "Not now"
+ },
+ "claude-live-R15-autodefault.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "No, keep Manual"
+ },
+ "claude-live-R16-lsp.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "No, not now"
+ },
+ "claude-live-R17-suspended.txt": {
+  "kind": "hold",
+  "reason": "died",
+  "text": "Claude has stopped"
+ },
+ "claude-live-R18-queued.txt": {
+  "kind": "none"
+ },
+ "claude-live-R19-interrupted.txt": {
+  "kind": "none"
+ },
+ "claude-live-R2-survey.txt": {
+  "kind": "none"
+ },
+ "claude-live-R20-ask-clean.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which approach should I take?",
+  "labels": [
+   "Patch the parser",
+   "Rewrite the tokenizer"
+  ],
+  "typeIndex": 2
+ },
+ "claude-live-R3-switchmodel.txt": {
+  "kind": "auto",
+  "name": "switch-model",
+  "pick": "Yes, switch to Haiku 5.5"
+ },
+ "claude-live-R4-dangerous-rm.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: remove build output",
+  "detail": "rm -rf build dist · Dangerous rm operation on a path outside the project",
+  "labels": [
+   "Allow",
+   "Deny"
+  ]
+ },
+ "claude-live-R5-bash-dontask.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: run the test suite",
+  "detail": "npm test",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "claude-live-R6-webfetch.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to open https://example.com/docs",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "claude-live-R7-mcptool.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to use notion - notion-search",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "claude-live-R8-externalimports.txt": {
+  "kind": "question",
+  "name": "external-imports",
+  "question": "This project wants to read instructions from outside its folder. Allow it?",
+  "labels": [
+   "No",
+   "Yes"
+  ]
+ },
+ "claude-live-R9-retry.txt": {
+  "kind": "none"
+ },
+ "codex-00-login-onboarding-not-signed-in.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Codex needs to be signed in again on this machine"
+ },
+ "codex-01-login-sign-in-another-way.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Codex needs to be signed in again on this machine"
+ },
+ "codex-02-login-api-key-entry-shows-the-env-key-in.txt": {
+  "kind": "none"
+ },
+ "codex-03-update-available-prompt-blocking-at-laun.txt": {
+  "kind": "auto",
+  "name": "update",
+  "pick": "Skip"
+ },
+ "codex-04-update-available-banner-non-blocking.txt": {
+  "kind": "none"
+ },
+ "codex-05-trust-this-folder-git-repos-only.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Trust and continue"
+ },
+ "codex-06-agent-command-center-full-screen-task-li.txt": {
+  "kind": "picker"
+ },
+ "codex-07-weekly-limit-warning.txt": {
+  "kind": "none"
+ },
+ "codex-08-model-picker.txt": {
+  "kind": "picker"
+ },
+ "codex-09-reasoning-effort-picker.txt": {
+  "kind": "picker"
+ },
+ "codex-10-permissions-picker.txt": {
+  "kind": "picker"
+ },
+ "codex-11-enable-full-access-confirmation-modal-ov.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Enable full access?",
+  "labels": [
+   "Yes, continue anyway",
+   "Cancel"
+  ]
+ },
+ "codex-12-resume-picker.txt": {
+  "kind": "none"
+ },
+ "codex-13-edit-apply-patch-approval.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to edit hello.txt",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "codex-14-command-approval.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to run a command",
+  "detail": "curl -sI https://example.com | head -1",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "codex-15-network-access-approval.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to reach example.com",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Always allow",
+   "Always deny",
+   "Deny"
+  ]
+ },
+ "codex-16-additional-permissions-request.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex is asking for more permissions",
+  "detail": "Reason: write access to ~/.cache/pip · write /home/user/.cache/pip",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Deny"
+  ]
+ },
+ "codex-17-send-input-to-a-running-terminal.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to type into a running command",
+  "labels": [
+   "Allow",
+   "Deny"
+  ]
+ },
+ "codex-18-mcp-app-tool-call-approval.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to use send_message",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "codex-19-mcp-elicitation-server-asks-for-info.txt": {
+  "kind": "question",
+  "name": "unknown",
+  "question": "geste needs your approval.",
+  "labels": [
+   "Yes, provide the requested info",
+   "No, but continue without it",
+   "Cancel this request"
+  ]
+ },
+ "codex-20-request-user-input-codex-asks-you-a-ques.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which database should I use?",
+  "labels": [
+   "Postgres",
+   "SQLite",
+   "None of the above"
+  ]
+ },
+ "codex-21-startup-hooks-review.txt": {
+  "kind": "question",
+  "name": "unknown",
+  "question": "Hooks need review",
+  "labels": [
+   "Trust all and continue",
+   "Continue without trusting (hooks won't run)"
+  ]
+ },
+ "codex-22-plan-mode-implement-this-plan.txt": {
+  "kind": "question",
+  "name": "plan",
+  "question": "Codex’s plan is ready. Go ahead?",
+  "labels": [
+   "Go ahead",
+   "Keep planning"
+  ]
+ },
+ "codex-23-new-model-announcement-nux.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "Use existing model"
+ },
+ "codex-24-resume-which-working-directory.txt": {
+  "kind": "auto",
+  "name": "resume-folder",
+  "pick": "Use session directory (/home/user/projects/weevils)"
+ },
+ "codex-25-usage-limit-hit.txt": {
+  "kind": "hold",
+  "reason": "quota",
+  "text": "Paused until the usage limit resets (6:12 PM)"
+ },
+ "codex-27-workspace-credits-spend-cap-nudges.txt": {
+  "kind": "hold",
+  "reason": "quota",
+  "text": "Paused: usage limit reached"
+ },
+ "codex-28-daybreak-opt-in.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "No (default)"
+ },
+ "codex-30-token-refresh-failed-signed-out-chatgpt.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Codex needs to be signed in again on this machine"
+ },
+ "codex-31-auth-error-401-final.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Codex needs to be signed in again on this machine"
+ },
+ "codex-32-reconnecting-retrying-stream.txt": {
+  "kind": "none"
+ },
+ "codex-33-working-spinner.txt": {
+  "kind": "none"
+ },
+ "codex-34-queued-follow-up-inputs.txt": {
+  "kind": "none"
+ },
+ "codex-35-turn-interrupted-after-a-denial-or-esc.txt": {
+  "kind": "none"
+ },
+ "codex-36-warnings-panel-f2.txt": {
+  "kind": "picker"
+ },
+ "codex-37-high-load-capacity-stream-errors.txt": {
+  "kind": "none"
+ },
+ "codex-38-safety-check-stop-misalignment-cyber-fla.txt": {
+  "kind": "none"
+ },
+ "codex-39-import-config-from-another-agent-migrati.txt": {
+  "kind": "none"
+ },
+ "codex-40-crash-panic.txt": {
+  "kind": "none"
+ },
+ "codex-handling-15-command-approval.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to run a command",
+  "detail": "npm install",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "codex-handling-16-edit-network-grant-permissions-send-inpu.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Codex wants to edit a.ts",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "codex-handling-17-trust-folder.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Yes, continue"
+ },
+ "codex-handling-18-update-available-at-startup.txt": {
+  "kind": "auto",
+  "name": "update",
+  "pick": "Skip"
+ },
+ "codex-handling-19-model-migration-prompt-codex-just-got-an.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "Use existing model"
+ },
+ "codex-handling-20-approaching-rate-limits-switch-model-nud.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "Keep current model"
+ },
+ "codex-handling-21-plan-done-implement-this-plan.txt": {
+  "kind": "question",
+  "name": "plan",
+  "question": "Codex’s plan is ready. Go ahead?",
+  "labels": [
+   "Go ahead",
+   "Keep planning"
+  ]
+ },
+ "codex-handling-22-request-user-input-questions-with-option.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which database should I use?",
+  "labels": [
+   "SQLite (Recommended)",
+   "Postgres",
+   "None of the above"
+  ]
+ },
+ "codex-handling-23-slow-response-menu-non-blocking.txt": {
+  "kind": "auto",
+  "name": "nudge",
+  "pick": "Dismiss and keep waiting"
+ },
+ "codex-handling-24-resume-asks-which-working-directory.txt": {
+  "kind": "auto",
+  "name": "resume-folder",
+  "pick": "Use session directory (/home/u/projects/old-name)"
+ },
+ "codex-handling-25-workspace-credit-usage-limit-prompts.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Request a limit increase from your owner to continue using codex. Request increase?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "codex-history-00-codex-folder-trust-on-a-session-weevils.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Trust and continue"
+ },
+ "codex-history-04-codex-usage-limit-turn-ends-with-error-n.txt": {
+  "kind": "hold",
+  "reason": "quota",
+  "text": "Paused until the usage limit resets (Nov 12th, 2026 2:46 PM)"
+ },
+ "codex-history-09-message-left-unsent-in-the-codex-compose.txt": {
+  "kind": "none"
+ },
+ "codex-history-11-codex-weekly-limit-warning-and-warnings.txt": {
+  "kind": "none"
+ },
+ "handling-00-bash-permission-safe-mode-bypass-immune.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to run a command: run the unit tests",
+  "detail": "npm test -- --run",
+  "labels": [
+   "Allow",
+   "Always allow",
+   "Deny"
+  ]
+ },
+ "handling-01-edit-create-file-permission.txt": {
+  "kind": "question",
+  "name": "permission",
+  "question": "Claude wants to edit plan.md",
+  "labels": [
+   "Allow",
+   "Allow for this session",
+   "Deny"
+  ]
+ },
+ "handling-02-askuserquestion-single-select-with-optio.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Where should the notes be saved?",
+  "labels": [
+   "Local file",
+   "SQLite",
+   "Postgres"
+  ],
+  "typeIndex": 3
+ },
+ "handling-03-askuserquestion-multi-select-multi-quest.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Which features do you want?",
+  "labels": [
+   "Auth",
+   "Search",
+   "Send my answers"
+  ],
+  "typeIndex": 2
+ },
+ "handling-04-askuserquestion-type-something-free-text.txt": {
+  "kind": "question",
+  "name": "choice",
+  "question": "Where should the notes be saved?",
+  "labels": [
+   "Local file",
+   "SQLite"
+  ],
+  "typeIndex": 2
+ },
+ "handling-05-plan-approval-exitplanmode.txt": {
+  "kind": "question",
+  "name": "plan",
+  "question": "Claude’s plan is ready. Go ahead?",
+  "labels": [
+   "Go ahead",
+   "Go ahead, ask before each edit",
+   "Keep planning"
+  ]
+ },
+ "handling-06-trust-folder.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Yes, I trust this folder"
+ },
+ "handling-07-bypass-permissions-warning-at-launch.txt": {
+  "kind": "auto",
+  "name": "bypass-warning",
+  "pick": "Yes, I accept"
+ },
+ "handling-08-new-mcp-server-in-project-mcp-json.txt": {
+  "kind": "question",
+  "name": "mcp-new",
+  "question": "This project wants to start a tool called “playwright”. Allow it?",
+  "labels": [
+   "Yes, and future ones in this project",
+   "Yes",
+   "No"
+  ]
+ },
+ "handling-09-custom-api-key-detected-at-launch.txt": {
+  "kind": "question",
+  "name": "api-key",
+  "question": "Claude found an API key. Use it?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "handling-10-usage-limit-menu-rate-limit-options.txt": {
+  "kind": "auto",
+  "name": "usage-limit",
+  "pick": "Stop and wait for limit to reset",
+  "hold": "Paused until the usage limit resets (3pm)"
+ },
+ "handling-11-login-onboarding-login-method-oauth-past.txt": {
+  "kind": "none"
+ },
+ "handling-12-mcp-elicitation-form-or-url-dialogs.txt": {
+  "kind": "none"
+ },
+ "handling-13-notification-hook-says-a-permission-or-i.txt": {
+  "kind": "none"
+ },
+ "handling-14-question-line-is-the-user-s-echoed-promp.txt": {
+  "kind": "question",
+  "name": "mcp-new",
+  "question": "This project wants to start a tool called “playwright”. Allow it?",
+  "labels": [
+   "Yes, and future ones in this project",
+   "Yes",
+   "No"
+  ]
+ },
+ "handling-31-new-session-blocked-at-startup-by-an-unr.txt": {
+  "kind": "auto",
+  "name": "press-enter",
+  "pick": "enter"
+ },
+ "handling-32-feedback-survey-line-digit-keys.txt": {
+  "kind": "none"
+ },
+ "handling-33-spinner-frame-not-counted-as-working.txt": {
+  "kind": "none"
+ },
+ "handling-34-model-or-effort-picker-left-open-kind-s.txt": {
+  "kind": "picker"
+ },
+ "handling-37-generic-y-n-prompt-answered-without-ente.txt": {
+  "kind": "question",
+  "name": "yes-no",
+  "question": "Do you want to continue?",
+  "labels": [
+   "Yes",
+   "No"
+  ]
+ },
+ "history-01-claude-folder-trust-quick-safety-check.txt": {
+  "kind": "auto",
+  "name": "trust",
+  "pick": "Yes, I trust this folder"
+ },
+ "history-03-claude-usage-limit-options-menu-weekly-l.txt": {
+  "kind": "auto",
+  "name": "usage-limit",
+  "pick": "Wait here, then continue automatically at Nov 13, 4pm",
+  "hold": "Paused until the usage limit resets (Nov 13, 4pm)"
+ },
+ "history-06-switch-model-confirmation-after-model.txt": {
+  "kind": "auto",
+  "name": "switch-model",
+  "pick": "Yes, switch to Sonnet 5.5"
+ },
+ "history-07-resume-dialog-when-weevils-resumes-a-lar.txt": {
+  "kind": "auto",
+  "name": "resume",
+  "pick": "Resume from summary (recommended)"
+ },
+ "history-08-false-needs-user-raw-keys-typed-into-a-w.txt": {
+  "kind": "none"
+ },
+ "history-10-two-model-commands-typed-into-the-same-c.txt": {
+  "kind": "none"
+ },
+ "history-12-claude-auth-expired-oauth-login.txt": {
+  "kind": "hold",
+  "reason": "auth",
+  "text": "Claude needs to be signed in again on this machine"
+ }
+}

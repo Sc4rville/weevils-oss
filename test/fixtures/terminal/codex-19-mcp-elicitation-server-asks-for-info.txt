@@ -1,0 +1,9 @@
+  geste needs your approval.
+
+  Please provide your API token for the staging server
+
+› 1. Yes, provide the requested info
+  2. No, but continue without it
+  3. Cancel this request
+
+  Press enter to confirm or esc to cancel

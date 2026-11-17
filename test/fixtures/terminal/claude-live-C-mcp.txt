@@ -1,0 +1,40 @@
+
+
+❯ /effort
+  ⎿  Cancelled
+
+❯ /fast
+  ⎿  Fast mode OFF
+
+❯ /resume
+  ⎿  Resume cancelled
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ /upgrade
+  ⎿  You’re already on the highest individual plan. For additional usage, run /usage-credits.
+
+❯ /usage-credits
+  ⎿  Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ ◐ medium · /effort ▔
+   Manage MCP servers
+   10 servers
+
+     claude.ai
+   ❯ ✔ claude.ai Claude Docs       8 tools
+     ✔ claude.ai Gmail             31 tools
+     ✔ claude.ai Google Calendar   9 tools
+     ✔ claude.ai Google Drive      14 tools
+     ✔ claude.ai Higgsfield        201 tools
+     ✔ claude.ai Klaviyo           138 tools
+     ✔ claude.ai Notion            77 tools
+     → Show unused connectors      2 hidden
+
+     Built-in MCPs (always available)
+     ⚠ plugin:runpod:runpod        needs authentication
+
+   https://code.claude.com/docs/en/mcp for help
+   ↑/↓ to navigate · Enter to confirm · Esc to cancel

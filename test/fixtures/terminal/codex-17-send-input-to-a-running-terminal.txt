@@ -1,0 +1,7 @@
+  Would you like to send input to the existing terminal?
+  (background terminal running <cmd>; /ps to view, /stop to close)
+
+› 1. Yes, proceed (y)
+  2. No, and tell Codex what to do differently (esc)
+
+  Press enter to confirm or esc to cancel

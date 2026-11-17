@@ -1,0 +1,40 @@
+
+ ▐▛███▛█   Claude Code v2.1.322
+▝▜██████▀  Opus 5.5 · API Usage Billing
+ ▝▝   ▝▝   /tmp/demo/blank/proj
+
+⚠ Remote managed settings failed to load (authentication rejected (401)) · no remote policy applied · /status for
+  details
+
+❯ hi
+  ⎿  Invalid API key · Fix external API key
+
+✻ Churned for 0s · done 7:04 AM
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)

@@ -1,0 +1,7 @@
+⚠ Allow rule "Read(*)" adds nothing to Read's default, which already runs without asking in the working directories.
+  "Read" alone allows every path. Older versions of Claude Code treat "Read(*)" as "Read", and this version will too if
+  Anthropic turns this change off.
+⚠ Allow rule "Write(*)" lets Write run without asking only in the working directories. "Write" alone allows every path.
+  …
+⚠ Remote managed settings failed to load (authentication rejected (401)) · no remote policy applied · /status for
+  details

@@ -1,0 +1,4 @@
+thread '<name>' (<id>) panicked at <file>:<line>:
+<message>
+(or) Fatal error: …  (or) internal error; agent loop died unexpectedly
+(the pane shows the shell or exits)

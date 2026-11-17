@@ -1,0 +1,253 @@
+#!/bin/bash
+# bsd-strict — installed under the name of a GNU (or busybox) tool of the fake Mac. It runs the real tool, but first
+# refuses what the BSD tool of macOS would not take, loudly: a line on stderr, exit 64, and a line in
+# /var/fakemac/gnuisms.log that test/macos/run.sh reads at the end. Bash builtins only (it must not call the tools it
+# stands for).
+#
+# Three kinds of refusal:
+#   gnu     a GNU-only option or behaviour (exit 64, gnuisms.log): a bug in the script under test
+#   gap     a BSD-only usage this wrapper can't hand to the GNU tool behind it (exit 65, gaps.log): a hole in the
+#           harness, to fill here
+#   nofile  a path under /proc or /sys: it does not exist on a Mac (the tool's own "No such file" error, and a note in
+#           linux-paths.log; a guarded use is fine, so the note is not a failure)
+#
+# The rules are what is certain about the BSD tools of macOS 11 and later. "(unsure)" marks a rule kept strict on
+# purpose where newer macOS versions are known or thought to accept the GNU form.
+tool=${0##*/}
+real=/opt/real/bin/$tool
+state=/var/fakemac
+args=("$@")
+nl=$'\n'
+
+who() { # the caller's command line, for the log
+  local a out=''
+  [ -r "/proc/$PPID/cmdline" ] || return 0
+  while IFS= read -r -d '' a; do out="$out $a"; done <"/proc/$PPID/cmdline"
+  out=${out//$nl/ }
+  printf '%s' "${out:0:200}"
+}
+line() { local l="$tool ${args[*]}"; l=${l//$nl/ }; printf '%s' "${l:0:300}"; }
+gnu() {
+  printf 'bsd-strict: %s: %s (GNU only, not on macOS): %s\n' "$tool" "$1" "$(line)" >&2
+  printf '%s: %s :: %s :: from%s\n' "$tool" "$1" "$(line)" "$(who)" >>"$state/gnuisms.log"
+  exit 64
+}
+gap() {
+  printf 'bsd-strict: %s: %s (fine on macOS, not emulated by this test harness): %s\n' "$tool" "$1" "$(line)" >&2
+  printf '%s: %s :: %s :: from%s\n' "$tool" "$1" "$(line)" "$(who)" >>"$state/gaps.log"
+  exit 65
+}
+nofile() {
+  printf '%s: %s: No such file or directory\n' "$tool" "$1" >&2
+  printf '%s: %s :: from%s\n' "$tool" "$1" "$(who)" >>"$state/linux-paths.log"
+  [ "$tool" != grep ] || exit 2
+  exit 1
+}
+
+# ---------------------------------------------------------------- per tool: what takes an argument, how operands go
+optarg=''   # the option letters that take an argument (BSD getopt string of the tool)
+permute=0   # 1: the BSD tool uses getopt_long, which accepts options after operands like GNU does
+stop=0      # 1: everything after the first operand belongs to something else (a command, a program, a set)
+case "$tool" in
+  grep) optarg=efmABCdD permute=1 ;;
+  sort) optarg=ktoTS permute=1 ;;
+  sed) optarg=ef ;;
+  head) optarg=nc ;;
+  tail) optarg=ncb ;;
+  cut) optarg=dfcb ;;
+  xargs) optarg=InPLsEJRS stop=1 ;;
+  mktemp) optarg=t ;;
+  date) optarg=frvz ;;
+  stat) optarg=ft ;;
+  du) optarg=dIt ;;
+  mkdir) optarg=m ;;
+  install) optarg=mogfB ;;
+  touch) optarg=trdA ;;
+  od) optarg=AjNt ;;
+  paste) optarg=d ;;
+  ls) optarg=D ;;
+  base64) optarg=bio ;;
+  awk) optarg=Fvf stop=1 ;;
+  tr) stop=1 ;;
+esac
+
+# GNU's regex extensions in a basic (non -E) sed script: BSD sed takes them as plain characters, silently.
+# (unsure for \| on the newest macOS; \+ \? \s \w \b \t are certain.)
+sed_extended=0
+sed_script() {
+  [ "$sed_extended" = 0 ] || return 0
+  case "$1" in
+    *'\+'* | *'\?'* | *'\|'* | *'\s'* | *'\S'* | *'\w'* | *'\W'* | *'\b'* | *'\t'*)
+      gnu "a GNU regex extension (\\+ \\? \\| \\s \\w \\b \\t) in a basic regex" ;;
+  esac
+}
+
+# stat -f <BSD format> → the same for GNU stat -c.
+stat_format() {
+  local f=$1 o='' c
+  while [ -n "$f" ]; do
+    c=${f:0:1}; f=${f:1}
+    if [ "$c" != % ]; then o="$o$c"; continue; fi
+    case "$f" in
+      m*) o="$o%Y"; f=${f:1} ;; a*) o="$o%X"; f=${f:1} ;; c*) o="$o%Z"; f=${f:1} ;; z*) o="$o%s"; f=${f:1} ;;
+      u*) o="$o%u"; f=${f:1} ;; g*) o="$o%g"; f=${f:1} ;; i*) o="$o%i"; f=${f:1} ;; l*) o="$o%h"; f=${f:1} ;;
+      N*) o="$o%n"; f=${f:1} ;; Su*) o="$o%U"; f=${f:2} ;; Sg*) o="$o%G"; f=${f:2} ;; Sp*) o="$o%A"; f=${f:2} ;;
+      Lp*) o="$o%a"; f=${f:2} ;; OLp*) o="$o%a"; f=${f:3} ;; %*) o="$o%%"; f=${f:1} ;;
+      *) gap "stat -f format %$f" ;;
+    esac
+  done
+  printf '%s' "$o"
+}
+
+# ---------------------------------------------------------------- tools with their own grammar
+case "$tool" in
+  ps)
+    for a in ${args[@]+"${args[@]}"}; do case "$a" in --?*) gnu "long option $a" ;; esac; done
+    exec "$real" "$@" ;;
+  find)
+    # find [-H | -L | -P] [-EXdsx] [-f path] path ... [expression]: BSD wants a path, GNU defaults to "."
+    paths=0 expr=0
+    for a in ${args[@]+"${args[@]}"}; do
+      if [ "$expr" = 0 ]; then
+        case "$a" in
+          -H | -L | -P | -E | -X | -d | -s | -x | -f) continue ;;
+          -* | '(' | '!') expr=1; [ "$paths" -gt 0 ] || gnu "no starting path (BSD find needs one, GNU defaults to .)" ;;
+          /proc/* | /sys/*) nofile "$a" ;;
+          *) paths=$((paths + 1)); continue ;;
+        esac
+      fi
+      case "$a" in
+        -printf | -fprintf | -regextype | -executable | -readable | -writable | -daystart | -xtype | -ilname | \
+          -noleaf | -warn | -nowarn | -files0-from | -fprint0 | -fls | -printf0 | -context | -used | -ignore_readdir_race)
+          gnu "primary $a" ;;
+      esac
+    done
+    [ "$paths" -gt 0 ] || gnu "no starting path (BSD find needs one, GNU defaults to .)"
+    exec "$real" "$@" ;;
+esac
+
+# ---------------------------------------------------------------- sed -i: BSD always takes the next argument as the suffix
+if [ "$tool" = sed ]; then
+  new=() i=0 n=${#args[@]}
+  while [ "$i" -lt "$n" ]; do
+    a=${args[$i]}; i=$((i + 1))
+    case "$a" in
+      -i | -[nEalu]i | -[nEalu][nEalu]i)
+        [ "$i" -lt "$n" ] || gnu "-i without a suffix argument (write: sed -i '' …)"
+        suffix=${args[$i]}; i=$((i + 1))
+        case "$suffix" in
+          '' | .[A-Za-z0-9_~-]* | *~) ;;
+          *) gnu "-i without a suffix argument: BSD sed would take '${suffix:0:40}' as the backup suffix (write: sed -i '' …)" ;;
+        esac
+        [ "$a" = -i ] || new+=("${a%i}")
+        new+=("-i$suffix") ;;
+      --in-place*) gnu "long option $a" ;;
+      *) new+=("$a") ;;
+    esac
+  done
+  args=(${new[@]+"${new[@]}"})
+  set -- ${new[@]+"${new[@]}"}
+  for a in "$@"; do case "$a" in --) break ;; -*E*) sed_extended=1 ;; -*r*) sed_extended=1 ;; esac; done
+fi
+
+# ---------------------------------------------------------------- the common walk over the arguments
+flag() { # flag <letter>: an option without argument
+  case "$tool:$1" in
+    sed:r) gnu "-r (use -E)" ;; # (unsure: accepted by the sed of macOS 10.15 and later)
+    sed:z | sed:s) gnu "-$1" ;;
+    date:d) gnu "-d (BSD date: -j -f <format> <date>, or -r <seconds>)" ;;
+    date:s) gnu "-s" ;;
+    date:j) gap "date -j" ;;
+    stat:c) gnu "-c (BSD stat: -f <format>)" ;;
+    readlink:f | readlink:e | readlink:m) gnu "-$1" ;; # (unsure: -f exists on macOS 12.3 and later)
+    grep:P) gnu "-P (no Perl regex in BSD grep)" ;;
+    tail:r) gap "tail -r" ;;
+    base64:w) gnu "-w" ;;
+    xargs:d | xargs:a) gnu "-$1" ;;
+    sort:V) gnu "-V" ;; # (unsure: the sort of recent macOS has it)
+    mktemp:p) gnu "-p" ;; # (unsure: recent macOS has it)
+    cp:t | cp:T | cp:d | cp:b | mv:t | mv:T | mv:b | ln:r | ln:t | ln:T | ln:b) gnu "-$1" ;;
+    hostname:I | hostname:i | hostname:A) gnu "-$1" ;;
+    du:b) gnu "-b" ;;
+    install:D | install:t | install:T) gnu "-$1" ;;
+  esac
+}
+value() { # value <letter> <argument>: an option with its argument; may set sub (what the GNU tool gets instead)
+  case "$tool:$1" in
+    head:n | head:c) case "$2" in -*) gnu "-$1 with a negative count" ;; esac ;;
+    sed:e) sed_script "$2" ;;
+    date:r) case "$2" in *[!0-9]* | '') ;; *) sub=(-d "@$2") sub_set=1 ;; esac ;;
+    date:f | date:v) gap "date -$1" ;;
+    stat:f) sub=(-c "$(stat_format "$2")") sub_set=1 ;;
+    stat:t) gap "stat -t" ;;
+    mktemp:t) local d=${TMPDIR:-/tmp}; sub=("${d%/}/$2.XXXXXXXX") sub_set=1 ;;
+    touch:d) case "$2" in [0-9][0-9][0-9][0-9]-[0-9][0-9]-[0-9][0-9]T[0-9]*) ;; *) gnu "-d with a free-form date (BSD touch: YYYY-MM-DDThh:mm:ss)" ;; esac ;;
+    base64:b | base64:i | base64:o) gap "base64 -$1" ;;
+  esac
+}
+long() { # long <option>
+  case "$tool:$1" in
+    grep:--perl-regexp*) gnu "long option $1" ;;
+    sort:--version-sort*) gnu "long option $1" ;;
+    grep:* | sort:*) ;; # BSD grep and sort take GNU's long options
+    base64:--decode | base64:--help) ;;
+    *) gnu "long option $1" ;;
+  esac
+}
+operands=0
+operand() { # operand <argument>
+  operands=$((operands + 1))
+  case "$1" in /proc/* | /sys/*) nofile "$1" ;; esac
+  case "$tool" in
+    sed) [ "$operands" != 1 ] || [ "$sed_has_script" = 1 ] || sed_script "$1" ;;
+    date) case "$1" in +*%N* | +*%[0-9]N* | +*%:z*) gnu "a %N or %:z format" ;; esac ;;
+    mktemp) case "$1" in *X) ;; *XXX*) gnu "a template whose X's are not at the end" ;; esac ;;
+    sleep) case "$1" in inf*) gnu "sleep infinity" ;; esac ;;
+  esac
+}
+
+out=() i=0 n=${#args[@]} end=0 sed_has_script=0 rewritten=0
+while [ "$i" -lt "$n" ]; do
+  a=${args[$i]}; i=$((i + 1))
+  if [ "$end" = 1 ]; then operand "$a"; out+=("$a"); continue; fi
+  case "$a" in
+    --) end=1; out+=("$a") ;;
+    --?*) long "$a"; out+=("$a") ;;
+    -?*)
+      if [ "$operands" -gt 0 ] && [ "$permute" = 0 ]; then
+        gnu "option $a after an operand (GNU reorders the arguments, BSD takes it as a file name)"
+      fi
+      # (sed -i<suffix>, already checked above: the suffix is not a list of options.)
+      if [ "$tool" = sed ]; then case "$a" in -i*) out+=("$a"); continue ;; esac; fi
+      cluster=${a#-} sub=() sub_set=0 took=0 val=''
+      while [ -n "$cluster" ]; do
+        c=${cluster:0:1}; cluster=${cluster:1}
+        case "$c" in [0-9]) continue ;; esac # head -1, tail -20
+        case "$optarg" in
+          *"$c"*)
+            if [ -n "$cluster" ]; then val=$cluster; cluster=''
+            else
+              [ "$i" -lt "$n" ] || break
+              val=${args[$i]}; i=$((i + 1)); took=1
+            fi
+            [ "$tool:$c" != sed:e ] && [ "$tool:$c" != sed:f ] || sed_has_script=1
+            value "$c" "$val" ;;
+          *) flag "$c" ;;
+        esac
+      done
+      if [ "$sub_set" = 1 ]; then out+=(${sub[@]+"${sub[@]}"}); rewritten=1
+      else out+=("$a"); [ "$took" = 0 ] || out+=("$val"); fi ;;
+    *)
+      operand "$a"; out+=("$a")
+      [ "$stop" = 0 ] || end=2 ;;
+  esac
+  # After the first operand of xargs, awk or tr, the rest is not ours to judge.
+  if [ "$end" = 2 ]; then
+    while [ "$i" -lt "$n" ]; do
+      [ "$tool" != awk ] || case "${args[$i]}" in /proc/* | /sys/*) nofile "${args[$i]}" ;; esac
+      out+=("${args[$i]}"); i=$((i + 1))
+    done
+  fi
+done
+
+exec "$real" ${out[@]+"${out[@]}"}

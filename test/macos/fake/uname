@@ -1,0 +1,27 @@
+#!/bin/bash
+# uname of the fake Mac: Darwin, on Apple Silicon (arm64) or Intel (x86_64): FAKE_MAC_ARCH, else /var/fakemac/arch.
+arch=${FAKE_MAC_ARCH:-}
+[ -n "$arch" ] || { read -r arch </var/fakemac/arch || arch=arm64; } 2>/dev/null
+host=$(/opt/real/bin/hostname)
+rel=24.5.0
+ver="Darwin Kernel Version 24.5.0: Tue Apr 22 19:54:25 PDT 2025; root:xnu-11417.121.6~2/RELEASE"
+proc=arm; [ "$arch" = arm64 ] || proc=i386
+[ $# -gt 0 ] || set -- -s
+out=''
+add() { out="${out:+$out }$1"; }
+for a in "$@"; do
+  case "$a" in
+    -a) out="Darwin $host $rel $ver $arch" ;;
+    -[mnoprsv]*)
+      a=${a#-}
+      while [ -n "$a" ]; do
+        case "${a:0:1}" in
+          s | o) add Darwin ;; n) add "$host" ;; r) add "$rel" ;; v) add "$ver" ;; m) add "$arch" ;; p) add "$proc" ;;
+          *) echo "uname: illegal option -- ${a:0:1}" >&2; exit 1 ;;
+        esac
+        a=${a:1}
+      done ;;
+    *) echo "uname: illegal option -- $a" >&2; echo "usage: uname [-amnoprsv]" >&2; exit 1 ;;
+  esac
+done
+echo "$out"

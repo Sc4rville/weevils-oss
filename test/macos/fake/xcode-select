@@ -1,0 +1,13 @@
+#!/bin/bash
+# xcode-select of the fake Mac: the Command Line Tools are installed unless /var/fakemac/no-clt exists (ctl clt off).
+echo "xcode-select $*" >>/var/fakemac/calls.log
+case "${1:-}" in
+  -p | --print-path)
+    if [ -e /var/fakemac/no-clt ]; then
+      echo "xcode-select: error: unable to get active developer directory, use \`sudo xcode-select --switch path/to/Xcode.app\` to set one (or see \`man xcode-select\`)" >&2
+      exit 2
+    fi
+    echo /Library/Developer/CommandLineTools ;;
+  --install) echo "xcode-select: note: install requested for command line developer tools" ;;
+  *) echo "fake xcode-select: '${1:-}' is not emulated" >&2; exit 65 ;;
+esac

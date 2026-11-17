@@ -1,0 +1,10 @@
+ Create file
+ ../../../home/user/.claude/plans/plan-task-run-the-calm-tulip.md
+╌╌╌╌…
+  1 Run `echo hi` in the shell.
+╌╌╌╌…
+ Do you want to create plan-task-run-the-calm-tulip.md?
+ ❯ 1. Yes
+   2. Yes, and allow Claude to edit files in its ~/.claude folder for this session
+   3. No
+ Esc to cancel · Tab to amend

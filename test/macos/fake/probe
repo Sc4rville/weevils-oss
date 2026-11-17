@@ -1,0 +1,143 @@
+#!/opt/real/bin/python3
+"""probe — what test/macos/run.sh asks the fake Mac (never called by the scripts under test).
+
+  probe pids                             pids of the weevilsd processes (node server/index.ts), one per line
+  probe leader <pid>                     exit 0 when the process leads its own session (detached from any terminal)
+  probe weevilsd-plist <prefix> <repo>   the launchd agent of weevilsd is valid and has what it needs
+  probe tunnel-plist <remote> <host>     same for the reverse SSH tunnel of a secondary machine (remote = port:port)
+  probe launchd-env <pid> <plist>        the process has the environment launchd gives, plus the plist's, nothing else
+Each prints what is wrong, one line per problem, and exits 1 when there is any.
+"""
+import os
+import plistlib
+import sys
+
+HOME = os.path.expanduser('~')
+AGENTS = os.path.join(HOME, 'Library/LaunchAgents')
+PREFIX = 'com.github.sc4rville'
+problems = []
+
+
+def bad(msg):
+    problems.append(msg)
+
+
+def load(name):
+    path = os.path.join(AGENTS, '%s.%s.plist' % (PREFIX, name))
+    try:
+        with open(path, 'rb') as f:
+            head = f.read(200)
+            f.seek(0)
+            plist = plistlib.load(f)
+    except Exception as x:
+        print('%s: %s' % (path, x))
+        sys.exit(1)
+    if not head.startswith(b'<?xml version="1.0" encoding="UTF-8"?>\n<!DOCTYPE plist PUBLIC "-//Apple//DTD PLIST 1.0//EN"'):
+        bad('no XML declaration and Apple DOCTYPE at the top')
+    mode = os.stat(path).st_mode & 0o777
+    if mode != 0o644:
+        bad('mode %o, launchd wants 644' % mode)
+    if plist.get('Label') != '%s.%s' % (PREFIX, name):
+        bad('Label = %r' % plist.get('Label'))
+    for key in ('RunAtLoad', 'KeepAlive'):
+        if plist.get(key) is not True:
+            bad('%s = %r, expected true' % (key, plist.get(key)))
+    return plist
+
+
+def cmdline(pid):
+    try:
+        with open('/proc/%s/cmdline' % pid, 'rb') as f:
+            return [a.decode('utf-8', 'replace') for a in f.read().split(b'\0')[:-1]]
+    except OSError:
+        return []
+
+
+def pids():
+    for pid in sorted((p for p in os.listdir('/proc') if p.isdigit()), key=int):
+        argv = cmdline(pid)
+        if len(argv) >= 2 and os.path.basename(argv[0]) == 'node' and argv[1] == 'server/index.ts':
+            print(pid)
+
+
+def leader(pid):
+    with open('/proc/%s/stat' % pid) as f:
+        fields = f.read().rsplit(')', 1)[1].split()
+    # after the name: state, ppid, pgrp, session
+    if fields[3] != str(pid):
+        bad('pid %s is in session %s, not its own' % (pid, fields[3]))
+
+
+def weevilsd_plist(brew, repo):
+    p = load('weevilsd')
+    argv = p.get('ProgramArguments') or []
+    if len(argv) != 2 or argv[1] != 'server/index.ts':
+        bad('ProgramArguments = %r, expected [node, server/index.ts]' % argv)
+    elif not (os.path.isabs(argv[0]) and os.access(argv[0], os.X_OK) and os.path.basename(argv[0]) == 'node'):
+        bad('ProgramArguments[0] = %r, expected an absolute path to node' % argv[0])
+    if p.get('WorkingDirectory') != repo:
+        bad('WorkingDirectory = %r, expected %s' % (p.get('WorkingDirectory'), repo))
+    env = p.get('EnvironmentVariables') or {}
+    path = (env.get('PATH') or '').split(':')
+    for d in (os.path.join(HOME, '.local/bin'), brew + '/bin', brew + '/sbin', '/usr/bin', '/bin', '/usr/sbin', '/sbin'):
+        if d not in path:
+            bad('PATH lacks %s (%s)' % (d, env.get('PATH')))
+    if path and path[0] != os.path.join(HOME, '.local/bin'):
+        bad('PATH does not start with ~/.local/bin (%s)' % env.get('PATH'))
+    if not str(env.get('LANG', '')).endswith('UTF-8'):
+        bad('LANG = %r, expected a UTF-8 locale' % env.get('LANG'))
+    if env.get('NODE_ENV') != 'production':
+        bad('NODE_ENV = %r' % env.get('NODE_ENV'))
+    if p.get('AbandonProcessGroup') is not True:
+        bad('AbandonProcessGroup = %r: the agent sessions would die with weevilsd' % p.get('AbandonProcessGroup'))
+    log = os.path.join(HOME, '.local/share/weevils/weevilsd.log')
+    for key in ('StandardOutPath', 'StandardErrorPath'):
+        if p.get(key) != log:
+            bad('%s = %r, expected %s' % (key, p.get(key), log))
+    if not os.path.isdir(os.path.dirname(log)):
+        bad('the folder of the log does not exist: launchd would not start the job')
+    if not isinstance(p.get('ThrottleInterval'), int):
+        bad('ThrottleInterval = %r' % p.get('ThrottleInterval'))
+    if not isinstance((p.get('SoftResourceLimits') or {}).get('NumberOfFiles'), int):
+        bad('SoftResourceLimits.NumberOfFiles = %r' % p.get('SoftResourceLimits'))
+
+
+def tunnel_plist(remote, host):
+    p = load('weevils-tunnel')
+    argv = p.get('ProgramArguments') or []
+    want = ['-NT', '-o', 'BatchMode=yes', '-o', 'ServerAliveInterval=20', '-o', 'ServerAliveCountMax=3',
+            '-o', 'ExitOnForwardFailure=yes', '-R', '127.0.0.1:%s' % remote.replace(':', ':127.0.0.1:'), host]
+    if argv[1:] != want:
+        bad('ProgramArguments = %r\n  expected ssh + %r' % (argv, want))
+    if not argv or not (os.path.isabs(argv[0]) and os.access(argv[0], os.X_OK) and os.path.basename(argv[0]) == 'ssh'):
+        bad('ProgramArguments[0] = %r, expected an absolute path to ssh' % (argv[0] if argv else None))
+    log = os.path.join(HOME, '.local/share/weevils/tunnel.log')
+    for key in ('StandardOutPath', 'StandardErrorPath'):
+        if p.get(key) != log:
+            bad('%s = %r, expected %s' % (key, p.get(key), log))
+
+
+def launchd_env(pid, plist_path):
+    with open(plist_path, 'rb') as f:
+        plist = plistlib.load(f)
+    with open('/proc/%s/environ' % pid, 'rb') as f:
+        env = dict(kv.decode('utf-8', 'replace').split('=', 1) for kv in f.read().split(b'\0') if b'=' in kv)
+    given = {'HOME', 'USER', 'LOGNAME', 'SHELL', 'TMPDIR', 'PATH', 'XPC_SERVICE_NAME', 'XPC_FLAGS', '__CF_USER_TEXT_ENCODING'}
+    want = plist.get('EnvironmentVariables') or {}
+    for k in sorted(set(env) - given - set(want)):
+        bad('%s is in the environment of pid %s: not from launchd nor from the plist' % (k, pid))
+    for k, v in want.items():
+        if env.get(k) != str(v):
+            bad('%s = %r in the process, %r in the plist' % (k, env.get(k), v))
+
+
+def main():
+    cmd, args = sys.argv[1], sys.argv[2:]
+    {'pids': pids, 'leader': leader, 'weevilsd-plist': weevilsd_plist, 'tunnel-plist': tunnel_plist,
+     'launchd-env': launchd_env}[cmd](*args)
+    for p in problems:
+        print(p)
+    sys.exit(1 if problems else 0)
+
+
+main()

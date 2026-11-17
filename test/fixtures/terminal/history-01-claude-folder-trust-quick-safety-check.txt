@@ -1,0 +1,9 @@
+[log line verbatim: 'dernier écran : Quick safety check: Is this a project you created or one you trust?'; screen reconstructed from claude 2.1.322 strings and recorded fixtures server/delivery.test.ts:149 and server/weevils.test.ts:84]
+ Quick safety check: Is this a project you created or one you trust? (Like your own code, a well-known open source project, or work from your team). If not, take a moment to review what's in this folder first.
+
+ ❯ 1. Yes, I trust this folder
+   2. No, exit
+
+ Enter to confirm · Esc to cancel
+
+(recorded fixture variant: ' ❯ No, exit\n   Yes, I trust this folder\n Enter to confirm · Esc to cancel')

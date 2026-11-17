@@ -1,0 +1,40 @@
+
+❯ /fast
+  ⎿  Fast mode OFF
+
+❯ /resume
+  ⎿  Resume cancelled
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ /upgrade
+  ⎿  You’re already on the highest individual plan. For additional usage, run /usage-credits.
+
+❯ /usage-credits
+  ⎿  Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ Plan task: run the shell command 'echo hi'. Do not explore anything. Immediately call ExitPlanMode with a one-line
+  plan.
+
+● Updated plan
+  ⎿  /plan to preview
+
+● User approved Claude's plan
+  ⎿  Plan saved to: ~/.claude/plans/plan-task-run-the-calm-tulip.md · /plan to edit
+     Run echo hi in the shell.
+
+  Ran 1 shell command
+  ⎿  PostToolUse:Bash hook error
+  ⎿  Failed with non-blocking status code: inventory-hook-failed
+
+● echo hi a affiché hi.
+
+✻ Baked for 9s · done 7:08 AM
+                                                                                                    ◐ medium · /effort
+───────────────────────────────────────────────────────────────────────────────────────────────────── run-echo-command ─
+❯ 
+────────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+  ⏸ manual mode on · ? for shortcuts

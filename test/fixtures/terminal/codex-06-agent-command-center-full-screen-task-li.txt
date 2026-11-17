@@ -1,0 +1,18 @@
+  Agent command center  Group: Project  g
+   All 1   Needs you 0   Working 0   Ready 1   Inactive 0                                         tab/shift+tab filter
+  ────────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+      Tasks                                           Status         Updated  │ Task details
+  /tmp/demo  1                                                      │
+  › ○ Untitled task                                   Ready              now  │ Untitled task
+                                                                              │ ○ Ready
+                                                                              │
+                                                                              │ Model: gpt-6.1-sol
+                                                                              │ Reasoning: Unknown
+                                                                              │
+                                                                              │ Project
+                                                                              │ /tmp/demo
+                                                                              │
+                                                                              │ Prompt
+                                                                              │ No prompt available.
+  ... (empty │ rows) ...
+  ? help  esc back  ↑/↓ move  enter open  n new

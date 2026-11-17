@@ -1,0 +1,40 @@
+
+  ⎿  Cancelled
+
+❯ /fast
+  ⎿  Fast mode OFF
+
+❯ /resume
+  ⎿  Resume cancelled
+
+❯ /extra-usage
+  ⎿  /extra-usage is now /usage-credits
+
+     Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+
+❯ /upgrade
+  ⎿  You’re already on the highest individual plan. For additional usage, run /usage-credits.
+
+❯ /usage-credits
+  ⎿  Visit https://claude.ai/settings/usage?from=cc_cli_limit_message to manage usage credits.
+▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔▔ ◐ medium · /effort ▔
+   Permissions  Recently blocked   Allow   Ask   Deny   Auto mode   Workspace
+
+   Claude Code won't ask before using allowed tools.
+   ╭─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+   │ ⌕ Search…
+   ╰─────────────────────────────────────────────────────────────────────────────────────────────────────────────────
+
+     1.  Add a new rule…
+     2.  Bash(cd /home/user/Documents/projects/lastwebstudios *)
+     3.  Bash(git mv *)
+     4.  Bash(git rm *)
+     5.  Bash(ln -s ../../../leadengine/3_parsing/skills/structuration/prompt.md .claude/skills/structuration/prompt.
+     6.  Bash(mkdir -p .claude/skills/structuration)
+     7.  Bash(mkdir -p /home/user/Documents/projects/lastwebstudios/.claude/skills/templatize/scripts
+         /home/user/Documents/projects/lastwebstudios/.claude/skills/templatize/reference && echo created)
+     8.  Bash(mkdir -p leadengine/3_parsing/skills/structuration)
+     9.  Bash(rm -rf scripts/__pycache__ && echo "removed pycache")
+   ↓ 10. Bash(rmdir .claude/skills/structuration)
+
+   ←/→ to switch · ↓ to select · Esc to cancel

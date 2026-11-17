@@ -1,0 +1,10 @@
+←  ☒ File name  ☒ Words  ✔ Submit  →
+Review your answers
+ ● Which file name?
+   → a.txt
+ ● Which words to include?
+   → hi
+Ready to submit your answers?
+❯ 1. Submit answers
+  2. Cancel
+───────────────────────────────────────────────────────────────────────────────────────────────────── run-echo-command ─

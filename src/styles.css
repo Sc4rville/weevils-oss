@@ -1,0 +1,3094 @@
+/* weevils — une seule famille (police système Apple, comme Notes), des bandes pleine largeur, rien sans couleur. */
+
+:root {
+  --font: -apple-system, BlinkMacSystemFont, system-ui, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif;
+  --pad: 18px;
+  --rail: 56px;
+  --safe-t: env(safe-area-inset-top, 0px);
+  --safe-b: env(safe-area-inset-bottom, 0px);
+  --mix: 13%;
+  --dl: -0.075;
+}
+
+/* Clair : couleurs vives, texte noir. */
+:root,
+[data-theme='light'] {
+  color-scheme: light;
+  --ink: #000;
+  --logo-filter: brightness(.46);
+  --agent: #b39bff;
+  /* Devil mode : orange pour la bande, vert pour les réponses du modèle. */
+  --devil: #ff9a3c;
+  --devil-reply: #7fe0a0;
+  --h24: #ffc64c;
+  /* Mode conversation : une seule couleur apaisante. */
+  --calm: oklch(0.91 0.045 165);
+  --calm-soft: 0.07;
+  /* Palette des projets : 16 teintes vives rangées par teinte (voisines = proches), texte noir. */
+  --p0: oklch(0.80 0.14 5);
+  --p1: oklch(0.80 0.14 27.5);
+  --p2: oklch(0.80 0.14 50);
+  --p3: oklch(0.80 0.14 72.5);
+  --p4: oklch(0.80 0.14 95);
+  --p5: oklch(0.80 0.14 117.5);
+  --p6: oklch(0.80 0.14 140);
+  --p7: oklch(0.80 0.14 162.5);
+  --p8: oklch(0.80 0.14 185);
+  --p9: oklch(0.80 0.14 207.5);
+  --p10: oklch(0.80 0.14 230);
+  --p11: oklch(0.80 0.14 252.5);
+  --p12: oklch(0.80 0.14 275);
+  --p13: oklch(0.80 0.14 297.5);
+  --p14: oklch(0.80 0.14 320);
+  --p15: oklch(0.80 0.14 342.5);
+}
+
+/* Sombre : couleurs profondes mais chaleureuses, texte blanc. */
+[data-theme='dark'] {
+  color-scheme: dark;
+  --ink: #fff;
+  --logo-filter: grayscale(1) brightness(.3) invert(1);
+  --agent: #5522b5;
+  --devil: #a8470a;
+  --devil-reply: #1d6b3f;
+  --h24: #744900;
+  --calm: oklch(0.3 0.04 165);
+  --calm-soft: -0.04;
+  /* Palette des projets : les mêmes 16 teintes, profondes, texte blanc. */
+  --p0: oklch(0.44 0.13 5);
+  --p1: oklch(0.44 0.13 27.5);
+  --p2: oklch(0.44 0.13 50);
+  --p3: oklch(0.44 0.13 72.5);
+  --p4: oklch(0.44 0.13 95);
+  --p5: oklch(0.44 0.13 117.5);
+  --p6: oklch(0.44 0.13 140);
+  --p7: oklch(0.44 0.13 162.5);
+  --p8: oklch(0.44 0.13 185);
+  --p9: oklch(0.44 0.13 207.5);
+  --p10: oklch(0.44 0.13 230);
+  --p11: oklch(0.44 0.13 252.5);
+  --p12: oklch(0.44 0.13 275);
+  --p13: oklch(0.44 0.13 297.5);
+  --p14: oklch(0.44 0.13 320);
+  --p15: oklch(0.44 0.13 342.5);
+  --mix: 11%;
+  --dl: 0.07;
+}
+
+/* Zen (lecture) : papier, sable, pierre. Texte anthracite, projets en pastel terreux, accents assourdis.
+   Contrastes vérifiés (WCAG AA) : texte ≥ 6,4:1 sur toutes les bandes, étoile verte ≥ 4,1:1, logo animé ≥ 3,3:1.
+   :root en plus : passe devant les :root plus bas (--fluo, palette du logo) qui ont sinon la même spécificité. */
+:root[data-theme='zen'] {
+  color-scheme: light;
+  --ink: #33302b;
+  --logo-filter: grayscale(1) sepia(.25) brightness(.6);
+  --agent: oklch(0.83 0.03 315);
+  --devil: oklch(0.78 0.075 50);
+  --devil-reply: oklch(0.86 0.05 150);
+  --h24: oklch(0.89 0.04 85);
+  --calm: oklch(0.9 0.025 165);
+  --calm-soft: 0.05;
+  --fluo: oklch(0.42 0.08 148);
+  /* Les 16 teintes des projets, toujours distinctes, mais douces. */
+  --p0: oklch(0.84 0.05 5);
+  --p1: oklch(0.84 0.05 27.5);
+  --p2: oklch(0.84 0.05 50);
+  --p3: oklch(0.84 0.05 72.5);
+  --p4: oklch(0.84 0.05 95);
+  --p5: oklch(0.84 0.05 117.5);
+  --p6: oklch(0.84 0.05 140);
+  --p7: oklch(0.84 0.05 162.5);
+  --p8: oklch(0.84 0.05 185);
+  --p9: oklch(0.84 0.05 207.5);
+  --p10: oklch(0.84 0.05 230);
+  --p11: oklch(0.84 0.05 252.5);
+  --p12: oklch(0.84 0.05 275);
+  --p13: oklch(0.84 0.05 297.5);
+  --p14: oklch(0.84 0.05 320);
+  --p15: oklch(0.84 0.05 342.5);
+  /* Logo vocal : teintes calmes et assez sombres pour rester lisibles sur le pastel. */
+  --anim-rec: oklch(0.48 0.1 25);
+  --anim-wait: oklch(0.46 0.07 145);
+  --anim-ready: oklch(0.42 0.08 148);
+  --anim-1: oklch(0.48 0.08 65);
+  --anim-2: oklch(0.47 0.06 220);
+  --anim-3: oklch(0.46 0.08 340);
+  --mix: 12%;
+  --dl: -0.06;
+}
+
+/* Graphite : tout en gris (fonds, bandes, texte, icônes), un seul bleu vif pour ce qui bouge (étoile qui travaille,
+   chargements, enregistrement vocal, non lu, aperçu live, progression). Les bandes se distinguent par la nuance.
+   Contrastes vérifiés : texte ≥ 8:1 partout, bleu ≥ 3:1 sur toutes les bandes et sous-bandes de projet (≥ 6:1 sur les plus claires). */
+:root[data-theme='graphite'] {
+  color-scheme: light;
+  --ink: #141414;
+  --logo-filter: grayscale(1) brightness(.6);
+  --agent: oklch(0.82 0 0);
+  --devil: oklch(0.77 0 0);
+  --devil-reply: oklch(0.93 0 0);
+  --h24: oklch(0.88 0 0);
+  --calm: oklch(0.94 0 0);
+  --calm-soft: 0.03;
+  --fluo: #0040f0;
+  /* Les 16 emplacements des projets : du plus clair au plus foncé (deux emplacements à ≥ 2 d'écart se distinguent). */
+  --p0: oklch(0.97 0 0);
+  --p1: oklch(0.959 0 0);
+  --p2: oklch(0.948 0 0);
+  --p3: oklch(0.937 0 0);
+  --p4: oklch(0.926 0 0);
+  --p5: oklch(0.915 0 0);
+  --p6: oklch(0.904 0 0);
+  --p7: oklch(0.893 0 0);
+  --p8: oklch(0.882 0 0);
+  --p9: oklch(0.871 0 0);
+  --p10: oklch(0.86 0 0);
+  --p11: oklch(0.849 0 0);
+  --p12: oklch(0.838 0 0);
+  --p13: oklch(0.827 0 0);
+  --p14: oklch(0.816 0 0);
+  --p15: oklch(0.805 0 0);
+  /* Logo vocal : le même bleu pour enregistrer, attendre, prêt et la vague de réponse. */
+  --anim-rec: #0040f0;
+  --anim-wait: #0040f0;
+  --anim-ready: #0040f0;
+  --anim-1: #0040f0;
+  --anim-2: #0040f0;
+  --anim-3: #0040f0;
+  --mix: 10%;
+  --dl: -0.045;
+}
+
+* {
+  box-sizing: border-box;
+}
+
+/* Le rebond du scroll montre la couleur du haut en haut, celle de H24 en bas : jamais de blanc. */
+html {
+  background: linear-gradient(var(--agent) 50%, var(--h24) 50%);
+  color: var(--ink);
+  font-family: var(--font);
+  -webkit-text-size-adjust: 100%;
+  -webkit-tap-highlight-color: transparent;
+  text-rendering: optimizeLegibility;
+  -webkit-font-smoothing: antialiased;
+}
+
+body {
+  margin: 0;
+  min-height: 100dvh;
+}
+
+/* Une page est ouverte : la fenêtre entière est de sa couleur (sous le clavier iOS, au rebond), opaque,
+   et le fil principal n'est plus peint du tout : rien de lui ne peut transparaître dans la zone que le clavier décale. */
+/* Ce qu'une action amène sous les yeux (scrollIntoView, src/ui/follow.ts) s'arrête sous la barre d'état et au-dessus du rail. */
+html {
+  scroll-padding-top: var(--safe-t);
+  scroll-padding-bottom: calc(var(--rail) + var(--safe-b) + 8px);
+}
+
+html[data-page] {
+  scroll-padding-bottom: var(--safe-b);
+}
+
+html[data-page] {
+  background: var(--page-c);
+}
+
+html[data-page] body {
+  background: var(--page-c);
+}
+
+html[data-page] main.stack[inert],
+html[data-page] .h24[inert],
+html[data-page] div[inert] > .h24 {
+  visibility: hidden;
+}
+
+button,
+input,
+textarea {
+  font: inherit;
+  color: inherit;
+  background: none;
+  border: 0;
+  padding: 0;
+  margin: 0;
+  border-radius: 0;
+  outline: none;
+  -webkit-appearance: none;
+  appearance: none;
+}
+
+button {
+  cursor: pointer;
+  text-align: left;
+  touch-action: manipulation;
+}
+
+button:disabled {
+  cursor: default;
+}
+
+::placeholder {
+  color: inherit;
+  opacity: 0.62;
+}
+
+:focus-visible {
+  outline: 3px solid currentColor;
+  outline-offset: -3px;
+}
+
+/* ---------- Bandes ---------- */
+
+.band {
+  background: var(--c);
+  color: var(--ink);
+  position: relative;
+}
+
+/* Sous-bande : même couleur, un cran plus profonde (clair) ou plus lumineuse (sombre). */
+.tone {
+  background: color-mix(in oklab, var(--c) calc(100% - var(--mix)), var(--ink));
+  /* Garde la saturation : on ne bouge que la luminosité. */
+  background: oklch(from var(--c) calc(l + var(--dl)) calc(c * 1.06) h);
+}
+
+/* Bande inversée : ce qui t'attend. */
+.invert {
+  background: var(--ink);
+  color: var(--c);
+}
+
+.in {
+  max-width: 760px;
+  margin: 0 auto;
+  padding-inline: var(--pad);
+}
+
+.stack {
+  display: flex;
+  flex-direction: column;
+  min-height: 100dvh;
+}
+
+.clip {
+  overflow: hidden;
+}
+
+/* ---------- Typo : une famille, on joue sur la taille et la graisse ---------- */
+
+.name {
+  font-size: 2.125rem;
+  font-weight: 700;
+  letter-spacing: -0.02em;
+  line-height: 1.05;
+}
+
+.h2 {
+  font-size: 1.5rem;
+  font-weight: 700;
+  letter-spacing: -0.015em;
+  line-height: 1.15;
+}
+
+.meta {
+  font-size: 0.875rem;
+  line-height: 1.35;
+}
+
+.small {
+  font-size: 0.8125rem;
+  line-height: 1.35;
+}
+
+.strong {
+  font-weight: 650;
+}
+
+.tab {
+  font-variant-numeric: tabular-nums;
+}
+
+/* ---------- En-tête de bande ---------- */
+
+.head {
+  display: flex;
+  align-items: center;
+  flex-wrap: wrap;
+  column-gap: 6px;
+  min-height: 64px;
+  padding-top: 8px;
+}
+
+.head-name {
+  flex: 1 1 auto;
+  padding: 6px 0;
+  min-height: 48px;
+  display: flex;
+  align-items: baseline;
+  gap: 10px;
+}
+
+.chars {
+  margin-left: auto;
+  display: flex;
+  align-items: center;
+}
+
+/* Icônes = caractères du clavier. */
+.ch {
+  min-width: 44px;
+  height: 46px;
+  padding-inline: 6px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.625rem;
+  font-weight: 500;
+  line-height: 1;
+}
+
+.ch sup {
+  font-size: 0.875rem;
+  font-weight: 700;
+  vertical-align: top;
+  position: relative;
+  top: -0.35em;
+  margin-left: 1px;
+}
+
+.ch.off {
+  opacity: 0.45;
+}
+
+.summary {
+  padding-bottom: 14px;
+}
+
+/* ---------- Lignes (session, conversation, fichier…) ---------- */
+
+.row {
+  display: block;
+  width: 100%;
+}
+
+.row > .in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 52px;
+  padding-block: 8px;
+}
+
+.row .st {
+  width: 22px;
+  flex: none;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.row .dur {
+  width: 3.1em;
+  flex: none;
+  font-size: 0.9375rem;
+  font-variant-numeric: tabular-nums;
+}
+
+.row .tool {
+  flex: none;
+  font-size: 0.9375rem;
+  font-weight: 650;
+}
+
+.row .title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.0625rem;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.row .go {
+  flex: none;
+  font-size: 1.25rem;
+  font-weight: 500;
+}
+
+.row .stack-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.row .stack-text > * {
+  display: block;
+}
+
+.ellipsis {
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.label {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  letter-spacing: 0.02em;
+  padding-top: 14px;
+  padding-bottom: 4px;
+}
+
+.spin {
+  display: inline-block;
+  animation: spin 2.6s linear infinite;
+}
+
+@keyframes spin {
+  to {
+    transform: rotate(360deg);
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .spin:not(.fluo) {
+    animation: none;
+  }
+}
+
+.empty {
+  padding-block: 12px 18px;
+}
+
+/* ---------- Agent principal ---------- */
+
+.agent {
+  padding-top: var(--safe-t);
+}
+
+.composer > .in {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  min-height: 56px;
+}
+
+.composer .prompt {
+  font-size: 1.5rem;
+  font-weight: 700;
+  width: 22px;
+  flex: none;
+}
+
+.composer input,
+.composer textarea {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.0625rem; /* ≥ 16px : pas de zoom iOS */
+  padding-block: 14px;
+  resize: none;
+}
+
+.composer .send {
+  min-width: 38px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.composer .send:disabled {
+  opacity: 0.35;
+}
+
+.msg > .in {
+  padding-block: 10px;
+}
+
+.msg .who {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  display: block;
+  margin-bottom: 2px;
+}
+
+.msg .text {
+  font-size: 1.0625rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+}
+
+/* A reply's structure, calm: type and space carry it, no boxes. Headings a step up, bold where the agent put it,
+   real lists with a hanging indent, a quote set off by a thin rule, tables that scroll sideways rather than wrap. */
+.md > * { margin: 0; }
+.md > * + * { margin-top: .65em; }
+.md > .md-h + * { margin-top: .3em; }
+.md > * + .md-h { margin-top: 1.1em; }
+.md-h { font-weight: 700; line-height: 1.3; }
+.md-h1 { font-size: 1.25rem; }
+.md-h2 { font-size: 1.1563rem; }
+.md-h3 { font-size: 1.0625rem; }
+.md strong { font-weight: 700; }
+.md ul, .md ol { padding-inline-start: 1.3em; white-space: normal; }
+.md li + li { margin-top: .3em; }
+.md li > ul { margin-top: .3em; }
+.md li { white-space: pre-wrap; }
+.md li::marker { color: color-mix(in srgb, currentColor 55%, transparent); }
+.md blockquote {
+  padding-inline-start: .8em;
+  border-inline-start: 2px solid color-mix(in srgb, currentColor 30%, transparent);
+  opacity: .85;
+}
+.md blockquote button.copy { min-height: 24px; min-width: 28px; margin-block: -4px; }
+.md hr { border: 0; height: .2em; }
+.md-table { overflow-x: auto; -webkit-overflow-scrolling: touch; white-space: normal; }
+.md table { border-collapse: collapse; font-size: .9375rem; line-height: 1.35; min-width: 100%; }
+.md th, .md td { text-align: start; vertical-align: top; padding: .35em .9em .35em 0; }
+.md th { font-weight: 700; }
+.md tr + tr td, .md tbody tr:first-child td { border-top: 1px solid color-mix(in srgb, currentColor 14%, transparent); }
+.md td { min-width: 5.5em; max-width: 16em; }
+.md-code { position: relative; }
+.md-code pre { margin: 0 32px 0 0; padding-block: 2px; white-space: pre; overflow-x: auto; font-size: .8125rem; line-height: 1.5; }
+.md-code > button.copy { position: absolute; top: -8px; inset-inline-end: -6px; }
+
+.msg.event .text {
+  font-size: 0.9375rem;
+  font-style: italic;
+}
+
+/* Mise en avant : du gras, jamais de soulignement. */
+.link {
+  font-weight: 700;
+  min-height: 44px;
+  display: inline-flex;
+  align-items: center;
+}
+
+/* Dans une ligne de texte : pas de hauteur de bouton. */
+.link.inline {
+  min-height: 0;
+  display: inline;
+  padding-block: 6px;
+}
+
+.inline-actions {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 18px;
+}
+
+/* ---------- Pages (session, fichiers…) ---------- */
+
+.page {
+  position: fixed;
+  left: 0;
+  right: 0;
+  top: var(--vvt, 0px);
+  height: var(--vvh, 100dvh);
+  z-index: 30;
+  display: flex;
+  flex-direction: column;
+  background: var(--c);
+  color: var(--ink);
+  will-change: transform;
+}
+
+.page-head {
+  padding-top: var(--safe-t);
+  flex: none;
+}
+
+.page-head .in {
+  padding-bottom: 12px;
+}
+
+.back {
+  min-width: 44px;
+  height: 48px;
+  margin-left: -10px;
+  padding-inline: 10px;
+  font-size: 1.75rem;
+  font-weight: 500;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.back .meta {
+  font-weight: 650;
+}
+
+/* Back on the left, the page's own actions (pause, run now…) on the right of the same row. */
+.page-acts {
+  display: flex;
+  align-items: center;
+}
+
+.page-acts > .chars {
+  margin-right: -10px;
+}
+
+.page-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  display: flex;
+  flex-direction: column;
+}
+
+/* Les messages ne doivent jamais se tasser : un enfant avec overflow hidden a un min-height de 0 dans une colonne flex. */
+.page-body > * {
+  flex: none;
+}
+
+.page-body > .fill {
+  flex: 1;
+}
+
+.page-foot {
+  flex: none;
+  padding-bottom: var(--safe-b);
+}
+
+/* « Du nouveau en bas » (src/ui/followdown.tsx) : flotte en bas à droite du fil, juste au-dessus de la saisie, sans prendre
+   de place (ancre sans hauteur, comme le logo de weevboss à gauche). */
+.page-float {
+  flex: none;
+  position: relative;
+  height: 0;
+  z-index: 5;
+}
+
+.follow-down {
+  position: absolute;
+  right: calc(var(--pad) - 6px);
+  bottom: 8px;
+  width: 48px;
+  height: 48px;
+  display: grid;
+  place-items: center;
+  font-size: 1.375rem;
+  font-weight: 800;
+  background: var(--ink);
+  color: var(--c);
+}
+
+.page-float.no-foot .follow-down {
+  bottom: calc(8px + var(--safe-b));
+}
+
+.follow-down .ic {
+  width: 22px;
+  height: 22px;
+}
+
+/* Page partagée en deux : le fil d'un côté, le navigateur intégré de l'autre (dessous sur téléphone, à droite sur grand écran). */
+.page-cols,
+.page-main {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.page-side {
+  flex: none;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  color: var(--ink);
+}
+
+.page.split .page-main,
+.page.split .page-side {
+  flex: 1 1 50%;
+}
+
+.page.split .page-side {
+  background: oklch(from var(--c) calc(l + var(--dl)) calc(c * 1.06) h);
+}
+
+@media (min-width: 900px) {
+  .page.split .page-cols {
+    flex-direction: row;
+  }
+}
+
+.preview {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+  background: var(--c);
+}
+
+.preview-bar {
+  display: flex;
+  align-items: center;
+  gap: 2px;
+  padding: 6px 8px;
+  flex: none;
+}
+
+.preview-bar input {
+  flex: 1;
+  min-width: 0;
+  height: 46px;
+  padding-inline: 10px;
+  font-size: 1.0625rem; /* ≥ 16px : pas de zoom iOS */
+  background: color-mix(in oklab, currentColor 8%, transparent);
+}
+
+.preview-bar a.key {
+  text-decoration: none;
+  color: inherit;
+}
+
+.preview-hints {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 14px;
+  padding: 0 10px 6px;
+}
+
+.preview-body {
+  flex: 1 1 auto;
+  min-height: 0;
+  position: relative;
+}
+
+.preview-frame {
+  position: absolute;
+  inset: 0;
+  width: 100%;
+  height: 100%;
+  border: 0;
+  background: #fff;
+}
+
+/* Sur téléphone, la page vue doit garder une vraie hauteur même quand le fil est long. */
+.page.split .page-side {
+  min-height: 45%;
+}
+
+/* Page vue en grand (téléphone) : le fil de la session se cache, l'en-tête reste pour revenir. */
+@media (max-width: 899px) {
+  .page.split:has(.preview.full) .page-main {
+    display: none;
+  }
+}
+
+@media (min-width: 900px) {
+  .preview-full {
+    display: none;
+  }
+}
+
+.code {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  font-size: 0.9375rem;
+  line-height: 1.5;
+  padding-block: 16px 32px;
+  margin: 0;
+  font-family: var(--font);
+}
+
+/* ---------- H24 ---------- */
+
+.h24 {
+  position: fixed;
+  left: 0;
+  right: 0;
+  bottom: 0;
+  height: min(86dvh, 720px);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+  --c: var(--h24);
+  touch-action: none;
+}
+
+.h24-head {
+  flex: none;
+  width: 100%;
+  touch-action: none;
+  cursor: grab;
+}
+
+.h24-head > .in {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  height: var(--rail);
+}
+
+.h24-grip {
+  position: absolute;
+  top: 6px;
+  left: 50%;
+  translate: -50% 0;
+  font-size: 0.75rem;
+  font-weight: 700;
+  letter-spacing: 0.2em;
+  opacity: 0.6;
+}
+
+.h24-body {
+  flex: 1;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  touch-action: pan-y;
+  padding-bottom: calc(var(--safe-b) + 24px);
+}
+
+.h24-probe {
+  position: absolute;
+  visibility: hidden;
+  pointer-events: none;
+  height: calc(var(--rail) + var(--safe-b));
+  width: 1px;
+}
+
+.catcher {
+  position: fixed;
+  inset: 0;
+  z-index: 19;
+}
+
+/* Démo : bande de fin qui remplit l'espace restant, au-dessus du rail H24. */
+.demo {
+  flex: 1;
+  padding-bottom: calc(var(--rail) + var(--safe-b) + 28px);
+}
+
+@media (min-width: 700px) {
+  :root {
+    --pad: 28px;
+  }
+  .name {
+    font-size: 2.5rem;
+  }
+}
+
+/* Le titre de page reçoit le focus pour les lecteurs d'écran, sans cadre visible. */
+h1[tabindex='-1']:focus {
+  outline: none;
+}
+
+/* Pas de cadre autour des champs : la bande suffit, le curseur montre où l'on écrit. */
+input:focus-visible {
+  outline: none;
+}
+
+/* Écran du terminal : seule exception à la police unique, pour que les cadres des TUI restent alignés. */
+.screen,
+.code.mono {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+}
+
+.screen {
+  margin: 0;
+  padding: 10px var(--pad) 12px;
+  font-size: 0.6875rem;
+  line-height: 1.35;
+  white-space: pre;
+  overflow-x: auto;
+  max-height: 55vh;
+  overflow-y: auto;
+}
+
+.code.mono {
+  font-size: 0.8125rem;
+  white-space: pre;
+  overflow-x: auto;
+  overflow-wrap: normal;
+}
+
+.keys {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 2px;
+}
+
+.key {
+  min-width: 48px;
+  height: 46px;
+  padding-inline: 10px;
+  display: inline-grid;
+  place-items: center;
+  font-size: 1.0625rem;
+  font-weight: 650;
+  background: color-mix(in oklab, currentColor 14%, transparent);
+}
+
+.key:active {
+  background: color-mix(in oklab, currentColor 30%, transparent);
+}
+
+/* ---------- Le fil d'une session : étapes repliées, code replié, l'agent qui travaille ---------- */
+
+.steps-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  width: 100%;
+  min-height: 44px;
+}
+
+.steps-head .text {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.steps-head .go,
+.step-toggle {
+  flex: none;
+  display: inline-flex;
+  font-size: 1rem;
+  font-weight: 500;
+}
+
+.steps-list {
+  padding-bottom: 8px;
+}
+
+.step-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  cursor: pointer;
+}
+.step-head::-webkit-details-marker { display: none; }
+.step-head .text { flex: 1; min-width: 0; overflow-wrap: anywhere; font-size: .9375rem; }
+.step-minus { display: none; }
+.step-detail[open] > .step-head .step-plus { display: none; }
+.step-detail[open] > .step-head .step-minus { display: inline; }
+.step-content { padding-block: 4px 12px; }
+.step-calls { margin-block: 4px 12px; padding-inline-start: 1.25rem; font-size: .8125rem; overflow-wrap: anywhere; }
+.step-calls p { margin-block: 4px 8px; }
+.step-content pre { white-space: pre-wrap; overflow-wrap: anywhere; font-size: .8125rem; line-height: 1.5; max-height: 24rem; overflow: auto; user-select: text; }
+.step-content .meta { font-size: .8125rem; opacity: .75; }
+.step-head:focus-visible { outline: 2px solid currentColor; outline-offset: 2px; }
+
+.snippet .link {
+  min-height: 36px;
+}
+
+.snippet .code {
+  padding-block: 4px 12px;
+  font-size: 0.8125rem;
+}
+
+/* ---------- Texte des messages : sélectionnable, liens, copier ---------- */
+
+/* Le balayage de la page (motion) pose user-select:none sur tout le fil : les bulles le rouvrent. */
+.msg .text,
+.msg .code {
+  -webkit-user-select: text;
+  user-select: text;
+  -webkit-touch-callout: default;
+}
+
+.msg.copied > .in .who {
+  font-weight: 800;
+}
+
+/* Lien : en gras, de la couleur du texte, jamais souligné. */
+a.url {
+  color: inherit;
+  font-weight: 700;
+  text-decoration: none;
+  overflow-wrap: anywhere;
+  -webkit-touch-callout: default;
+}
+
+.cmd {
+  font-family: ui-monospace, 'SF Mono', Menlo, monospace;
+  font-size: 0.9em;
+}
+
+.snippet-head {
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+}
+
+/* Copier : une icône, sans cadre, plus pâle que le texte ; une coche un instant après. */
+button.copy {
+  display: inline-grid;
+  place-items: center;
+  min-width: 36px;
+  min-height: 36px;
+  opacity: 0.45;
+  vertical-align: middle;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+button.copy.done {
+  opacity: 1;
+}
+
+.cmd button.copy {
+  min-width: 28px;
+  min-height: 24px;
+  margin-block: -6px;
+}
+
+.cmd button.copy .ic {
+  width: 0.85em;
+  height: 0.85em;
+}
+
+.msg.ask > .in {
+  padding-block: 14px 10px;
+}
+
+.msg.ask .text {
+  font-size: 1.125rem;
+  font-weight: 650;
+  margin-bottom: 8px;
+}
+
+.msg.working > .in {
+  padding-block: 12px 14px;
+}
+
+.msg.working .who {
+  font-size: 0.9375rem;
+}
+
+/* Vert fluo : ce qui travaille, en ce moment. */
+:root {
+  --fluo: #39ff14;
+}
+
+[data-theme='light'] {
+  --fluo: #1fd60a;
+}
+
+.fluo {
+  color: var(--fluo);
+  animation: pulse 1.6s ease-in-out infinite;
+}
+
+/* Contour noir très fin (~0,85 px) autour de l'étoile verte, seulement quand le texte du thème est noir. */
+.ic-halo {
+  display: none;
+}
+
+[data-theme='light'] .fluo .ic-halo {
+  display: inline;
+  stroke: #000;
+  stroke-width: 4.5;
+  paint-order: stroke;
+}
+
+.spin.fluo {
+  animation:
+    spin 2.6s linear infinite,
+    pulse 1.6s ease-in-out infinite;
+}
+
+@keyframes pulse {
+  0%,
+  100% {
+    opacity: 1;
+  }
+  50% {
+    opacity: 0.35;
+  }
+}
+
+/* L'étoile verte qui travaille reste animée même en « réduire les animations » : elle est le seul signe de vie, petite et lente. */
+/* Pareil pour AutoMark (une automatisation au travail) : son segment qui fait le tour de la boucle ne s'arrête jamais. */
+
+/* ---------- AutoMark : ce qui tourne tout seul, en magenta, un segment qui fait le tour de la boucle ---------- */
+
+:root {
+  --auto-fluo: #ff3df2;
+}
+
+[data-theme='light'] {
+  --auto-fluo: #e600c4;
+}
+
+:root[data-theme='zen'] {
+  --auto-fluo: oklch(0.52 0.17 335);
+}
+
+/* Graphite : son seul bleu pour ce qui bouge ; c'est la forme qui le distingue de l'étoile. */
+:root[data-theme='graphite'] {
+  --auto-fluo: #0040f0;
+}
+
+.auto-mark {
+  color: var(--auto-fluo);
+}
+
+.auto-mark .track {
+  opacity: 0.55;
+}
+
+.auto-mark .run {
+  stroke-dasharray: 34 66;
+  animation: auto-run 1.1s linear infinite;
+}
+
+/* Contour d'encre sous toute la boucle et sa pointe, seulement quand le texte du thème est noir (comme l'étoile) : la
+   forme se lit sur n'importe quelle couleur de bande. */
+.auto-mark .halo {
+  display: none;
+}
+
+[data-theme='light'] .auto-mark .halo {
+  display: inline;
+  stroke: #000;
+  stroke-width: 4.5;
+}
+
+@keyframes auto-run {
+  to {
+    stroke-dashoffset: -100;
+  }
+}
+
+
+/* ---------- Agent principal : où envoyer, en puces qui défilent horizontalement ---------- */
+
+.chips {
+  display: flex;
+  gap: 2px;
+  overflow-x: auto;
+  scroll-snap-type: x mandatory;
+  padding: 4px var(--pad) 14px;
+  -webkit-overflow-scrolling: touch;
+  scrollbar-width: none;
+}
+
+.chips::-webkit-scrollbar {
+  display: none;
+}
+
+.chip {
+  flex: 0 0 72%;
+  max-width: 320px;
+  scroll-snap-align: start;
+  display: flex;
+  flex-direction: column;
+  gap: 2px;
+  padding: 12px 14px 12px;
+  min-height: 76px;
+  background: color-mix(in oklab, currentColor 12%, transparent);
+}
+
+.chip.best {
+  background: color-mix(in oklab, currentColor 22%, transparent);
+}
+
+.chip:active {
+  background: color-mix(in oklab, currentColor 30%, transparent);
+}
+
+.chip-kind {
+  font-size: 0.8125rem;
+  font-weight: 650;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+}
+
+.chip-title {
+  font-size: 1.0625rem;
+  line-height: 1.25;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+/* ---------- Ça travaille : barre qui balaie, points qui respirent, dernier pas qui apparaît ---------- */
+
+.page-head {
+  position: relative;
+}
+
+
+
+
+.dots {
+  display: inline-flex;
+  gap: 1px;
+  margin-left: 4px;
+  color: var(--fluo);
+  font-weight: 700;
+}
+
+.dots i {
+  font-style: normal;
+  animation: breathe 1.2s ease-in-out infinite;
+}
+
+.dots i:nth-child(2) {
+  animation-delay: 0.2s;
+}
+
+.dots i:nth-child(3) {
+  animation-delay: 0.4s;
+}
+
+@keyframes breathe {
+  0%,
+  100% {
+    opacity: 0.25;
+    transform: translateY(0);
+  }
+  50% {
+    opacity: 1;
+    transform: translateY(-2px);
+  }
+}
+
+.fade-in {
+  animation: fadein 0.35s ease-out;
+}
+
+@keyframes fadein {
+  from {
+    opacity: 0;
+    transform: translateX(6px);
+  }
+  to {
+    opacity: 1;
+    transform: none;
+  }
+}
+
+.text.clamp {
+  display: -webkit-box;
+  -webkit-line-clamp: 5;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.link.small {
+  min-height: 36px;
+  font-size: 0.875rem;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .dots i,
+  .fade-in {
+    animation: none;
+  }
+}
+
+/* ---------- Vert fluo sur ce qui travaille : liseré qui balaie en haut de la bande, trait qui respire sur la ligne ---------- */
+
+
+
+.row.live {
+  position: relative;
+}
+
+
+.row.live .title {
+  font-weight: 650;
+}
+
+
+/* ---------- Composer : photo et dictée ---------- */
+
+.tool-btn {
+  min-width: 38px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.tool-btn.rec {
+  color: var(--fluo);
+  animation: pulse 1s ease-in-out infinite;
+}
+
+.attach-line {
+  display: flex;
+  align-items: center;
+  gap: 14px;
+  padding-top: 8px;
+}
+
+.attach-line .link {
+  min-height: 28px;
+}
+
+/* ---------- La conversation avec weevils : grandit, mais pas plus que la moitié de l'écran ---------- */
+
+.chat {
+  max-height: 48dvh;
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+}
+
+/* Message de l'orchestrateur dans le fil d'une session : signé weevils, bulle d'une teinte légèrement différente (son violet), rien d'autre. */
+.msg.orch {
+  background: oklch(from var(--who-c, var(--agent)) calc(l + var(--dl) * 1.8) calc(c * 1.1) h);
+}
+
+/* Agent externe (géométrie, instinct…) : même bulle, sa couleur (config du serveur). En sombre, la même teinte assombrie comme la palette. */
+.msg.orch.ext {
+  --who-c: var(--who);
+}
+[data-theme='dark'] .msg.orch.ext {
+  --who-c: oklch(from var(--who) 0.44 calc(c * 0.95) h);
+}
+[data-theme='zen'] .msg.orch.ext {
+  --who-c: oklch(from var(--who) 0.86 calc(c * 0.35) h);
+}
+
+/* ---------- Ligne de session : une seule ligne, l'activité à droite ---------- */
+
+.row > .in.line {
+  min-height: 48px;
+  gap: 8px;
+}
+
+.row .tool-ic {
+  flex: none;
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  min-width: 22px;
+  line-height: 1;
+}
+
+.tool-svg {
+  flex: none;
+  display: block;
+  color: var(--ink);
+}
+
+
+/* Le texte en entier : deux lignes plutôt qu'une coupure. */
+.row .line .title.wrap {
+  flex: 1 1 auto;
+  min-width: 0;
+  white-space: normal;
+  overflow: hidden;
+  text-overflow: clip;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  line-height: 1.25;
+  padding-block: 6px;
+}
+
+.row .act {
+  flex: none;
+  text-align: right;
+  font-size: 0.875rem;
+  white-space: nowrap;
+  opacity: 0.85;
+  font-variant-numeric: tabular-nums;
+}
+
+.row.tone .act {
+  font-weight: 650;
+  opacity: 1;
+}
+
+/* ---------- Réglages (modèle, effort, rapide, compact, clear) : des puces, pas un formulaire ---------- */
+
+.settings {
+  padding-block: 6px 4px;
+}
+
+.settings-row {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 14px;
+  min-height: 48px;
+  padding-block: 4px;
+}
+
+.settings-label {
+  font-weight: 650;
+  min-width: 92px;
+}
+
+.settings-hint {
+  font-weight: 400;
+  opacity: 0.7;
+}
+
+.opts {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 6px;
+}
+
+.opt {
+  flex: none;
+  width: auto;
+  display: inline-flex;
+  align-items: center;
+  min-height: 36px;
+  padding-inline: 12px;
+  border: 1.5px solid currentColor;
+  border-radius: 0;
+  font-size: 0.9375rem;
+  font-weight: 600;
+  background: transparent;
+  color: inherit;
+}
+
+.opt.on {
+  background: var(--ink);
+  color: var(--c);
+  border-color: var(--ink);
+}
+
+/* ---------- Repos GitHub : rectangles de couleur bord à bord, le nom et une phrase dedans ---------- */
+
+.repo-new {
+  display: flex;
+  gap: 8px;
+  align-items: center;
+  min-height: 56px;
+}
+
+.repo-new input {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.0625rem;
+  padding-block: 14px;
+}
+
+.repo-new input:first-of-type {
+  flex: 0 1 38%;
+  font-weight: 650;
+}
+
+.repo-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.repo {
+  position: relative;
+  min-width: 0;
+  background: var(--c);
+  color: var(--ink);
+}
+
+.repo-open {
+  width: 100%;
+  min-height: 132px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 14px var(--pad) 16px;
+  text-align: left;
+}
+
+.repo-name {
+  font-weight: 700;
+  font-size: 1.125rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  padding-right: 28px;
+}
+
+.repo-blurb {
+  font-size: 0.875rem;
+  line-height: 1.3;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.repo-pin {
+  position: absolute;
+  top: 4px;
+  right: 6px;
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: center;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.repo-pin.on {
+  color: var(--fluo);
+}
+
+@media (min-width: 700px) {
+  .repo-grid {
+    grid-template-columns: repeat(4, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Mode conversation : grille douce, puis immersion ---------- */
+
+.calm-grid {
+  display: grid;
+  grid-template-columns: repeat(2, minmax(0, 1fr));
+}
+
+.calm-cell {
+  min-height: 124px;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  gap: 4px;
+  padding: 14px var(--pad) 16px;
+  text-align: left;
+  color: var(--ink);
+  /* La couleur du projet, adoucie : moins saturée, un peu plus claire (ou plus sombre en thème sombre). */
+  background: oklch(from var(--c) calc(l + var(--calm-soft)) calc(c * 0.6) h);
+}
+
+.calm-cell .calm-title {
+  font-weight: 700;
+  font-size: 1.125rem;
+  line-height: 1.15;
+  overflow-wrap: anywhere;
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.calm-cell .meta {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+}
+
+.page.calm {
+  background: var(--calm);
+}
+
+.page.calm .calm-top {
+  flex: none;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: var(--safe-t) 6px 0;
+  min-height: 52px;
+}
+
+.page.calm .calm-top .ch {
+  opacity: 0.55;
+}
+
+.page.calm .msg,
+.page.calm .msg.tone,
+.page.calm .msg.orch,
+.page.calm .composer,
+.page.calm .band {
+  background: transparent;
+}
+
+.page.calm .msg .who {
+  opacity: 0.55;
+}
+
+.page.calm .composer .prompt,
+.page.calm .composer .tool-btn,
+.page.calm .composer .send {
+  opacity: 0.5;
+}
+
+.page.calm .composer .send:disabled {
+  opacity: 0.2;
+}
+
+.page.calm .composer > .in {
+  min-height: 60px;
+}
+
+.page.calm .composer input {
+  background: oklch(from var(--calm) calc(l - 0.035) c h);
+  border-radius: 0;
+  padding-inline: 16px;
+}
+
+@media (min-width: 700px) {
+  .calm-grid {
+    grid-template-columns: repeat(3, minmax(0, 1fr));
+  }
+}
+
+/* ---------- Non lu : un point plein, le titre en gras ---------- */
+
+.dot {
+  display: inline-block;
+  width: 9px;
+  height: 9px;
+  border-radius: 0;
+  background: currentColor;
+  margin-right: 7px;
+  vertical-align: middle;
+  position: relative;
+  top: -1px;
+}
+
+/* Sur la ligne du nom : centré comme l'étoile (milieu de la hauteur d'x), donc sur la même ligne que le résumé. */
+.name .dot {
+  width: 11px;
+  height: 11px;
+  margin-left: 10px;
+  margin-right: 0;
+  top: 0;
+}
+
+.row.unread .title {
+  font-weight: 700;
+}
+
+/* ---------- Bande du haut : vide pour l'instant, le champ en bas ---------- */
+
+.agent-close {
+  position: absolute;
+  top: calc(var(--safe-t) + 4px);
+  left: 50%;
+  transform: translateX(-50%);
+  width: 56px;
+  height: 36px;
+  font-size: 1.75rem;
+  line-height: 1;
+  opacity: 0.45;
+  text-align: center;
+}
+
+/* Fil ouvert : un « ↓ » flottant quand du nouveau est arrivé en bas pendant qu'on relit plus haut. */
+#agent-body {
+  position: relative;
+}
+
+.agent-behind {
+  position: absolute;
+  right: 12px;
+  bottom: 10px;
+  z-index: 2;
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  background: var(--ink);
+  color: var(--c);
+  font-size: 1.375rem;
+}
+
+/* La barre de questions sous un message (askthread) : son enveloppe ne compte pas dans la mise en page. */
+.qa-in-view {
+  display: contents;
+}
+
+.agent-space {
+  position: relative;
+  height: 42dvh;
+  min-height: 200px;
+  display: flex;
+  flex-direction: column;
+  padding-top: var(--safe-t);
+}
+
+/* Ouverte : seule la ligne du logo reste, la conversation prend la place. */
+.agent.open .agent-space {
+  height: auto;
+  min-height: 0;
+}
+
+/* Le logo et le diablotin, tout en haut, posés sur la même ligne de base. */
+.agent-top {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 2px var(--pad) 6px;
+  display: flex;
+  align-items: flex-end;
+  justify-content: space-between;
+  flex: none;
+}
+
+/* L'aperçu du fil remplit l'espace de la bande réduite ; caché (pas démonté) quand elle est ouverte. */
+.peek-wrap {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+
+.peek-wrap[hidden] {
+  display: none;
+}
+
+/* Aligné à gauche sur le texte du champ : même marge que le « > » du composer. */
+.voice {
+  display: grid;
+  justify-items: start;
+  gap: 6px;
+}
+
+.voice-logo {
+  color: var(--ink);
+  width: 56px;
+  height: 56px;
+  min-height: 44px;
+  aspect-ratio: 1;
+  flex: none;
+  display: grid;
+  place-items: center;
+  transition: transform 0.22s cubic-bezier(0.22, 1, 0.36, 1), color 0.22s ease;
+  touch-action: manipulation;
+  /* Held for live mode: no callout, no text selection. */
+  -webkit-touch-callout: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.weevboss-logo { display: block; flex: none; overflow: hidden; filter: var(--logo-filter, none); }
+
+.voice-svg {
+  width: 100%;
+  height: 100%;
+  display: block;
+}
+
+.voice-logo:active {
+  transform: scale(0.96);
+}
+
+/* Palette d'animation du logo : claire et vive, la même en clair et en sombre (seul le thème zen l'adoucit, plus haut). */
+:root {
+  --anim-rec: oklch(0.84 0.2 10);
+  --anim-wait: oklch(0.88 0.2 145);
+  --anim-ready: #39ff14;
+  --anim-1: oklch(0.88 0.18 70);
+  --anim-2: oklch(0.88 0.16 195);
+  --anim-3: oklch(0.84 0.2 330);
+}
+
+/* Enregistre : couleur vive, légèrement incliné, respire. */
+.voice-logo.rec {
+  color: color-mix(in oklab, var(--anim-rec) 35%, var(--ink));
+  transform: rotate(-8deg);
+  animation: voice-breathe 1.1s ease-in-out infinite;
+}
+
+/* Keep the original recording hue visible instead of desaturating it with the idle theme filter. */
+.voice-logo.rec .voice-svg { filter: none; color: inherit; animation: none; }
+
+.voice-logo.wait {
+  color: var(--anim-wait);
+  transform: rotate(-4deg);
+  animation: pulse 0.9s ease-in-out infinite;
+}
+
+.voice-logo.ready {
+  color: var(--anim-ready);
+}
+
+/* weevboss répond : une vague de couleurs, puis retour au noir (ou blanc). */
+.voice-logo.reply .voice-svg {
+  animation: voice-reply 1.8s ease-in-out;
+}
+
+/* Lit la réponse : la vague de couleur continue tant qu'il parle. */
+.voice-logo.speaking .voice-svg {
+  animation: voice-reply 2.4s ease-in-out infinite;
+}
+
+@keyframes voice-breathe {
+  0%, 100% { transform: rotate(-8deg) scale(1); }
+  50% { transform: rotate(-8deg) scale(1.04); }
+}
+
+@keyframes voice-reply {
+  0% { color: var(--ink); }
+  25% { color: var(--anim-1); }
+  50% { color: var(--anim-2); }
+  75% { color: var(--anim-3); }
+  100% { color: var(--ink); }
+}
+
+/* Live conversation (src/ui/live.tsx): calm on purpose. A slow breath in one soft colour; the voice's colours drift
+   slowly while it speaks; nothing blinks, nothing turns red. */
+.voice-logo.live {
+  color: color-mix(in oklab, var(--anim-2) 45%, var(--ink));
+  animation: live-breathe 4s ease-in-out infinite;
+}
+.voice-logo.live .voice-svg { filter: none; color: inherit; }
+.voice-logo.live-connecting { opacity: 0.7; }
+.voice-logo.live-speaking .voice-svg { animation: voice-reply 4s ease-in-out infinite; }
+.voice-logo.live-thinking { color: color-mix(in oklab, var(--anim-1) 45%, var(--ink)); }
+
+@keyframes live-breathe {
+  0%, 100% { transform: scale(1); }
+  50% { transform: scale(1.03); }
+}
+
+.voice-live {
+  display: grid;
+  gap: 2px;
+  max-width: min(80vw, 22rem);
+  font-size: 0.75rem;
+  line-height: 1.3;
+}
+.voice-live-meta { opacity: 0.7; font-variant-numeric: tabular-nums; }
+.voice-live-caption {
+  opacity: 0.55;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  direction: rtl;
+  text-align: left;
+}
+.voice-live.ended { gap: 6px; justify-items: start; }
+
+/* Message d'état du logo : une bulle de pensée sans boîte, à droite de la tête (le petit rectangle incliné), en biais, texte fin précédé de « ! ». */
+.voice {
+  position: relative;
+}
+
+.voice-err {
+  position: absolute;
+  left: 90%;
+  bottom: 70%;
+  transform-origin: left bottom;
+  white-space: nowrap;
+  font-weight: 400;
+  font-size: 0.9375rem;
+  line-height: 1.2;
+  pointer-events: none;
+  z-index: 2;
+}
+
+/* Réglages : une rangée de mots, le choix actif en gras. Ni boîte, ni fond, ni arrondi. */
+.words {
+  display: flex;
+  flex-wrap: wrap;
+  column-gap: 18px;
+  min-height: 44px;
+  align-items: center;
+}
+
+.word {
+  font-size: 1.0625rem;
+  font-weight: 400;
+  opacity: 0.6;
+  min-height: 40px;
+}
+
+.word.on {
+  font-weight: 750;
+  opacity: 1;
+}
+
+/* A tapped setting on its way: the only sign of a change, on the word itself, until the session confirms it. */
+.word.pending {
+  text-decoration: underline dotted;
+  text-underline-offset: 5px;
+}
+
+/* ---------- Icônes : un seul jeu, une seule taille, aucun arrondi ---------- */
+
+.ic {
+  width: 20px;
+  height: 20px;
+  display: inline-block;
+  vertical-align: -3px;
+  flex: none;
+  overflow: visible;
+}
+
+.ch .ic,
+.send .ic,
+.tool-btn .ic,
+.key .ic,
+.prompt .ic,
+.go .ic,
+.st .ic,
+.back .ic,
+.agent-close .ic,
+.repo-pin .ic,
+.h24-grip .ic {
+  vertical-align: middle;
+}
+
+/* Une étoile qui tourne garde son centre. */
+.spin {
+  line-height: 0;
+  vertical-align: middle;
+}
+
+.ch sup {
+  margin-left: 2px;
+}
+
+/* Les points qui respirent : de petits carrés, pas des caractères. */
+.dots {
+  gap: 3px;
+  align-items: center;
+}
+
+.dots i {
+  width: 4px;
+  height: 4px;
+  background: currentColor;
+  display: inline-block;
+}
+
+.name .spin,
+.name .auto-mark {
+  margin-left: 8px;
+}
+
+.name .auto-mark {
+  vertical-align: middle;
+}
+
+/* ---------- Devil mode ---------- */
+
+/* Le diablotin, toujours là, à droite du logo, sur sa ligne de base ; pâle quand il dort. */
+.devil-btn {
+  width: 36px;
+  height: 36px;
+  display: grid;
+  place-items: end center;
+  opacity: 0.55;
+  flex: none;
+}
+
+.devil-btn .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.devil-btn.on {
+  opacity: 1;
+}
+
+.msg.devil {
+  background: var(--devil-reply);
+}
+
+/* ---------- Branchements (src/ui/setup.tsx) : boutons sous les messages de weevboss ---------- */
+
+.setup-chips {
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  padding: 0 var(--pad) 12px;
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+
+/* Un aplat de l'encre sur le fond de la bande, gras, angles vifs. */
+.setup-chip {
+  min-height: 40px;
+  padding: 8px 14px;
+  background: var(--ink);
+  color: var(--c, var(--agent));
+  font-weight: 750;
+  display: inline-flex;
+  align-items: center;
+  gap: 8px;
+}
+
+.setup-chip .ic {
+  width: 16px;
+  height: 16px;
+}
+
+.setup-chip.done {
+  opacity: 0.55;
+}
+
+.setup-chip:disabled {
+  opacity: 0.7;
+}
+
+.setup-note {
+  flex-basis: 100%;
+}
+
+/* Le QR de connexion : noir sur blanc quel que soit le thème (il doit se scanner), carré, sans arrondi. */
+.setup-qr {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: flex-end;
+  gap: 12px;
+}
+
+.setup-qr img {
+  width: 168px;
+  height: 168px;
+  background: #fff;
+  padding: 8px;
+  image-rendering: pixelated;
+}
+
+.setup-form .attach-line {
+  display: flex;
+  justify-content: space-between;
+  gap: 12px;
+}
+
+/* Une question à choix (l'hébergeur d'un VPS) : des boutons à la place du champ, qui passent à la ligne. */
+.setup-choices {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+  padding-block: 8px 12px;
+}
+
+.setup-choices .tool-btn {
+  margin-left: auto;
+}
+
+/* ---------- Aperçu vivant du fil (bande réduite) ---------- */
+
+/* Les récents en bas ; vers le haut, les anciens s'estompent ; un léger fondu en bas aussi : de la profondeur, sans ombre. */
+.peek {
+  flex: 1;
+  min-height: 0;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+  /* Défile au doigt (verticalement) sans entraîner le fil des projets : le défilement s'arrête à ses bords. */
+  overflow-y: auto;
+  overscroll-behavior: contain;
+  -webkit-overflow-scrolling: touch;
+  touch-action: pan-y;
+  scrollbar-width: none;
+  cursor: pointer;
+  -webkit-mask-image: linear-gradient(to bottom, transparent 0, #000 55%, #000 86%, transparent 100%);
+  mask-image: linear-gradient(to bottom, transparent 0, #000 55%, #000 86%, transparent 100%);
+  -webkit-user-select: none;
+  user-select: none;
+}
+
+.peek::-webkit-scrollbar {
+  display: none;
+}
+
+/* Les messages posés en bas tant qu'ils ne remplissent pas l'aperçu ; au-delà, on remonte l'historique en défilant. */
+.peek-list {
+  min-height: 100%;
+  display: flex;
+  flex-direction: column;
+  justify-content: flex-end;
+  padding-bottom: 14px;
+}
+
+.peek-item {
+  flex: none;
+}
+
+.peek-item > .in {
+  padding-block: 6px;
+  font-size: 0.9375rem;
+  line-height: 1.35;
+}
+
+/* Deux lignes au plus (trois pour le dernier) : la coupe se fait sur le texte, pas sur la marge. */
+.peek-item .txt {
+  display: -webkit-box;
+  -webkit-line-clamp: 2;
+  -webkit-box-orient: vertical;
+  overflow: hidden;
+  overflow-wrap: anywhere;
+}
+
+.peek-item:last-child .txt {
+  -webkit-line-clamp: 3;
+}
+
+/* Le dernier message : sa fin entière (Peek n'en garde que les derniers caractères), la réponse qui s'écrit se lit. */
+.peek-item.last .txt {
+  display: block;
+  -webkit-line-clamp: unset;
+  overflow: visible;
+}
+
+/* Mêmes couleurs que le fil : weevboss sur la couleur de base, toi sur le ton de la bande. */
+.peek-item.base {
+  background: var(--c);
+}
+
+.peek-item.orch {
+  background: oklch(from var(--who-c, var(--agent)) calc(l + var(--dl) * 1.8) calc(c * 1.1) h);
+}
+
+.peek-item.orch.ext {
+  --who-c: var(--who);
+}
+
+[data-theme='dark'] .peek-item.orch.ext {
+  --who-c: oklch(from var(--who) 0.44 calc(c * 0.95) h);
+}
+
+[data-theme='zen'] .peek-item.orch.ext {
+  --who-c: oklch(from var(--who) 0.86 calc(c * 0.35) h);
+}
+
+.peek-item.devil {
+  background: var(--devil-reply);
+}
+
+/* ---------- Rien ne passe sous la barre d'état iOS : une bande fixe de la couleur du haut ---------- */
+
+.status-cover {
+  position: fixed;
+  top: var(--vvt, 0px);
+  left: 0;
+  right: 0;
+  height: var(--safe-t);
+  background: var(--status-c, var(--agent));
+  z-index: 25;
+  pointer-events: none;
+}
+
+/* ---------- Graphite : seul ce qui bouge est bleu ---------- */
+
+/* Chargements : toutes les étoiles qui tournent, même celles sans .fluo (envoi, connexion, import…). */
+[data-theme='graphite'] .spin {
+  color: var(--fluo);
+}
+
+/* Non lu : le point et le titre en bleu. */
+[data-theme='graphite'] .dot {
+  background: var(--fluo);
+}
+
+[data-theme='graphite'] .row.unread .title {
+  color: var(--fluo);
+}
+
+/* Aperçu live : un trait bleu sous la barre d'adresse du navigateur intégré. */
+[data-theme='graphite'] .preview-bar {
+  border-bottom: 3px solid var(--fluo);
+}
+
+/* Progression de l'accueil. */
+[data-theme='graphite'] .ob-bar-box span {
+  background: var(--fluo);
+}
+
+/* Un dépôt épinglé est un état, pas une activité : encre. */
+[data-theme='graphite'] .repo-pin.on {
+  color: var(--ink);
+}
+
+/* Agents externes : leur bulle reste grise, un cran plus claire que celle de weevboss. */
+[data-theme='graphite'] .msg.orch.ext,
+[data-theme='graphite'] .peek-item.orch.ext {
+  --who-c: oklch(0.86 0 0);
+}
+
+/* ---------- Travail d'arrière-plan dans le fil : une ligne par sous-agent, étape de workflow ou commande ---------- */
+
+/* Ligne de session : le compte d'arrière-plan à la suite du texte, la colonne de la durée reste étroite (téléphone). */
+.row .title .bg {
+  white-space: nowrap;
+}
+
+.sub-label .sub-kind {
+  margin-right: 6px;
+}
+
+.sub-label .sub-kind .ic {
+  width: 16px;
+  height: 16px;
+  vertical-align: -2px;
+}
+
+.sub-row .act {
+  min-width: 2.6em;
+}
+
+.sub-flow-head {
+  display: flex;
+  align-items: center;
+  gap: 10px;
+  min-height: 44px;
+  padding-top: 6px;
+  font-size: 1rem;
+}
+
+.sub-flow-head .st {
+  width: 22px;
+  flex: none;
+  text-align: center;
+  font-size: 1.375rem;
+  font-weight: 700;
+  line-height: 1;
+}
+
+.sub-flow-head .ellipsis {
+  flex: 1;
+  min-width: 0;
+}
+
+.sub-phase-head {
+  padding-top: 4px;
+  padding-left: calc(var(--pad) + 32px);
+}
+
+/* Déplié : les derniers pas, à plat, alignés sur le texte de la ligne. */
+.sub-detail {
+  padding-left: calc(var(--pad) + 32px);
+  padding-bottom: 10px;
+}
+
+.sub-detail .text {
+  font-size: 0.9375rem;
+  line-height: 1.4;
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  padding-block: 3px;
+}
+
+.sub-detail .tool {
+  font-size: 0.9375rem;
+  font-style: italic;
+  padding-block: 3px;
+  overflow-wrap: anywhere;
+  opacity: 0.85;
+}
+
+.sub-detail .result {
+  white-space: pre-wrap;
+  overflow-wrap: anywhere;
+  overflow: hidden;
+  display: -webkit-box;
+  -webkit-line-clamp: 3;
+  -webkit-box-orient: vertical;
+  padding-block: 2px;
+  opacity: 0.85;
+}
+
+/* ---------- Session coupée en plein travail : couleur d'alerte, jamais confondue avec « terminée » ---------- */
+
+:root {
+  --alert: #e0201b;
+  --alert-ink: #fff;
+}
+
+[data-theme='dark'] {
+  --alert: #ff3b30;
+}
+
+:root[data-theme='zen'] {
+  --alert: oklch(0.55 0.17 27);
+}
+
+.alert {
+  color: var(--alert);
+}
+
+/* La ligne entière en rouge, la reprise à droite. */
+.cut-wrap {
+  position: relative;
+}
+
+.row.cut {
+  background: var(--alert);
+  color: var(--alert-ink);
+}
+
+.row.cut .tool-svg,
+.row.cut .alert {
+  color: var(--alert-ink);
+}
+
+.row.cut .title {
+  font-weight: 650;
+}
+
+.cut-wrap .row.cut > .in {
+  padding-right: calc(var(--pad) + 104px);
+}
+
+.cut-wrap .row.cut .act {
+  display: none;
+}
+
+.resume {
+  min-height: 36px;
+  padding: 6px 14px;
+  border-radius: 999px;
+  background: var(--alert-ink);
+  color: var(--alert);
+  font-weight: 700;
+  font-size: 0.9375rem;
+  white-space: nowrap;
+}
+
+.resume:disabled {
+  opacity: 0.7;
+}
+
+.cut-wrap .resume {
+  position: absolute;
+  right: var(--pad);
+  top: 50%;
+  transform: translateY(-50%);
+}
+
+/* Fil de la session : la bande d'alerte, puis reprendre / laisser. */
+.msg.band.cut-band {
+  background: var(--alert);
+  color: var(--alert-ink);
+}
+
+.cut-band .cut-actions {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 10px 18px;
+  margin-top: 10px;
+}
+
+.cut-band .link {
+  color: var(--alert-ink);
+}
+
+/* Bande projet : le compteur des sessions coupées, en pastille rouge (visible même repliée). */
+.ch.alert-ch > span,
+.alert-pill {
+  background: var(--alert);
+  color: var(--alert-ink);
+  border-radius: 999px;
+}
+
+.ch.alert-ch > span {
+  padding: 4px 9px 2px;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.ch.alert-ch sup {
+  top: -0.2em;
+}
+
+.alert-pill {
+  display: inline-block;
+  padding: 0 8px;
+  font-weight: 700;
+}
+
+/* ---------- « C'est ici » : ce qu'une action vient d'amener sous les yeux s'éclaire un instant (src/ui/follow.ts) ---------- */
+
+@keyframes wv-flash {
+  0% {
+    filter: none;
+  }
+  22% {
+    filter: brightness(1.18) saturate(1.15);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+.wv-flash {
+  animation: wv-flash 1s cubic-bezier(0.22, 1, 0.36, 1);
+}
+
+[data-theme='dark'] .wv-flash,
+[data-theme='graphite'] .wv-flash {
+  animation-name: wv-flash-dark;
+}
+
+@keyframes wv-flash-dark {
+  0% {
+    filter: none;
+  }
+  22% {
+    filter: brightness(1.5) saturate(1.1);
+  }
+  100% {
+    filter: none;
+  }
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .wv-flash {
+    animation: none;
+  }
+}
+
+/* Une ligne ou un nom de bande du flux mis en avant (retour d'une page, bande qui a dû bouger) : sans fond à lui, seul son
+   texte s'éclairerait ; il prend le temps de l'éclat la couleur de sa bande (ou de sa sous-bande). Une ligne qui a son
+   propre fond (en attente : .tone ; interrompue : .cut, en rouge) le garde. */
+.stack .head.wv-flash,
+.stack .row.wv-flash:not(.tone, .cut) {
+  background-color: var(--c);
+}
+
+.stack .tone > .row.wv-flash:not(.cut) {
+  background: inherit;
+}
+
+/* Une puce de branchement à sa place dans la phrase de weevboss (« … via [brancher le pont e-mail]. ») : le même aplat,
+   à la hauteur du texte, qui passe à la ligne avec lui. Sur un message plus ancien, son libellé seul, en gras. */
+.text .setup-chip.inline {
+  min-height: 0;
+  padding: 2px 8px;
+  margin: 0 2px;
+  gap: 6px;
+  vertical-align: baseline;
+  font: inherit;
+  font-weight: 750;
+  line-height: 1.35;
+  white-space: normal;
+  text-align: left;
+}
+
+.text .setup-chip.inline .ic {
+  width: 0.85em;
+  height: 0.85em;
+  flex: none;
+}
+
+.chip-label {
+  font-weight: 750;
+}
+
+/* Le choix de la langue (src/ui/prefs.tsx) : ouvert d'un tap, la langue ne change qu'au tap sur l'une d'elles. */
+.lang-pick .row {
+  padding-left: calc(var(--pad) + 18px);
+}
+
+/* Un secret du parcours de branchement (src/ui/setup.tsx) : masqué sans être un champ mot de passe. */
+.setup-form input.masked {
+  -webkit-text-security: disc;
+}
+
+/* Une session qui t'attend (src/ui/bits.tsx, AskButton) : l'action rapide sur la ligne, dans les couleurs de la ligne. */
+.ask-wrap .row > .in {
+  padding-right: calc(var(--pad) + 120px);
+}
+
+.ask-wrap .row .act {
+  display: none;
+}
+
+.resume.ask {
+  background: var(--ink);
+  color: var(--c, var(--agent));
+}
+
+/* ---------- Relais Codex pendant la limite de Claude (src/ui/relay.tsx) ---------- */
+
+/* Dans le flux : une bande d'alerte, une ligne, qui ouvre la vue des plans. */
+.band.relay-band {
+  background: var(--alert);
+  color: var(--alert-ink);
+}
+
+.relay-band-row {
+  display: block;
+  width: 100%;
+  text-align: left;
+  color: inherit;
+}
+
+.relay-band-row > .in {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  min-height: 52px;
+  padding-block: 10px;
+  font-size: 1.0625rem;
+  font-weight: 700;
+  line-height: 1.25;
+}
+
+.relay-band-text {
+  flex: 1;
+  min-width: 0;
+}
+
+/* Le petit signe d'une session Codex qui a pris le relais d'une session Claude. */
+.relay-sign {
+  display: inline-block;
+  margin-left: 0;
+  padding: 0;
+  border: 0;
+  font-size: 0.75rem;
+  font-weight: 500;
+  white-space: nowrap;
+  vertical-align: 0.1em;
+}
+
+/* Un plan de reprise : le texte de Codex tel quel, puis valider / ajuster / attendre Claude. */
+.msg.band.relay-plan {
+  border-top: 2px solid currentColor;
+}
+
+.relay-plan .relay-plan-title {
+  display: flex;
+  min-height: 36px;
+  text-align: left;
+  font-size: 1.0625rem;
+}
+
+.relay-plan-text {
+  margin-top: 6px;
+}
+
+.relay-plan .cut-actions,
+.relay-all {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 6px 18px;
+  margin-top: 10px;
+}
+
+.relay-all {
+  margin-bottom: 8px;
+}
+
+.relay-adjust {
+  display: flex;
+  align-items: flex-end;
+  gap: 12px;
+  margin-top: 8px;
+}
+
+.relay-adjust textarea {
+  flex: 1;
+  min-height: 44px;
+  padding: 8px 10px;
+  border: 1.5px solid currentColor;
+  background: transparent;
+  color: inherit;
+  font: inherit;
+  resize: vertical;
+}
+
+.relay-status {
+  font-size: 1.25rem;
+  font-weight: 700;
+  padding-block: 12px;
+}
+
+.relay-link .link {
+  min-height: 36px;
+}
+
+/* Keep the open conversation inside the visual viewport when iOS pans for the keyboard. */
+.agent.open {
+  position: fixed;
+  inset-inline: 0;
+  top: var(--vvt, 0px);
+  height: var(--vvh, 100dvh);
+  z-index: 20;
+  display: flex;
+  flex-direction: column;
+}
+.agent.open #agent-body {
+  flex: 1;
+  min-height: 0;
+  display: flex;
+  flex-direction: column;
+}
+.agent.open #agent-body > .chat { flex: 1; min-height: 0; max-height: none; }
+.choice-band {
+  display: block;
+  width: 100%;
+  padding: 16px 0;
+  text-align: left;
+  border-top: 1px solid currentColor;
+  font-weight: 600;
+}
+
+/* The collapsed main feed can scroll when focusing its composer; keep its two navigation words below iOS chrome. */
+html[data-keyboard] .agent:not(.open) .fyt-words {
+  position: fixed;
+  top: calc(var(--vvt, 0px) + var(--safe-t));
+  inset-inline: 0;
+  z-index: 26;
+  background: var(--c);
+}
+
+/* Both full-screen views use the same viewport, word sizes and content width.
+   The stream stays above the open thread when switching tabs. */
+.agent.open {
+  z-index: 20;
+  padding-top: 0;
+}
+.agent.open .agent-space {
+  flex: none;
+}
+.agent.open .fyt-words {
+  padding-bottom: 12px;
+}
+.agent.open .fyt-word {
+  font-size: 1.375rem;
+  min-height: 48px;
+  letter-spacing: -0.015em;
+}
+.agent.open.has-foryou .agent-top,
+.agent.open.has-foryou .token-meter {
+  display: none;
+}
+.agent.open .fyt-words {
+  padding-top: 0;
+  padding-left: calc(var(--pad) + 38px);
+  padding-bottom: 0;
+  min-height: 48px;
+}
+.agent.open .agent-close {
+  z-index: 2; /* Above the full-width tab bar, including its padded hit area. */
+  left: max(calc((100vw - 760px) / 2 + var(--pad) - 10px), calc(var(--pad) - 10px));
+  top: var(--safe-t);
+  transform: none;
+  width: 44px;
+  height: 48px;
+  opacity: 1;
+}
+
+/* A user's attached photo stays in their thread, with access to the full image. */
+.user-photo { display: block; margin-top: 12px; width: fit-content; max-width: 100%; }
+.user-photo img { display: block; max-width: 100%; max-height: 320px; object-fit: contain; }
+/* Every notification can be hidden independently of the session or action behind it. */
+.notice-shell { position: relative; }
+.notice-close {
+  position: absolute;
+  top: 4px;
+  right: max(4px, calc((100% - 760px) / 2 + 6px));
+  z-index: 4;
+  display: grid;
+  place-items: center;
+  min-width: 44px;
+  min-height: 44px;
+  padding: 10px;
+  color: inherit;
+}
+.notice-close svg { width: 22px; height: 22px; }
+.notice-close:hover { background: color-mix(in srgb, currentColor 12%, transparent); }
+.notice-close:focus-visible { outline: 2px solid currentColor; outline-offset: -4px; }
+.notice-shell > .in, .notice-shell.in,
+.notice-shell > button:not(.notice-close) > .in { padding-right: calc(var(--pad) + 44px); }
+.notice-shell:not(.band, .fy-item) { min-height: 48px; padding-right: 48px; }
+.voice-error-notice { min-width: 120px; }
+
+/* Discreet session actions; the work is never stopped by archiving. */
+.session-item { position: relative; }
+.session-item .row > .in { padding-right: calc(var(--pad) + 44px); }
+.session-item .cut-wrap .row > .in { padding-right: calc(var(--pad) + 164px); }
+.session-item .cut-wrap .resume { right: max(calc(var(--pad) + 44px), calc((100% - 760px) / 2 + var(--pad) + 44px)); }
+.session-menu summary { position: absolute; top: 0; right: max(4px, calc((100% - 760px) / 2 + 4px)); display: grid; place-items: center; width: 44px; min-height: 44px; cursor: pointer; list-style: none; font-size: 1.5rem; }
+.session-menu summary::-webkit-details-marker { display: none; }
+.session-menu-body, .archive-entry { padding-block: 12px; }
+.session-menu-body { border-top: 1px solid currentColor; }
+.session-archive-action { min-height: 44px; }
+
+/* Native horizontal text scrolling keeps caret selection and OS dictation behavior. */
+.composer textarea.horizontal-editor {
+  height: 56px;
+  line-height: 28px;
+  overflow-x: auto;
+  overflow-y: hidden;
+  white-space: pre;
+  overscroll-behavior-x: contain;
+  touch-action: pan-x pan-y;
+  scrollbar-width: none;
+}
+.composer textarea.horizontal-editor::-webkit-scrollbar { display: none; }
+.capture-offer img { width: 40px; height: 40px; display: block; object-fit: cover; }
+
+/* A preview can be deliberately scrolled too: new replies need the same route back to the end. */
+.peek-wrap { position: relative; }
+.peek-behind {
+  position: absolute;
+  bottom: 8px;
+  right: max(calc((100% - 760px) / 2 + var(--pad)), var(--pad));
+  width: 44px;
+  height: 44px;
+  display: grid;
+  place-items: center;
+  z-index: 2;
+  background: var(--ink);
+  color: var(--c);
+}
+
+/* The reference drawing: keep the square attached to « for you »; the small pixel
+   cat shares its horizontal row, directly below the token counter. The large voice logo stays left. */
+.agent-nav {
+  position: relative;
+  flex: none;
+  width: 100%;
+  max-width: 760px;
+  margin: 0 auto;
+}
+.agent:not(.open).has-foryou .agent-nav .fyt-words {
+  height: 44px;
+  padding-right: calc(var(--pad) + 52px);
+}
+.agent-nav .devil-btn {
+  position: absolute;
+  top: 0;
+  right: var(--pad);
+  width: 44px;
+  height: 44px;
+  place-items: center;
+}
+.agent:not(.open).has-foryou .token-meter {
+  top: var(--safe-t);
+  right: max(calc((100% - 760px) / 2 + var(--pad)), var(--pad));
+  width: 44px;
+  min-width: 44px;
+  height: 32px;
+  padding: 0;
+  text-align: center;
+}
+html[data-keyboard] .agent:not(.open).has-foryou .agent-nav {
+  position: fixed;
+  top: calc(var(--vvt, 0px) + var(--safe-t));
+  inset-inline: 0;
+  z-index: 26;
+  background: var(--c);
+}
+html[data-keyboard] .agent:not(.open) .agent-nav .fyt-words {
+  position: static;
+  top: auto;
+}
+/* Text fields always match :focus-visible on iOS, even after a touch. Never give
+   the integrated editor the global rectangular outline; keep its native caret visible. */
+.composer textarea.horizontal-editor:focus,
+.composer textarea.horizontal-editor:focus-visible {
+  outline: none;
+  border: 0;
+  box-shadow: none;
+  caret-color: var(--ink);
+}
+
+.session-activity { display: block; font-size: .8125rem; font-weight: 400; line-height: 1.3; margin-top: 3px; }
+
+/* Clamp only the session name, never its activity or relay badge. */
+.session-item .row .line .title.wrap {
+  display: block;
+  overflow: visible;
+  -webkit-line-clamp: unset;
+}
+/* One line per session: the title only, cut with « … » (Yann, 2026-11-16). */
+.session-name {
+  display: block;
+  white-space: nowrap;
+  overflow: hidden;
+  text-overflow: clip;
+  /* No « … »: a long title fades out at the right edge. */
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.session-item .row .line .title.wrap { overflow: hidden; white-space: nowrap; text-overflow: clip; }
+/* What isn't working steps back: a quiet project and its resting sessions at half opacity. Waiting or cut stays full. */
+.band[data-project] > .in.head .name, .session-item, .repo { transition: opacity .4s ease; }
+.band[data-project] { transition: background-color .4s ease; }
+.band[data-project]:not(.busy) > .in.head .name { opacity: .45; }
+.repo.resting { opacity: .45; }
+.session-item:has(> .row:not(.live, .tone, .cut)) { opacity: .45; }
+.session-item:has(> .cut-wrap) { opacity: 1; }
+.page-body { min-height: 0; }
+.session-heading { flex: none; padding-block: 12px; }
+
+.fy-top .in.fy-top-in { flex-wrap: wrap; }
+
+/* Session controls share the first title line, independent of secondary text height. */
+.session-item .row > .in.line { align-items: flex-start; }
+.session-item .row .st,
+.session-item .row .tool-ic,
+.session-item .row .act { margin-top: 6px; min-height: 22px; line-height: 22px; }
+.session-item .row .tool-ic { align-items: center; }
+.session-menu summary { top: 2px; }
+.session-name .dot { width: 7px; height: 7px; margin-right: 6px; }
+/* Touch focus must not draw a persistent frame around a whole project name. */
+@media (hover: none) and (pointer: coarse) {
+  .head-name:focus-visible { outline: none; }
+}
+
+/* A session is a continuous reading surface. Technical details stay optional. */
+.session-thread .msg.band:not(.orch) { background: transparent; color: inherit; }
+/* Preserve the signed brief's original author colour in continuous session reading. */
+.session-thread .msg.band.orch {
+  background: oklch(from var(--who-c, var(--agent)) calc(l + var(--dl) * 1.8) calc(c * 1.1) h);
+  color: var(--ink);
+  border-inline-start: 3px solid currentColor;
+}
+.session-thread .msg > .in { padding-block: 12px; }
+.session-thread .msg .text { font-size: 1rem; line-height: 1.5; }
+.session-thread .msg .who { opacity: .72; margin-bottom: 4px; }
+.session-thread .msg.orch .who { opacity: 1; }
+.session-thread .msg.event .text { font-size: .875rem; }
+.session-coordination > summary { cursor: pointer; font-size: .875rem; opacity: .75; padding-block: 12px; }
+.session-coordination > summary::marker { font-size: .75em; }
+.session-coordination[open] { border-inline-start: 2px solid color-mix(in oklab, currentColor 22%, transparent); }
+.session-context { display: block; max-width: 100%; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; text-align: left; font-size: .875rem; min-height: 32px; opacity: .8; }
+/* Reserve a real row for voice and the latest-message control: neither covers text. */
+.session-header-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.session-header-row .back { flex: 0 1 auto; max-width: 35%; }
+.session-header-row .back .meta { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+.session-header-controls { flex: 1; min-width: 0; text-align: right; }
+.session-header-controls button { min-height: 44px; max-width: 100%; white-space: normal; overflow-wrap: anywhere; font-size: .8rem; line-height: 1.25; }
+.session-header-voice { flex: none; width: 44px; }
+.session-header-voice .page-voice { position: static; }
+.session-header-voice .voice-logo { width: 44px; height: 44px; min-height: 44px; aspect-ratio: auto; }
+.session-header-voice .voice-svg { width: 44px; height: 44px; }
+.session-header-voice .voice-err { left: auto; right: 0; max-width: min(70vw, 18rem); white-space: normal; }
+.session-page .page-body > .fill { min-height: 12px; }
+.session-page .session-heading .h2 { font-size: 1.25rem; }
+
+.outbox-status { flex: none; font-size: .8125rem; line-height: 1.35; padding-block: 6px; }
+.outbox-status details { padding-block: 4px; overflow-wrap: anywhere; }
+.outbox-status summary { cursor: pointer; min-height: 32px; }
+.outbox-status blockquote { white-space: pre-wrap; margin: 6px 0; padding-inline-start: 10px; border-inline-start: 2px solid currentColor; }
+.outbox-recovery { display: flex; flex-wrap: wrap; gap: 4px 12px; }
+.outbox-excerpt { opacity: .8; }
+.outbox-status .link { min-height: 28px; }
+
+.remote-progress { padding-block: 12px; font-size: .9375rem; line-height: 1.45; }
+.remote-progress-title { display: flex; align-items: center; gap: 8px; min-height: 44px; cursor: pointer; }
+.remote-progress-title::-webkit-details-marker { display: none; }
+.remote-progress-chevron { margin-left: auto; }
+.remote-progress-details[open] .remote-progress-chevron { transform: rotate(180deg); }
+.remote-progress-facts { padding-block: 4px 8px; }
+.remote-progress-reason { margin: 0; font-size: .875rem; }
+.remote-progress .meta { opacity: .72; }
+.remote-progress progress { display: block; width: min(100%, 24rem); height: 6px; margin-block: 8px; accent-color: currentColor; }
+
+/* A recoverable recording stays beside its own microphone, never in a global delivery banner. */
+.chatter > summary { cursor: pointer; list-style: none; opacity: .8; }
+.chatter > summary::-webkit-details-marker { display: none; }
+.chatter[open] > summary { display: none; }
+.step-raw + .step-raw { margin-top: 10px; }
+
+/* Session header: the mini-macro sits beside the title, same row, never pushes anything down. */
+.session-context-row { display: flex; align-items: center; gap: 8px; min-width: 0; }
+.session-context-row .session-context { flex: 0 1 auto; min-width: 0; max-width: 62%; }
+.session-now { flex: 0 1 auto; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; font-size: .68rem; line-height: 1; padding: 3px 0; opacity: .65; }
+.session-now[data-state="working"] { opacity: .75; }
+.session-now[data-state="calm"] { opacity: .5; }
+/* A long agent message in a project session: its plain summary reads as body text; the full text opens below. */
+
+/* No little squares anywhere (Yann, 2026-11-16): unread, unseen and activity markers are not drawn. What they meant
+   lives in the text: an unread project keeps its name at full ink even when resting. */
+.dot, .fyt-dot, .h24-activity { display: none !important; }
+
+/* weevboss opens like a drawer coming down from the top (mirror of the automations drawer). */
+@keyframes agent-drop { from { transform: translateY(-28px); opacity: 0; } to { transform: none; opacity: 1; } }
+/* No pop-in: the drawer itself moves (useBossDrawer). */
+@media (prefers-reduced-motion: reduce) { .agent.open #agent-body { animation: none; } }
+.peek { cursor: grab; }
+/* ---------- Lateral chain: main → repos → previews (src/ui/lateral.tsx) ---------- */
+
+/* A lateral screen: a full-screen drawer above the main screen and its automations rail, under the opened pages. */
+.lat-layer {
+  -webkit-user-select: none;
+  user-select: none;
+  position: fixed;
+  inset: 0;
+  will-change: transform;
+  touch-action: pan-y;
+  overscroll-behavior: contain;
+  -webkit-touch-callout: none;
+}
+
+/* The list scrolls up and down; sideways belongs to the drawer (a scroll container would otherwise take it). */
+.lat-layer * {
+  touch-action: pan-y;
+}
+
+.lat-layer > .page {
+  z-index: auto;
+  overscroll-behavior: contain;
+}
+
+main.stack {
+  -webkit-touch-callout: none;
+}
+
+/* The grip: the right edge, above the rail so the rail still opens from there. */
+.lat-edge {
+  position: fixed;
+  right: 0;
+  top: var(--safe-t, 0px);
+  bottom: calc(var(--rail) + var(--safe-b, 0px));
+  z-index: 29;
+  touch-action: none;
+}
+
+/* The overview: one surface over the three shrunk screens takes every touch (swipe between, tap to go). */
+.lat-over {
+  position: fixed;
+  inset: 0;
+  z-index: 29;
+  touch-action: none;
+}
+
+/* Behind the three shrunk screens: a dark ground, so each screen reads as a card. */
+.lat-back {
+  position: fixed;
+  inset: 0;
+  z-index: -1;
+  background: var(--ink);
+  pointer-events: none;
+}
+
+/* The grip on the right edge: tap it to open the next screen, or pull it to the left. */
+.lat-grip {
+  position: absolute;
+  right: 6px;
+  top: calc(50% - 28px);
+  width: 5px;
+  height: 56px;
+  background: var(--ink);
+  opacity: 0.35;
+}
+
+.lat-layer input,
+.lat-layer textarea {
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+/* ---------- weevboss drawer handle (src/ui/bands.tsx useBossDrawer) ---------- */
+.agent-grip {
+  height: 38px;
+  display: grid;
+  place-items: center;
+  touch-action: none;
+  cursor: grab;
+  flex: none;
+  -webkit-user-select: none;
+  user-select: none;
+}
+.agent-grip > span {
+  width: 44px;
+  height: 5px;
+  border-radius: 3px;
+  background: currentColor;
+  opacity: 0.35;
+}
+.agent.open { will-change: transform; }
+
+
+/* Bring your conversations (src/ui/bring.tsx): the line for the other computer, then one line per conversation. */
+.bring {
+  flex-basis: 100%;
+  width: 100%;
+  min-width: 0;
+  display: flex;
+  flex-direction: column;
+  gap: 14px;
+}
+.bring-line {
+  display: flex;
+  flex-wrap: wrap;
+  align-items: center;
+  gap: 8px;
+}
+.bring-line .meta {
+  flex-basis: 100%;
+}
+.bring-line code {
+  flex-basis: 100%;
+  min-width: 0;
+  font-size: 12px;
+  overflow-wrap: anywhere;
+  word-break: break-all;
+  user-select: all;
+}
+.bring-source {
+  min-width: 0;
+}
+.bring-name {
+  font-weight: 750;
+}
+.bring-source ul {
+  list-style: none;
+  margin: 4px 0 0;
+  padding: 0;
+}
+.bring-row {
+  width: 100%;
+  min-height: 40px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 12px;
+  text-align: left;
+}
+.bring-title {
+  flex: 1;
+  min-width: 0;
+  white-space: nowrap;
+  overflow: hidden;
+  mask-image: linear-gradient(90deg, #000 85%, transparent);
+}
+.bring-when {
+  flex: none;
+  font-size: 12px;
+  opacity: 0.6;
+  display: inline-flex;
+  align-items: center;
+  gap: 4px;
+}
+.bring-row.moving .bring-when,
+.bring-row.here .bring-when {
+  opacity: 1;
+}
+.bring-row.here .bring-when .ic {
+  width: 14px;
+  height: 14px;
+}
+
+/* The request a session works on, pinned above its older messages (src/ui/bits.tsx AskedLine): one line, a tap shows it all. */
+.session-asked-line { display: flex; gap: 6px; align-items: baseline; width: 100%; min-height: 44px; padding-block: 10px; text-align: left; }
+.session-asked-line .who { flex: none; }
+.session-asked-line .one-line {
+  flex: 1; min-width: 0; white-space: nowrap; overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+.session-asked-full { padding-bottom: 12px; }
+
+/* Weight is the one signal for « active » on the home screen (Yann, 2026-11-17): the selected word of the top switcher,
+   a project with something working, a working session are bold; everything resting is regular. Unread, cut or an
+   unseen « for you » no longer borrow the bold. */
+.band[data-project] > .in.head .name { font-weight: 400; }
+.band[data-project].busy > .in.head .name { font-weight: 700; }
+.row .title, .row.unread .title, .row.cut .title, [data-theme='graphite'] .row.unread .title { font-weight: 400; }
+.row.live .title { font-weight: 650; }
+/* The open weevboss head: the model line starts on the same left edge as « weevboss  for you » above it. */
+.agent.open .agent-model { display: flex; justify-content: flex-start; align-self: stretch; width: 100%; box-sizing: border-box; padding-left: calc(var(--pad) + 38px); text-align: left; }
+.agent.open .agent-model > .link { margin: 0; font-weight: 400; } /* not a selection: regular weight */

@@ -1,0 +1,8 @@
+[transcript message verbatim; screen reconstructed]
+  ⎿  API Error: Failed to authenticate: OAuth session expired and could not be refreshed
+────────
+❯ 
+────────
+  ⏵⏵ bypass permissions on (shift+tab to cycle)
+
+(variant) Login expired · Please run /login

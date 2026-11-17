@@ -1,0 +1,5 @@
+import { defineMessages } from './index'
+export default defineMessages({
+  fr: { archived: 'sessions archivées', archive: 'archiver', restore: 'remettre dans la liste', archiveAria: (title: string) => `archiver « ${title} » sans arrêter son travail`, restoreAria: (title: string) => `remettre « ${title} » dans la liste`, actions: (title: string) => `actions pour « ${title} »`, keepsWorking: 'Le travail continue. Tu peux remettre la session dans la liste.', empty: 'Aucune session archivée.', close: 'fermer la notification', closeAbout: (about: string) => `fermer la notification : ${about}` },
+  en: { archived: 'archived sessions', archive: 'archive', restore: 'restore to list', archiveAria: (title: string) => `archive “${title}” without stopping its work`, restoreAria: (title: string) => `restore “${title}” to the list`, actions: (title: string) => `actions for “${title}”`, keepsWorking: 'Work continues. You can restore the session to the list.', empty: 'No archived sessions.', close: 'dismiss notification', closeAbout: (about: string) => `dismiss notification: ${about}` },
+})

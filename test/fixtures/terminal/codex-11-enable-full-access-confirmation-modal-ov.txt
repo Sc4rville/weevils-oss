@@ -1,0 +1,17 @@
+  /init - create an AGEN
+  /status - show current  Enable full access?
+  /permissions - choose   When Codex runs with full access, it can edit any file on your
+  /model - choose what m  computer and run commands with network, without your approval.
+  /review - review any c  Exercise caution when enabling full access. This significantly
+                          increases the risk of data loss, leaks, or unexpected behavior.
+⚠ Heads up, you have les
+
+                        › 1. Yes, continue anyway  Apply full access for this session
+                          2. Cancel                Go back without enabling full access
+
+                          enter select · esc back
+
+› Ask Codex to do anything
+
+  GPT-6.1-Sol high · /tmp/demo
+  ← for agents · ? for shortcuts                                                               ⚠ 1 warning · f2 to view

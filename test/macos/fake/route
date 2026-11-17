@@ -1,0 +1,8 @@
+#!/bin/bash
+# route of the fake Mac: `route -n get default`, in BSD's format (the default route goes out through en0).
+case "$*" in
+  '-n get default' | 'get default')
+    [ ! -e /var/fakemac/no-network ] || { echo 'route: writing to routing socket: not in table' >&2; exit 1; }
+    printf '   route to: default\ndestination: default\n       mask: default\n    gateway: 192.168.1.1\n  interface: en0\n      flags: <UP,GATEWAY,DONE,STATIC,PRCLONING,GLOBAL>\n recvpipe  sendpipe  ssthresh  rtt,msec    rttvar  hopcount      mtu     expire\n       0         0         0         0         0         0      1500         0 \n' ;;
+  *) echo "fake route: only 'route -n get default' is emulated" >&2; exit 65 ;;
+esac

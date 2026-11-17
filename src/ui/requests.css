@@ -1,0 +1,267 @@
+/* The requests page (src/ui/requests.tsx): goals as tone bands, requests as lines, the open one in place. */
+
+.req-group + .req-group {
+  margin-top: 10px;
+}
+
+/* A goal: a short name and « 8/11 », one line. */
+.req-goal-line {
+  display: flex;
+  align-items: baseline;
+  gap: 12px;
+  padding-block: 12px;
+}
+
+.req-goal-title {
+  flex: 1;
+  min-width: 0;
+  font-size: 1.125rem;
+  font-weight: 700;
+  line-height: 1.2;
+  white-space: nowrap;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+.req-goal-n {
+  flex: none;
+  font-variant-numeric: tabular-nums;
+}
+
+/* A request, closed: its sentence (two lines at most) and where it stands. */
+.row.req-row > .in {
+  align-items: baseline;
+  min-height: 0;
+  padding-block: 12px;
+}
+
+.req-text {
+  font-size: 1rem;
+  font-weight: 600;
+  line-height: 1.3;
+  overflow-wrap: anywhere;
+}
+
+.req-item.open .req-text {
+  -webkit-line-clamp: unset;
+  line-clamp: unset;
+  font-size: 1.25rem;
+  font-weight: 700;
+}
+
+.req-status {
+  margin-top: 3px;
+  opacity: 0.8;
+}
+
+/* One line: the title, fading at its edge, and its one word on the right. */
+.in.req-line {
+  display: flex;
+  flex-direction: column;
+  align-items: stretch;
+  padding-block: 2px;
+}
+
+.req-main {
+  flex: 1;
+  min-width: 0;
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  text-align: left;
+  min-height: 44px;
+}
+
+.req-main .req-text {
+  flex: 1;
+  min-width: 0;
+}
+
+.req-item.open .req-main {
+  flex-direction: column;
+  gap: 2px;
+  padding-block: 8px;
+}
+
+.req-main .req-text {
+  white-space: nowrap;
+  overflow: hidden;
+  -webkit-mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+  mask-image: linear-gradient(to right, #000 calc(100% - 28px), transparent);
+}
+
+.req-item.open .req-main .req-text {
+  white-space: normal;
+  -webkit-mask-image: none;
+  mask-image: none;
+}
+
+.req-status {
+  display: flex;
+  align-items: baseline;
+  gap: 8px;
+  min-width: 0;
+}
+
+.req-hint {
+  min-width: 0;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+}
+
+/* The status chip: a flat word, filled only when it needs the user. */
+.req-chip {
+  flex: none;
+  font-size: 0.875rem;
+}
+
+/* Only what needs the user stands out. */
+.req-chip.c-needs,
+.req-chip.c-blocked {
+  font-weight: 700;
+}
+
+.req-chip.c-done,
+.req-chip.c-dropped {
+  opacity: 0.7;
+}
+
+.req-sess {
+  align-self: flex-start;
+  max-width: 100%;
+  min-height: 32px;
+  overflow: hidden;
+  text-overflow: ellipsis;
+  white-space: nowrap;
+  font-size: 0.875rem;
+  font-weight: 650;
+  text-align: left;
+}
+
+.req-said + .req-said {
+  margin-top: 8px;
+}
+
+.req-why {
+  margin-top: 8px;
+}
+
+.req-fold {
+  display: block;
+  width: 100%;
+  text-align: left;
+}
+
+.in.req-detail {
+  padding-bottom: 12px;
+}
+
+.req-quote {
+  margin: 0 0 4px;
+  font-style: italic;
+  font-size: 1rem;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+  -webkit-user-select: text;
+  user-select: text;
+}
+
+.req-dispatch {
+  margin-top: 10px;
+}
+
+.req-who {
+  font-weight: 650;
+  text-align: left;
+  min-height: 32px;
+}
+
+.req-actions {
+  display: flex;
+  gap: 6px;
+  margin-top: 10px;
+}
+
+.req-btn {
+  min-height: 44px;
+  padding-inline: 10px;
+  font-size: 0.9375rem;
+  font-weight: 700;
+}
+
+.req-btn:first-child {
+  padding-left: 0;
+}
+
+/* Armed: one more tap drops. */
+.req-btn.on {
+  padding-inline: 10px;
+  background: var(--ink);
+  color: var(--c);
+}
+
+.in.req-pending {
+  display: flex;
+  gap: 10px;
+  align-items: baseline;
+  padding-block: 8px;
+}
+
+.req-pending .st {
+  width: 22px;
+  flex: none;
+  text-align: center;
+  font-weight: 700;
+}
+
+.req-day {
+  padding-block: 14px 4px;
+  text-transform: lowercase;
+}
+
+.req-empty {
+  padding-block: 18px;
+}
+
+/* The trace: time on the left, the words on the right. */
+.in.req-trace {
+  display: flex;
+  gap: 12px;
+  padding-block: 7px;
+}
+
+.req-time {
+  width: 4.6em;
+  white-space: nowrap;
+  flex: none;
+  padding-top: 2px;
+}
+
+.req-trace-body {
+  flex: 1;
+  min-width: 0;
+  line-height: 1.35;
+  overflow-wrap: anywhere;
+}
+
+.req-kind {
+  font-weight: 700;
+}
+
+.req-trace.k-request .req-kind,
+.req-trace.k-status .req-kind {
+  opacity: 0.7;
+}
+
+.req-goal-tag {
+  opacity: 0.7;
+}
+
+/* Direct children of the page body (a column that would shrink them): full width like every band. */
+.req-group,
+.req-empty {
+  width: 100%;
+  box-sizing: border-box;
+}
