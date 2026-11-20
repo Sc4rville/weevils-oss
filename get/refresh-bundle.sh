@@ -6,8 +6,9 @@ set -euo pipefail
 out=${1:-$HOME/.local/share/weevils-get/weevils.bundle}
 here=$(cd "$(dirname "$0")" && pwd)
 src=$(git -C "$here/.." rev-parse --show-toplevel)
-git -C "$src" fetch -q origin main
-rev=$(git -C "$src" rev-parse --verify 'origin/main^{commit}')
+# The revision to publish: the one follow-main.sh chose (green CI), else origin/main.
+if [ -n "${WEEVILS_GET_REV:-}" ]; then rev=$WEEVILS_GET_REV
+else git -C "$src" fetch -q origin main; rev=$(git -C "$src" rev-parse --verify 'origin/main^{commit}'); fi
 stamp="$out.rev"
 [ -s "$out" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$rev" ] && exit 0
 # The key lives with a dedicated user when get/setup-signer.sh ran: sign through it.

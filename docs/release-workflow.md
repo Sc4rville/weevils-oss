@@ -4,6 +4,15 @@ The product and source URL are **https://github.com/Sc4rville/weevils-oss**. Sha
 repository, including fixes discovered while helping one person. There is no separate `weevils-oss` feature copy.
 Personal configuration, accounts and data are not product source.
 
+## How a change reaches installs
+
+Merging to `main` is releasing. The setup server (`get/follow-main.sh`, every 2 minutes) picks up the new `main`
+commit, runs `npm ci`, `npm run lint`, the tests and the build on it in a throwaway worktree, and only if they pass:
+builds the bundle (`get/make-bundle.sh`: release-policy exclusions, a personal-trace check, signed by the
+`weevils-signer` user), serves it, and mirrors the same revision to the public repository. A red commit is never
+published: installs stay on the last good one. Every install's `weevils-update` then takes it within about 30
+minutes, only if the signature checks and the snapshot is newer than the one installed.
+
 ## Every product change
 
 1. Work from current canonical `main`, or an existing feature branch in this repository. Preserve other workers'

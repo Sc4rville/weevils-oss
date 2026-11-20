@@ -22,7 +22,7 @@ short=$(git -C "$src" rev-parse --short=7 "$rev")
 mkdir "$work/tree" && tar -xzf "$work/snap.tar.gz" -C "$work/tree"
 tree=$work/tree/weevils
 rm -f "$tree/release-manifest.json"
-grep -rIl "$HOME" "$tree" | xargs -r sed -i "s|$HOME|/home/alex|g"
+{ grep -rIlF "$HOME/" "$tree" || true; } | xargs -r sed -i "s|$HOME/|/home/alex/|g"
 # The private repository's address becomes the public one (README, AGENTS.md, install.sh's clone).
 grep -rIlE 'Sc4rville/weevils-oss([^-A-Za-z0-9_]|$)' "$tree" | xargs -r sed -i -E 's#Sc4rville/weevils-oss([^-A-Za-z0-9_]|$)#Sc4rville/weevils-oss\1#g'
 

@@ -79,7 +79,9 @@ ssh-keygen -Y verify -f allowed -I weevils-release -n weevils-release -s weevils
 ```
 
 The key signs on the machine that serves the setup page, so it protects the code between that machine and yours. It
-does not protect against that machine itself being taken over. The code is public at https://github.com/Sc4rville/weevils-oss: each bundle (one commit « weevils <rev> ») is
+does not protect against that machine itself being taken over; there the key belongs to a dedicated user that only
+signs, so the sessions and automations running on that machine cannot read it. A bundle is published only after the
+tests pass on it, and an install refuses a bundle that is unsigned or older than the one it runs. The code is public at https://github.com/Sc4rville/weevils-oss: each bundle (one commit « weevils <rev> ») is
 published there with the same message, after a secret scan, so what you install is what you can read.
 
 ## Remove it

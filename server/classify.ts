@@ -6,7 +6,9 @@
 import { execFile } from 'node:child_process'
 import fs from 'node:fs'
 import path from 'node:path'
+import { haiku } from './fast.ts'
 import { tr, user } from './i18n.ts'
+import { preferredTool, providerStatus } from './provider.ts'
 import M from './i18n/classify.ts'
 
 export interface CatalogEntry {
@@ -93,6 +95,15 @@ export async function llmClassify(
     t.conversations,
     `[${items.map((i) => t.item(i.id, i.title, i.excerpt)).join(',')}]`,
   ].join('\n')
+  // Sans Codex (la plupart des nouveaux venus n'ont que Claude Code) : haiku, sur l'abonnement Claude, comme les titres.
+  const codex = providerStatus('codex')
+  if (preferredTool() === 'claude' || !codex.installed || !codex.logged) {
+    const out = await haiku(`${prompt}\n\n${t.jsonOnly}`, 120_000)
+    const raw = JSON.parse(out.slice(out.indexOf('{'), out.lastIndexOf('}') + 1)) as { items?: { id: string; project: string | null; confidence: number; reason: string }[] }
+    fs.rmSync(schemaFile, { force: true })
+    const known = new Set(catalog.map((p) => p.id))
+    return (raw.items ?? []).map((x) => ({ id: x.id, project: x.project && known.has(x.project) ? x.project : null, confidence: Math.max(0, Math.min(1, Number(x.confidence) || 0)), reason: String(x.reason ?? '') }))
+  }
   await new Promise<void>((resolve, reject) => {
     const child = execFile(
       'codex',

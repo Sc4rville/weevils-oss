@@ -167,7 +167,7 @@ it('machines page: a failed read says so in plain words, never the raw error', a
 it('files: folder name as kicker, no « machine:/path », « home folder » instead of ~, plain error', async () => {
   state.fs = { path: '/home/alex/projects', home: '/home/alex', entries: [{ name: 'mygame', dir: true, size: 0 }] }
   await render(<FsPage machine="vps" path="/home/alex/projects" />)
-  expect(host.querySelector('[data-kicker]')!.textContent).toBe('yann')
+  expect(host.querySelector('[data-kicker]')!.textContent).toBe('alex')
   expect(host.querySelector('[data-meta]')!.textContent).toBe('1 item')
   expect(host.textContent).not.toContain('vps:')
   await act(async () => row('mygame/')!.click())

@@ -8,7 +8,7 @@ you already have.
 *An AI agent installing this for someone? Clone it and follow [AGENTS.md](AGENTS.md): it installs everything
 without asking them anything first.*
 
-<img src="docs/first-run.gif" width="280" alt="weevils on a fresh install: the 3-card intro, the empty home, the first hint">
+<img src="docs/first-run.gif" width="280" alt="weevils on a fresh install">
 
 *Recorded before the current logo refresh. [Branding status and current assets](docs/branding.md).*
 
@@ -80,14 +80,16 @@ machine), `--uninstall` (`--purge` also deletes settings and data). Everything t
 
 1. Scan the QR code (or open the link) on your phone: you are logged in.
 2. Add it to the home screen (iPhone: Share → Add to Home Screen; Android: Install app).
-3. On the machine, start a session in one of your repos (they live in `~/projects` by default, change it with
+3. weevboss greets you at the top with what is left to set up (signing in to Claude Code or Codex, GitHub, voice…),
+   one tap each. Ask it anything from there: "what are my projects up to?", "make me a small notes app".
+4. On the machine, start a session in one of your repos (they live in `~/projects` by default, change it with
    `WEEVILS_PROJECTS`):
    ```sh
    cd ~/projects/my-app && wv "fix the failing test"
    ```
    `wv` alone opens Claude Code, `wv codex` opens Codex, `wv ls` lists sessions, `wv a` attaches to one.
-4. The session shows up under its project. Tap it to read along and reply.
-5. Or skip the terminal: tap `+` on a project, or just ask weevboss at the top.
+5. The session shows up under its project. Tap it to read along and reply.
+6. Or skip the terminal: ask weevboss at the top to start one.
 
 Sessions opened in a plain terminal (without `wv`) are hidden: weevils can't write to them safely.
 

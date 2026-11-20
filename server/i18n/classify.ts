@@ -19,6 +19,7 @@ export default defineMessages({
         '- confidence entre 0 et 1 (≥ 0.7 seulement si c’est évident) ; reason = une phrase courte en français qui cite l’indice décisif.',
       ].join('\n'),
     conversations: 'Conversations :',
+    jsonOnly: 'Réponds uniquement avec ce JSON, sans rien autour : {"items":[{"id":"…","project":"<id> ou null","confidence":0.0,"reason":"…"}]}',
     /** One conversation of the prompt, as JSON (keys in the prompt's language). */
     item: (id: string, title: string, excerpt: string) => JSON.stringify({ id, titre: title, extrait: excerpt }),
   },
@@ -37,6 +38,7 @@ export default defineMessages({
         '- confidence between 0 and 1 (≥ 0.7 only if it is obvious); reason = one short sentence in English that quotes the decisive clue.',
       ].join('\n'),
     conversations: 'Conversations:',
+    jsonOnly: 'Answer with this JSON only, nothing around it: {"items":[{"id":"…","project":"<id> or null","confidence":0.0,"reason":"…"}]}',
     item: (id: string, title: string, excerpt: string) => JSON.stringify({ id, title, excerpt }),
   },
 })

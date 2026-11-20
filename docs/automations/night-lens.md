@@ -21,7 +21,7 @@ philosophical, never filler.
    with the code as it is, noting the revision in the report.
 4. Sleep trigger: Night lens already runs « when I sleep », with its 01:00–05:00 window as the fallback on a night
    sleep mode never came. Never offer to switch it.
-5. Read `reports/night-lens/ledger.md` on this branch (create it on the first run): past personas, journeys,
+5. Read `../reports/night-lens/ledger.md` (beside the worktree, kept between runs, never committed) (create it on the first run): past personas, journeys,
    proposals and pieces, with what became of them. Also read the latest report of the UX consistency audit
    (`git log auto/find-ux-inconsistencies-156a --oneline -- reports/ux-consistency`, then `git show` its newest
    report) so you never propose again what it already found.
@@ -52,7 +52,7 @@ automations must be exactly as they were after your walk. To see what a tap woul
 (`src/ui/…`) or render the next state in a mockup.
 
 Walk the journey screen by screen, the way the persona would, and screenshot each step into
-`reports/night-lens/<YYYY-MM-DD>/`. Note, with the screenshot that proves it: friction, clutter, jargon, missing
+`../reports/night-lens/<YYYY-MM-DD>/`. Note, with the screenshot that proves it: friction, clutter, jargon, missing
 affordances, dead ends, things that read badly on a phone, and also what works well (so it is never "fixed").
 Use real session threads and the real For you feed (`GET /api/foryou`, `GET /api/snapshot`, `GET /api/sessions/<id>`)
 as material. A point without a screenshot or an observed flow behind it is not a point.
@@ -108,7 +108,7 @@ Publishing into the user's own For you feed on this machine is the one posting t
 automation (no mail, no PR, no social network; you never push: weevils pushes this branch to GitHub itself after the
 run, so the report never stays on this machine only). Use the CLI, which talks to the local server:
 
-- Each proposal: `weevils show reports/night-lens/<date>/<n>-before-after.png "<one-line caption>"`, then
+- Each proposal: `weevils show ../reports/night-lens/<date>/<n>-before-after.png "<one-line caption>"`, then
   `weevils post "<2–4 short sentences: what the persona hit, what we change, what stays>" --action "Build it::<a
   self-contained brief for weevboss: the change, the files, the no-capability-removed guarantee, the branch if a
   fix is already there>"`.
@@ -121,8 +121,8 @@ brief), no emoji. Buttons only for real next steps.
 
 ## 6. Leave a trace
 
-- `reports/night-lens/<date>.md`: persona, journey, the screens walked, every observation with its screenshot,
+- `../reports/night-lens/<date>.md`: persona, journey, the screens walked, every observation with its screenshot,
   the proposals (with their guarantee), the piece, what was published, and the cost (subagent and total time).
-- Append one entry to `reports/night-lens/ledger.md`: date, persona, journey, proposal titles, piece title.
+- Append one entry to `../reports/night-lens/ledger.md`: date, persona, journey, proposal titles, piece title.
 - Commit both and the screenshots on this branch (`docs(night-lens): <date> <persona> · <journey>`).
 - The report next to the worktree (the path given in your rules) gets the same summary, short.

@@ -9,3 +9,8 @@ build/
 steps/
 # le kit est décompressé dans harness-interface-kit/ ; le zip d'origine reste en local
 *.zip
+
+# The owner's own notes and automation reports live in ~/.local/share/weevils (reports/, notes/, content/), never here.
+/reports/
+/docs/decisions.md
+/content/

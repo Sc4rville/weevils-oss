@@ -87,7 +87,7 @@ Each bare mirror in `~/projects/.mirrors/*.git` is a copy of this repository kep
 a preserved earlier public candidate, refreshed every 6 h outside your sandbox). Compare its `main` tree with the
 shared selection of `main` from 2b: files only on one side, files that differ, and how many canonical commits it
 lags (its last commit message names the source revision). Run 2b's trace search on the copy too. **Report only**:
-the decision of 2026-11-12 (`docs/decisions.md`) stops syncing copies without an explicit go.
+the decision of 2026-11-12 (the owner's decision log, outside the repository) stops syncing copies without an explicit go.
 
 ## 3. Triage
 
