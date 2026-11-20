@@ -372,7 +372,7 @@ export function AgentBand() {
 
       {/* Écrire ici n'ouvre pas la conversation : elle s'ouvre à l'envoi, pour lire la réponse. Pendant un branchement,
           le champ pose les questions du parcours, une à la fois (src/ui/setup.tsx). */}
-      {/* The handle, about a centimetre above the field (Yann, 2026-11-17): pull it down to open, push it up to close, or
+      {/* The handle, about a centimetre above the field (Scarville, 2026-11-17): pull it down to open, push it up to close, or
           tap it. Under the field it sat on the keyboard's toolbar and the home indicator, where closing failed. */}
       <div className="agent-grip" onPointerDown={dr.grab} aria-hidden><span /></div>
       {flow ? <SetupComposer /> : <Composer placeholder={t.agentPlaceholder} label={t.agentLabel} onSend={send} onAttach={attach} anyFile voice sayErrors horizontal captureSuggestions draft={draft} formRef={form} prompt={snap.mainWorking ? <span className="spin fluo"><Icon name="star" /></span> : <Icon name="chevron" dir="right" />} />}
@@ -385,7 +385,7 @@ export function AgentBand() {
 }
 
 /**
- * weevboss is a real drawer coming down from the top, the automations drawer mirrored (Yann, 2026-11-17): the whole
+ * weevboss is a real drawer coming down from the top, the automations drawer mirrored (Scarville, 2026-11-17): the whole
  * open conversation hangs above the screen with only its bottom edge showing where the band was; its handle at the bottom
  * follows the finger 1:1 and the release springs it open or closed with the automations spring. Nothing scrolls during
  * the pull. A tap on the handle opens or closes it too.
@@ -592,7 +592,7 @@ export function ProjectBand({ project }: { project: Project }) {
     improving ? t.improvingWeevils : active.length > cut.length ? activity(active.filter((s) => s.status !== 'interrupted')) : null,
     att.length ? t.yours(att.length) : null,
     convCount ? t.conversations(convCount) : null,
-    // A resting project says nothing: no « nothing running », no « 1 day ago » (Yann, 2026-11-16).
+    // A resting project says nothing: no « nothing running », no « 1 day ago » (Scarville, 2026-11-16).
   ]
     .filter(Boolean)
     .join(' · ')
@@ -624,7 +624,7 @@ export function ProjectBand({ project }: { project: Project }) {
             )}
           </AnimatePresence>
         </button>
-        {/* Next to the name: nothing, unless a session was cut and needs a restart (Yann, 2026-11-16: the era of the big clean-up). */}
+        {/* Next to the name: nothing, unless a session was cut and needs a restart (Scarville, 2026-11-16: the era of the big clean-up). */}
         {shown !== 'mini' && (
           <div className="chars">
             {project.repos.length > 0 && (
@@ -632,7 +632,7 @@ export function ProjectBand({ project }: { project: Project }) {
                 <Icon name="slash" />
               </button>
             )}
-            {/* The project's page: what runs now, its to-do, its sessions (Yann, 2026-11-17). */}
+            {/* The project's page: what runs now, its to-do, its sessions (Scarville, 2026-11-17). */}
             <button className="ch" aria-label={pt.openAria(project.name)} onClick={() => push({ kind: 'project', projectId: project.id })}>
               <G c=">" />
             </button>
@@ -657,7 +657,7 @@ export function ProjectBand({ project }: { project: Project }) {
             </RowSlot>
           ))}
         </AnimatePresence>
-        {/* Finished sessions are not listed on the home screen (Yann, 2026-11-17): the conversations page keeps them. */}
+        {/* Finished sessions are not listed on the home screen (Scarville, 2026-11-17): the conversations page keeps them. */}
         <div style={{ height: 12 }} />
       </Collapse>
 
@@ -688,7 +688,7 @@ export function FootBand() {
       /* no time zone: the server's */
     }
   }, [])
-  // Four sections, language and log out (Yann, 2026-11-17): everything else lives where it is used — notifications, the phone and
+  // Four sections, language and log out (Scarville, 2026-11-17): everything else lives where it is used — notifications, the phone and
   // old conversations through weevboss's chips, memory through weevboss, finished sessions on their project's page.
   return (
     <section className="band demo settings-band" style={color(colors.__foot ?? 'p3')} aria-label={t.settings}>

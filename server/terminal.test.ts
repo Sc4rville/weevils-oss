@@ -167,7 +167,7 @@ describe('fallbacks', () => {
       .toEqual(['unknown-stuck', 'Codex is waiting on a screen weevils doesn’t know', ['Continue', 'Go back'], ['enter', 'esc']])
   })
   it('kept unknown screens carry no home path, address, key or token', () => {
-    const r = redactScreen('/home/alice/x yann@example.org sk-ant-abcdefghijkl https://h/#k=SECRET123 abcdefghijklmnopqrstuvwxyz0123456789')
+    const r = redactScreen('/home/alice/x scarville@example.org sk-ant-abcdefghijkl https://h/#k=SECRET123 abcdefghijklmnopqrstuvwxyz0123456789')
     expect(r).toBe('/home/user/x someone@example.com [key] https://h/#k=[code] [token]')
   })
   it('a screen id ignores trailing spaces and old scrollback', () => {

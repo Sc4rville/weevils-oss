@@ -367,7 +367,7 @@ it('ships the same product contract to both agents in a fresh profile without im
   expect(codex).not.toContain('{{machineProse}}')
   expect(codex).toContain(language==='en'?'Shared product contract':'Contrat produit partagé')
   expect(codex).not.toContain('PRIVATE_MEMORY_SENTINEL')
-  expect(codex).not.toMatch(/Yann|scarville\.tech/)
+  expect(codex).not.toMatch(/Scarville|scarville\.tech/)
  }
  expect(mux.spawnWv).not.toHaveBeenCalled()
 })

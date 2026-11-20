@@ -582,7 +582,7 @@ function Talk({ o }: { o: Optimizer }) {
   const messages = mergePending(real, pending)
   const last = o.talk?.at(-1)
   const suggestions = o.draft && last?.who === 'auto' ? last.suggestions ?? [] : []
-  // A new automation before you've said anything: one line, nothing else (Yann, 2026-11-16).
+  // A new automation before you've said anything: one line, nothing else (Scarville, 2026-11-16).
   if (o.draft && !asking && !k.busy.has(o.id) && !real.some((m) => m.role === 'user')) return <div className="in auto-discuss">{t.letsDiscuss}</div>
   if (!messages.length && !k.busy.has(o.id)) return null
   return (

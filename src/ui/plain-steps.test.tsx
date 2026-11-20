@@ -6,7 +6,7 @@ import { beforeEach, afterEach, expect, it, vi } from 'vitest'
 import type { Message } from '../../shared/api'
 import { Messages } from './bits'
 import { setLang } from '../i18n'
-vi.mock('./app-context', () => ({ useApp: () => ({ snap: { config: { authors: [], userName: 'Yann' }, projects: [], machines: [], sessions: [] }, push: vi.fn() }) }))
+vi.mock('./app-context', () => ({ useApp: () => ({ snap: { config: { authors: [], userName: 'Scarville' }, projects: [], machines: [], sessions: [] }, push: vi.fn() }) }))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })
 let host: HTMLDivElement, root: Root
 const m = (id: string, role: Message['role'], text: string, extra: Partial<Message> = {}): Message => ({ id, role, text, at: 1, ...extra })

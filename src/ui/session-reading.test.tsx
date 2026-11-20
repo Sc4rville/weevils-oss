@@ -8,7 +8,7 @@ import { Composer, Messages } from './bits'
 import { useThreadAsk } from './askthread'
 import { setLang } from '../i18n'
 const state = vi.hoisted(() => ({ word: true, sessions: [] as Session[] }))
-vi.mock('./app-context', () => ({ useApp: () => ({ snap: { config: { authors: [], userName: 'Yann' }, projects: [], machines: [], sessions: state.sessions }, push: vi.fn() }) }))
+vi.mock('./app-context', () => ({ useApp: () => ({ snap: { config: { authors: [], userName: 'Scarville' }, projects: [], machines: [], sessions: state.sessions }, push: vi.fn() }) }))
 vi.mock('./ask', () => ({ useAsk: () => ({ reset() {} }), AskVoice: () => null, AskPanel: () => <div data-actions /> }))
 vi.mock('./textpick', async original => ({ ...await original<typeof import('./textpick')>(), wordUnder: () => state.word ? { col: 0, word: [0, 5] } : null, anchorRow: () => () => {} }))
 Object.assign(globalThis, { IS_REACT_ACT_ENVIRONMENT: true })

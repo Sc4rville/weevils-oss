@@ -21,7 +21,7 @@ export const BOSS_MODELS = [
   { id: 'fable', label: 'Fable', efforts: EFFORTS, defaultEffort: 'medium' },
   { id: 'sonnet', label: 'Sonnet', efforts: EFFORTS, defaultEffort: 'medium' },
 ]
-/** weevboss's default when nothing was chosen in the app (Yann, 2026-11-14: Opus, medium effort). */
+/** weevboss's default when nothing was chosen in the app (Scarville, 2026-11-14: Opus, medium effort). */
 export const BOSS_MODEL = process.env.WEEVILS_BOSS_MODEL || 'opus'
 export const BOSS_EFFORT = process.env.WEEVILS_BOSS_EFFORT || 'medium'
 const readOr = (file: string) => { try { return fs.readFileSync(file, 'utf8') } catch { return '' } }

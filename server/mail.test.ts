@@ -55,7 +55,7 @@ describe('auteurs', () => {
     expect(parseSigned('[weevils] fais ça')).toEqual({ author: 'weevboss', text: 'fais ça' })
     expect(parseSigned('un message normal')).toBeNull()
     // Le préfixe part par motif, pas par longueur : rien du message n'est mangé, quel que soit l'auteur.
-    const body = 'ultracode — Job de nuit, demandé par Yann'
+    const body = 'ultracode — Job de nuit, demandé par Scarville'
     for (const id of ['weevboss', 'gepetto', 'a', 'weevils-content-agent']) expect(parseSigned(`[from:${id}] ${body}`)).toEqual({ author: id, text: body })
     expect(parseSigned(`[weevils] ${body}`)).toEqual({ author: 'weevboss', text: body })
     expect(parseSigned(`[from:weevboss]${body}`)?.text).toBe(body)

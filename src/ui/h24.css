@@ -93,7 +93,7 @@
   vertical-align: middle;
 }
 
-/* One line, small, like a session row: a long name fades out at its right edge, never « … » (Yann, 2026-11-17). */
+/* One line, small, like a session row: a long name fades out at its right edge, never « … » (Scarville, 2026-11-17). */
 .auto-name {
   font-size: 1rem;
   font-weight: 500;

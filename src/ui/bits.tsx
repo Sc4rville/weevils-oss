@@ -1005,7 +1005,7 @@ export function Messages({
   const cut = all || said.length <= WINDOW ? 0 : said[said.length - WINDOW]
 
   // What the session was asked: the request that started it, and the latest one to it, always on top when the window
-  // hides them (Yann, 2026-11-17: « why is there no prompt »).
+  // hides them (Scarville, 2026-11-17: « why is there no prompt »).
   const asked = (m: Message) => m.role === 'user' || m.role === 'orchestrator'
   const firstAsk = messages.findIndex(asked)
   const lastAsk = messages.length - 1 - [...messages].reverse().findIndex(asked)

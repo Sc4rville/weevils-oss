@@ -4,7 +4,7 @@ import { blocks, spans } from './md'
 
 describe('blocks', () => {
   it('headings, a bold line as heading, paragraphs, lists after a paragraph line, quote, rule', () => {
-    const b = blocks('## Done\nThe fix is live.\nWhat changed:\n- one **thing**\n  - a detail\n- two\n\n**Next steps:**\n1. ship\n2. tell Yann\n\n> send this\n> to them\n\n---\nend')
+    const b = blocks('## Done\nThe fix is live.\nWhat changed:\n- one **thing**\n  - a detail\n- two\n\n**Next steps:**\n1. ship\n2. tell Scarville\n\n> send this\n> to them\n\n---\nend')
     expect(b.map((x) => x.kind)).toEqual(['heading', 'para', 'list', 'heading', 'list', 'quote', 'rule', 'para'])
     expect(b[2]).toMatchObject({ ordered: false, items: [{ text: 'one **thing**', sub: ['a detail'] }, { text: 'two', sub: [] }] })
     expect(b[3]).toMatchObject({ level: 3, text: 'Next steps' })

@@ -349,8 +349,8 @@ describe('headline never shows a hole where code was', () => {
     // Live cards: « The new leads are », « marked "brouillon ».
     expect(headline('I added 3 new leads, and `publish.json` is empty. The new leads are:\n- **DEV post:** a Nov 10 post comparing phone options.'))
       .toBe('DEV post: a Nov 10 post comparing phone options.')
-    expect(headline('I saved the draft at `weevils/tweets/launch.md`. It has 3 variants, marked "brouillon — à valider par Yann" and labelled as AI-generated.'))
-      .toBe('It has 3 variants, marked "brouillon — à valider par Yann" and labelled as AI-generated.')
+    expect(headline('I saved the draft at `weevils/tweets/launch.md`. It has 3 variants, marked "brouillon — à valider par Scarville" and labelled as AI-generated.'))
+      .toBe('It has 3 variants, marked "brouillon — à valider par Scarville" and labelled as AI-generated.')
     // « The menu is live. » would hide that the tests fail.
     expect(headline('The menu is live on the phone; `tests/menu.spec.ts` still fails on CI.')).toBe('')
     expect(headline('Le menu est en ligne ; `tests/menu.spec.ts` échoue encore.')).toBe('')
@@ -1633,7 +1633,7 @@ it('does not collapse two unrelated tracked actions into a single existing-work 
 
 it('indexes later explicit request IDs in an existing session without replaying them or swallowing status questions', async () => {
   const messages=[{id:'first',role:'user',text:'Build a simple text canvas with spatial notes and undo.',at:now-100},
-    {id:'later',role:'orchestrator',text:'Yann requests export of Think notes and their images as a portable archive.',at:now-10},
+    {id:'later',role:'orchestrator',text:'Scarville requests export of Think notes and their images as a portable archive.',at:now-10},
     {id:'status',role:'user',text:'What is the current status of my Think canvas today?',at:now}]
   snap.sessions=[session({id:'ongoing',status:'working'})]
   Object.assign(host,{store:{get:()=>({messages})}})

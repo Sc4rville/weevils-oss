@@ -1,6 +1,6 @@
 // @vitest-environment happy-dom
 // A session's settings are its model and effort only, applied by the server in one tap (no slash command typed from
-// the app); fast mode, « tidy up » and « start over » are gone (Yann, 2026-11-17).
+// the app); fast mode, « tidy up » and « start over » are gone (Scarville, 2026-11-17).
 import { act } from 'react'
 import { createRoot, type Root } from 'react-dom/client'
 import { afterEach, beforeEach, expect, it, vi } from 'vitest'

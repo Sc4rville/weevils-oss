@@ -2815,7 +2815,7 @@ html[data-keyboard] .agent:not(.open) .agent-nav .fyt-words {
   overflow: visible;
   -webkit-line-clamp: unset;
 }
-/* One line per session: the title only, cut with « … » (Yann, 2026-11-16). */
+/* One line per session: the title only, cut with « … » (Scarville, 2026-11-16). */
 .session-name {
   display: block;
   white-space: nowrap;
@@ -2914,7 +2914,7 @@ html[data-keyboard] .agent:not(.open) .agent-nav .fyt-words {
 .session-now[data-state="calm"] { opacity: .5; }
 /* A long agent message in a project session: its plain summary reads as body text; the full text opens below. */
 
-/* No little squares anywhere (Yann, 2026-11-16): unread, unseen and activity markers are not drawn. What they meant
+/* No little squares anywhere (Scarville, 2026-11-16): unread, unseen and activity markers are not drawn. What they meant
    lives in the text: an unread project keeps its name at full ink even when resting. */
 .dot, .fyt-dot, .h24-activity { display: none !important; }
 
@@ -3096,7 +3096,7 @@ main.stack {
 }
 .session-asked-full { padding-bottom: 12px; }
 
-/* Weight is the one signal for « active » on the home screen (Yann, 2026-11-17): the selected word of the top switcher,
+/* Weight is the one signal for « active » on the home screen (Scarville, 2026-11-17): the selected word of the top switcher,
    a project with something working, a working session are bold; everything resting is regular. Unread, cut or an
    unseen « for you » no longer borrow the bold. */
 .band[data-project] > .in.head .name { font-weight: 400; }

@@ -27,7 +27,7 @@ export function shortModel(model?: string): string | undefined {
 /**
  * A conversation's settings: weevboss's voice, or the model and effort of a session, each applied in one tap by the
  * server (src/ui/model-controls.tsx). No slash command is typed from here; fast mode, « tidy up » and « start over » are
- * gone (Yann, 2026-11-17: nothing that doesn't earn its place).
+ * gone (Scarville, 2026-11-17: nothing that doesn't earn its place).
  */
 export function Settings({ id, userName }: { id: string; userName?: string }) {
   return <div className="settings">{id === '__main' ? <VoicePicker userName={userName ?? ''} /> : <ModelPicker key={id} id={id} />}</div>

@@ -18,7 +18,7 @@ it('never clips away caveats or edits attributed quotations', () => {
   const text = 'The render is ready. Publishing still needs your approval.'
   expect(editorialText(text, 30)).toBe('')
   expect(editorialText(text, 400)).toBe(text)
-  const quote = 'Yann wrote: « Ask weevboss to prepare the café ». The preview is ready.'
+  const quote = 'Scarville wrote: « Ask weevboss to prepare the café ». The preview is ready.'
   expect(editorialText(quote, 400)).toBe(quote)
   expect(editorialText('Great progress: 1307 tests passed.', 400)).toBe('')
   expect(editorialText('One result. Another result. An unrelated status.', 400)).toBe('')

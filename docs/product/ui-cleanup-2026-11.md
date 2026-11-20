@@ -250,7 +250,7 @@ A fresh read of every screen on the maintainer's live instance (phone viewport, 
 - The live token meter's accessible name (« N tokens per minute, all sessions »): it is the only thing that explains
   the number shown top right, and it is never visible text.
 - The « ! » in front of error lines: one consistent alert mark across the app, with `role="alert"`.
-- The request id (« r12 ») in a request's folded detail: it is how Yann and weevboss refer to requests.
+- The request id (« r12 ») in a request's folded detail: it is how Scarville and weevboss refer to requests.
 
 ## Still open
 

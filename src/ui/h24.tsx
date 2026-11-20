@@ -220,7 +220,7 @@ export function H24Rail() {
               <span className="h24-grip" aria-hidden />
               <span className="h24-heading" aria-hidden>
                 <span className="h24-title">{t.title}</span>
-                {/* No small caption under the title: the rows say it (Yann, 2026-11-16); the button's label still reads it out. */}
+                {/* No small caption under the title: the rows say it (Scarville, 2026-11-16); the button's label still reads it out. */}
               </span>
             </button>
           </div>
@@ -440,7 +440,7 @@ function AutoBand({ x, slot, proposal: o, nested }: { x: AutoItem; slot: string;
     )
   }
   // One status that only this automation can say (running 14m, in 2h, failed 3h ago, memory low…): never a generic
-  // state repeated on every row (Yann, 2026-11-17).
+  // state repeated on every row (Scarville, 2026-11-17).
   const right = rowStatus(x, now, autoCondition)
   const glyph = glyphOf(x)
   const failed = x.state === 'failed' || (!!x.lastRun && !x.lastRun.ok && x.state !== 'done' && x.state !== 'running')

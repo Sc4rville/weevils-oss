@@ -55,7 +55,7 @@ function Kv({ k, v, onClick }: { k: string; v: ReactNode; onClick?: () => void }
 }
 
 
-/** The machines page (Yann, 2026-11-17: « machines c le bordel… fais un truc clean »): one line per machine, its name
+/** The machines page (Scarville, 2026-11-17: « machines c le bordel… fais un truc clean »): one line per machine, its name
  *  and online / offline; a tap opens the few things that matter (a warning, memory, disk, up for, the host) and
  *  « remove », which weevboss does in its thread, as it added it. One « add a machine » at the bottom. */
 export function InfraPage({ machine, projectId }: { machine?: string; projectId?: string }) {

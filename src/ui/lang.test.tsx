@@ -1,7 +1,7 @@
 // @vitest-environment happy-dom
 // La langue de l'app est celle de l'installation, que le serveur écrit dans la page (--lang de l'installeur, que la
 // page get passe depuis sa propre langue), sinon l'anglais ; jamais celle du navigateur : un weevils installé en
-// anglais, ouvert sur un téléphone en français, reste en anglais (retour de Yann, 2026-11-13). Un ancien choix laissé
+// anglais, ouvert sur un téléphone en français, reste en anglais (retour de Scarville, 2026-11-13). Un ancien choix laissé
 // par la ligne qui changeait de langue d'un seul tap (bande du bas, 2026-11-10) est oublié ; un tap égaré sur la ligne
 // « langue » ne la change pas : il ouvre le choix, seule une langue tapée la change, et sur cet appareil seulement.
 import { act } from 'react'

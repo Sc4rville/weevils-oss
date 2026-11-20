@@ -55,7 +55,7 @@ const detail = (over: Partial<InfraDetail> = {}): InfraDetail => ({
   id: 'vps',
   name: 'vps',
   weevboss: true,
-  facts: { hostname: 'srv1', user: 'yann', os: 'Ubuntu 26.04', kernel: '7.0', arch: 'x86_64', virt: 'kvm', ip: '203.0.113.7', publicIp: true, rdns: 'srv1.hstgr.cloud', sshPort: 2222, ssh: [] },
+  facts: { hostname: 'srv1', user: 'scarville', os: 'Ubuntu 26.04', kernel: '7.0', arch: 'x86_64', virt: 'kvm', ip: '203.0.113.7', publicIp: true, rdns: 'srv1.hstgr.cloud', sshPort: 2222, ssh: [] },
   offer: null,
   reach: [{ from: 'pc', alias: 'vps' }] as InfraDetail['reach'],
   cores: 4,

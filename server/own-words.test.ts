@@ -11,7 +11,7 @@ const memory = [
 ]
 
 describe('own words', () => {
-  it('recognises the card that handed Yann his own decision back (« First access reply »)', () => {
+  it('recognises the card that handed Scarville his own decision back (« First access reply »)', () => {
     const card = { title: 'First access reply', text: 'You want to give first access to people who reply to your announcement tweet. I suggest preparing a short reply with the installer link and a request to report where they get stuck.' }
     expect(ownIdea(card, memory)).not.toBeNull()
     // Without the « You want » opener, the restatement alone is enough.

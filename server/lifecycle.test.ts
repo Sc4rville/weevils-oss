@@ -415,7 +415,7 @@ describe('arrière-plan (sous-agents, workflow, commandes)', () => {
     expect(one()).not.toMatchObject({ status: 'needs_user' })
     await judged()
     expect(one()).toMatchObject({ status: 'needs_user', background: 6, attention: 'Valide la facturation RunPod, puis colle-moi l’adresse du pod ici.', ask: { kind: 'paste' } })
-    // Yann répond : l'agent reprend, plus d'attente.
+    // Scarville répond : l'agent reprend, plus d'attente.
     const t = w.store.get('s1')!
     t.messages.push({ id: 'u2', role: 'user', text: 'https://pod.example', at: NOW })
     t.lastActivityAt = NOW

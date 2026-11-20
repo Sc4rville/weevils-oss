@@ -195,14 +195,14 @@ describe('bande projet', () => {
     expect(order()).toBe('alpha beta')
   })
 
-  it('finished sessions are not on the home screen at all, even in an open band (Yann, 2026-11-17)', () => {
+  it('finished sessions are not on the home screen at all, even in an open band (Scarville, 2026-11-17)', () => {
     const d = session('fini', { status: 'done', live: false, workStartedAt: null })
     render([d], 'p')
     expect(host.textContent).not.toMatch(/\bsessions?\b/)
     expect(host.querySelectorAll('.session-item')).toHaveLength(0)
   })
 
-  it('a « > » right of the « / » opens the project page; the band itself keeps its own tap (Yann, 2026-11-17)', () => {
+  it('a « > » right of the « / » opens the project page; the band itself keeps its own tap (Scarville, 2026-11-17)', () => {
     render([session('a')])
     const chars = [...host.querySelectorAll('.chars .ch')].map((b) => b.getAttribute('aria-label'))
     expect(chars.slice(0, 2)).toEqual(['fichiers de weevils', 'ouvrir weevils'])

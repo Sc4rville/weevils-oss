@@ -26,7 +26,7 @@ function rig(o: { model?: Model; sessions?: Session[]; journal?: Entry[]; runnin
     turnRunning: (id) => !!o.running?.has(id),
     journal: () => o.journal ?? [],
     lang: () => 'en',
-    user: () => 'Yann',
+    user: () => 'Scarville',
   }
   const ledger = new Ledger({ dir, host, model: async (p, s) => { calls.push({ prompt: p, schema: s }); return model(p, s) }, now: () => now })
   return { dir, ledger, calls, tick: (ms: number) => (now += ms), at: () => now }
@@ -47,7 +47,7 @@ describe('verbatim', () => {
 
 describe('similar', () => {
   it('sees the same rule said twice, not two different ones', () => {
-    expect(similar('Never present Yann’s own ideas as weevboss’s suggestions in For you', 'In For you, never present Yann’s own ideas as weevboss’s suggestions')).toBe(true)
+    expect(similar('Never present Scarville’s own ideas as weevboss’s suggestions in For you', 'In For you, never present Scarville’s own ideas as weevboss’s suggestions')).toBe(true)
     expect(similar('Default app language is English', 'Keep 20% of the Codex subscription')).toBe(false)
   })
 })
@@ -112,7 +112,7 @@ describe('Ledger', () => {
         ],
         updates: [],
         memory: [{ kind: 'rule', text: 'The default app language is English: the community is English-speaking.' }],
-        trace: [{ session: '3f2a1b9c', text: 'Asked the onboarding session to fix the link', why: 'Yann wants to post it on Twitter', expect: 'a working link' }],
+        trace: [{ session: '3f2a1b9c', text: 'Asked the onboarding session to fix the link', why: 'Scarville wants to post it on Twitter', expect: 'a working link' }],
       }], [{ id: 'blow-up', title: 'Make weevils blow up', why: 'launch on Twitter' }])
     }
     const { ledger, tick } = rig({ model, sessions: [s] })
@@ -136,7 +136,7 @@ describe('Ledger', () => {
     expect(ledger.pending).toHaveLength(0)
     expect(ledger.knowledge()).toMatchObject([{ kind: 'rule', src: ['msg-uuid-1'] }])
     expect(ledger.traceList().map((e) => e.kind)).toEqual(['goal', 'request', 'request', 'request', 'dispatch'])
-    expect(ledger.traceList({ goal: 'blow-up' }).find((e) => e.kind === 'dispatch')).toMatchObject({ asks: [link.id], why: 'Yann wants to post it on Twitter' })
+    expect(ledger.traceList({ goal: 'blow-up' }).find((e) => e.kind === 'dispatch')).toMatchObject({ asks: [link.id], why: 'Scarville wants to post it on Twitter' })
   })
 
   it('waits for the turn to end, retries a failed read, and finally keeps the whole message as one request', async () => {
@@ -234,7 +234,7 @@ describe('Ledger', () => {
     ledger.addGoal('open-source', 'Open-source weevils')
     const old = ledger.add('Old forgotten ask about the trailer', { goal: 'open-source' })
     tick(30 * 3600_000)
-    for (let i = 0; i < 80; i++) ledger.add(`Request number ${i} with a fairly long description of what Yann wants done in the app`)
+    for (let i = 0; i < 80; i++) ledger.add(`Request number ${i} with a fairly long description of what Scarville wants done in the app`)
     ledger.remember('rule', 'Never put the Claude–Codex relay back on ask')
     const d = ledger.digest(600)
     expect(d.length).toBeLessThanOrEqual(600 * 3.2)
