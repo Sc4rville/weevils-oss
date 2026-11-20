@@ -53,8 +53,27 @@ describe('safety of the automatic answers', () => {
       expect(label, f).not.toMatch(/exit|quit|upgrade|credits|purchase|extra usage|full access|don.?t ask again|always/i)
     }
   })
+  const readIn = (f: string, trustedFolder: boolean) => readScreen(fs.readFileSync(path.join(DIR, f), 'utf8'), agentOf(f), { trustedFolder })
+  const TRUST = files.filter((f) => expected[f].name === 'trust')
+  const BYPASS = files.filter((f) => expected[f].name === 'bypass-warning')
+  it('folder trust is answered only inside the project roots; elsewhere it is the person\'s question', () => {
+    expect(TRUST.length).toBeGreaterThanOrEqual(7)
+    for (const f of TRUST) {
+      expect(readIn(f, false).state.kind, f).toBe('question')
+      const s = readIn(f, true).state
+      expect(s.kind === 'auto' && s.name, f).toBe('trust')
+    }
+  })
+  it('the bypass-permissions warning is never accepted for the person, in any folder', () => {
+    expect(BYPASS.length).toBeGreaterThanOrEqual(3)
+    for (const f of BYPASS) for (const trusted of [false, true]) {
+      const s = readIn(f, trusted).state
+      expect(s.kind, f).toBe('question')
+      if (s.kind === 'question') expect(s.choices.map((c) => c.label)).toContain('No, stop')
+    }
+  })
   it('folder trust picks the trust option, wherever the cursor is (Claude now starts on "No, exit")', () => {
-    const s = read('claude-live-C1-trust.txt').state
+    const s = readIn('claude-live-C1-trust.txt', true).state
     expect(s.kind).toBe('auto')
     if (s.kind !== 'auto' || s.pick === 'enter') throw new Error('not a menu')
     expect(s.menu!.options[s.menu!.selected].raw).toBe('No, exit')

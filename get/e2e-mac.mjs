@@ -7,8 +7,8 @@
 //   WVGET_BUNDLE=<a bundle file>      node get/e2e-mac.mjs      installs a bundle made by get/make-bundle.sh
 //   … node get/e2e-mac.mjs --dry                                 all but the command: no install, no tunnel
 //
-// One of the two is required, on purpose: the repository is private, so the install cannot clone it from GitHub and
-// the service hands it the code itself (GET_BUNDLE). WVGET_SOURCE is bundled by get/make-bundle.sh: one commit, HEAD,
+// One of the two is required, on purpose: the setup service hands the install the code itself (GET_BUNDLE, a signed
+// snapshot), rather than a clone from GitHub. WVGET_SOURCE is bundled by get/make-bundle.sh: one commit, HEAD,
 // so uncommitted changes are NOT installed. The source must be a weevils whose install.sh supports macOS.
 // In a workflow, after actions/checkout of a branch that has both get/ and the macOS installer:
 //   WVGET_SOURCE="$GITHUB_WORKSPACE" node get/e2e-mac.mjs

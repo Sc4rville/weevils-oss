@@ -11,8 +11,8 @@
 #   wv @<hôte> a | ls        s'y rattacher / lister là-bas
 #   wv main …                pareil sur la machine principale (machine secondaire installée avec --secondary)
 #
-# Sans demande de permission (comme d'habitude) ; WV_SAFE=1 wv … (ou WEEVILS_SAFE=1 dans ~/.config/weevils/env)
-# pour garder les confirmations.
+# Les agents demandent la permission avant d'agir ; WV_SAFE=0 wv … (ou WEEVILS_SAFE=0 dans ~/.config/weevils/env)
+# pour qu'ils agissent sans demander.
 # Tourne aussi sous le bash 3.2 de macOS : un tableau vide s'écrit ${a[@]+"${a[@]}"} (set -u).
 set -euo pipefail
 
@@ -39,8 +39,9 @@ fi
 
 # WV_SAFE gagne ; sinon WEEVILS_SAFE du fichier de config, comme weevilsd : les deux interrupteurs disent la même chose.
 WV_SAFE=${WV_SAFE:-$(sed -n 's/^[[:space:]]*WEEVILS_SAFE[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([0-9]*\).*/\1/p' "${WEEVILS_CONFIG:-$HOME/.config/weevils/env}" 2>/dev/null | head -1 || true)}
-if [ "${WV_SAFE:-}" = 1 ]; then claude_flags=(); codex_flags=()
-else claude_flags=(--dangerously-skip-permissions); codex_flags=(--dangerously-bypass-approvals-and-sandbox); fi
+# Par défaut les agents demandent la permission ; seul un 0 explicite (WV_SAFE=0 ou WEEVILS_SAFE=0) les fait agir sans demander.
+if [ "${WV_SAFE:-}" = 0 ]; then claude_flags=(--dangerously-skip-permissions); codex_flags=(--dangerously-bypass-approvals-and-sandbox)
+else claude_flags=(); codex_flags=(); fi
 
 # Serveur tmux dédié, comme weevilsd (server/mux.ts) : un « tmux kill-server » lancé ailleurs ne ferme pas les sessions.
 # Les sessions d'avant, restées sur le serveur par défaut, sont encore listées et rejointes.
@@ -104,8 +105,22 @@ title=${1:-$m_title}
 # « tmux kill-server » vise le serveur par défaut.
 notmux=(env -u TMUX -u TMUX_PANE)
 quiet=(-e "WEEVILS_FROM=$tool" -e CLAUDE_CODE_DISABLE_NONESSENTIAL_TRAFFIC=1 -e DISABLE_AUTOUPDATER=1 -e DISABLE_BUG_COMMAND=1 -e DISABLE_ERROR_REPORTING=1 -e DISABLE_TELEMETRY=1 -e DISABLE_COST_WARNINGS=1 -e DISABLE_TIPS=1)
-# Pas de dialogue de confiance : le dossier courant est marqué sûr dans ~/.claude.json avant de lancer claude.
-if command -v jq >/dev/null && [ "$tool" = claude ]; then
+# Pas de dialogue de confiance dans tes dossiers de projets (WEEVILS_PROJECTS, ~/projects par défaut) : le dossier courant
+# y est marqué sûr dans ~/.claude.json avant de lancer claude. Ailleurs, Claude Code pose la question et tu y réponds.
+in_roots() {
+  local roots r here
+  roots=${WEEVILS_PROJECTS:-$(sed -n 's/^[[:space:]]*WEEVILS_PROJECTS[[:space:]]*=[[:space:]]*["'\'']\{0,1\}\([^"'\'']*\).*/\1/p' "${WEEVILS_CONFIG:-$HOME/.config/weevils/env}" 2>/dev/null | head -1 || true)}
+  roots=${roots:-$HOME/projects}
+  here=$(pwd -P)
+  local IFS=:
+  for r in $roots; do
+    [ -n "$r" ] && [ -d "$r" ] || continue
+    r=$(cd "$r" && pwd -P)
+    case "$here/" in "$r"/*) return 0 ;; esac
+  done
+  return 1
+}
+if command -v jq >/dev/null && [ "$tool" = claude ] && in_roots; then
   cfg=~/.claude.json; [ -f "$cfg" ] || echo '{}' > "$cfg"
   t=$(mktemp) && jq --arg d "$PWD" '.projects[$d] = ((.projects[$d] // {}) + {hasTrustDialogAccepted: true})' "$cfg" > "$t" && mv "$t" "$cfg"
 fi

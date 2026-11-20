@@ -5,8 +5,10 @@ import { installationLang, type Lang } from './i18n.ts'
 import PlainVoice from './i18n/plain-voice.ts'
 import LivingResults from './i18n/living-results.ts'
 
-/** Comme on les lance d'habitude : sans demande de permission. WEEVILS_SAFE=1 pour revenir aux confirmations. */
-const SAFE = process.env.WEEVILS_SAFE === '1'
+/** Agents ask before acting (answered from the app) unless the person turned that off: WEEVILS_SAFE=0 (installer
+ *  --no-ask-permissions). Unset counts as asking. */
+export const askPermissions = (env: NodeJS.ProcessEnv = process.env): boolean => env.WEEVILS_SAFE?.trim() !== '0'
+const SAFE = askPermissions()
 /** weevboss's Claude command, bare. */
 export const CLAUDE: readonly string[] = SAFE ? ['claude'] : ['claude', '--dangerously-skip-permissions']
 /** weevboss's Codex flags, bare. */

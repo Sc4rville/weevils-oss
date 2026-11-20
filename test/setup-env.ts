@@ -27,3 +27,10 @@ delete process.env.WEEVILS_PROJECTS
 // Le HOME jetable part avec le fichier de test.
 const clean = () => fs.rmSync(home, { recursive: true, force: true })
 afterAll(clean)
+
+// weevilsd trusts a local caller by the machine's local token (server/http.ts isLocal), configured at its start
+// (server/index.ts). Here the same, with a fixed test token: a fake request « from this machine » carries
+// TEST_LOCAL_TOKEN (test/local-token.ts) as weevils-cli does.
+const { configureLocalAuth } = await import('../server/http.ts')
+const { TEST_LOCAL_TOKEN } = await import('./local-token.ts')
+configureLocalAuth({ token: TEST_LOCAL_TOKEN })

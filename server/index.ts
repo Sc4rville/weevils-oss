@@ -35,12 +35,12 @@ import S from './i18n/setup.ts'
 import { LoadSampler, tipRoutes } from './tips.ts'
 import { Hints, hintRoutes } from './hints.ts'
 import { softwareRoutes, softwareCatalog } from './softwares.ts'
-import { browserSafe, isLocal, trustedFrom, trustedSource } from './http.ts'
+import { browserSafe, configureLocalAuth, isLocal, localTokenProblem, parseLocalToken, trustedFrom, trustedSource } from './http.ts'
 import { startMailBridge } from './mailbridge.ts'
 import { resetAuthors, threadAuthor } from './authors.ts'
 import { explain, grepRepo, readExplain } from './explain.ts'
 import { brief, detail as infraDetail, listDir, readAny, startInfra } from './infra.ts'
-import { jailedAllowed, jailedPeer, sameUserPeer } from './jail-peer.ts'
+import { jailedAllowed, jailedPeer, ownPeer, sameUserPeer } from './jail-peer.ts'
 import { loginLimiter } from './login-limit.ts'
 import { startDiskUsage } from './disk-usage.ts'
 import { anchorFor, entries as spendEntries, logCalibration, summarize } from './spend.ts'
@@ -125,6 +125,19 @@ fs.mkdirSync(DATA_DIR, { recursive: true })
 const SECRET_FILE = path.join(CONFIG_DIR, 'secret')
 if (!fs.existsSync(SECRET_FILE)) fs.writeFileSync(SECRET_FILE, crypto.randomBytes(9).toString('base64url'), { mode: 0o600 })
 const SECRET = fs.readFileSync(SECRET_FILE, 'utf8').trim()
+// The machine's local token: what weevils-cli, weevils-update and the main machine of a federation send
+// (LOCAL_TOKEN_HEADER) to be trusted without the access code. A 0600 file in DATA_DIR, which an automation's jail
+// does not see; server/install.sh may have written it first (same format, one header line).
+const LOCAL_TOKEN_FILE = path.join(DATA_DIR, 'local-token')
+try {
+  fs.writeFileSync(LOCAL_TOKEN_FILE, `X-Weevils-Local: ${crypto.randomBytes(32).toString('hex')}\n`, { mode: 0o600, flag: 'wx' })
+} catch {
+  /* already there */
+}
+fs.chmodSync(LOCAL_TOKEN_FILE, 0o600)
+const LOCAL_TOKEN = parseLocalToken(fs.readFileSync(LOCAL_TOKEN_FILE, 'utf8'))
+if (!LOCAL_TOKEN) throw new Error(`${LOCAL_TOKEN_FILE}: unreadable local token, delete it and restart weevilsd`) // i18n-ignore: startup error in the service log
+configureLocalAuth({ token: LOCAL_TOKEN, jailed: (socket) => jailedPeer(socket) })
 /** Saisie tolérante : majuscules, espaces et caractères qui se confondent (0/O, 1/l/I) ne font pas échouer. */
 const foldCode = (c: string) => c.replace(/\s+/g, '').toLowerCase().replace(/o/g, '0').replace(/[il]/g, '1')
 const sameCode = (a: string, b: string) => {
@@ -516,12 +529,15 @@ const routes: [string, RegExp, Handler][] = [
   }],
   // A real browser on this machine opened the app without the login link: it becomes a device, so the user can write
   // to weevboss from it. Never a script (no browser user agent) nor an automated browser (navigator.webdriver, headless).
-  ['POST', /^\/api\/login\/local$/, (req, res) => {
-    if (!door.localClaimAllowed(req)) return json(res, 403, { error: tr(M).bossUserOnly })
+  ['POST', /^\/api\/login\/local$/, async (req, res) => {
+    // A browser has no local token: the loopback and browser checks, and a process of this very user (never another
+    // account's, never an automation's jail).
+    if (!door.localClaimAllowed(req) || jailedPeer(req.socket) || !(await ownPeer(req.socket))) return json(res, 403, { error: tr(M).bossUserOnly })
     if (!hasDevice(req)) issueDevice(req, res)
     json(res, 200, { ok: true })
   }],
-  ['GET', /^\/api\/me$/, (req, res) => json(res, 200, { authed: authed(req), device: hasDevice(req) })],
+  // localClaim: a browser on this machine without a device may claim one (POST /api/login/local decides).
+  ['GET', /^\/api\/me$/, (req, res) => json(res, 200, { authed: authed(req), device: hasDevice(req), ...(!hasDevice(req) && door.localClaimAllowed(req) ? { localClaim: true } : {}) })],
   ['POST', /^\/api\/logout$/, (req, res) => {
     const t = cookieToken(req)
     if (t) {
@@ -1024,7 +1040,12 @@ const server = http.createServer((req, res) => withLang(requestLang(req), async 
     if (site && req.method === 'GET') return serveSite(res, site[1], site[2], site[3])
     // Le Raccourci Siri n'a pas de cookie : son jeton personnel n'ouvre que le tour de parole et le son qui va avec.
     const viaShortcut = /^\/api\/voice\/(turn|clip\/)/.test(url.pathname) && shortcutAuthed(req, url)
-    if (!PUBLIC.has(url.pathname) && !viaShortcut && !authed(req)) return json(res, 401, { error: tr(M).signInRequired })
+    if (!PUBLIC.has(url.pathname) && !viaShortcut && !authed(req)) {
+      // From this machine without the local token (an old weevils command, or a program that does not read the user's
+      // files): said plainly, with what to do.
+      const problem = localTokenProblem(req)
+      return json(res, 401, { error: problem === 'missing' ? tr(M).localTokenMissing : problem === 'wrong' ? tr(M).localTokenWrong : tr(M).signInRequired, ...(problem ? { code: `local_token_${problem}` } : {}) })
+    }
     // An automation's jail calling on loopback: only its CLI profile's routes (server/jail-peer.ts).
     if (!hasDevice(req) && isLocal(req) && jailedPeer(req.socket) && !jailedAllowed(req.method, url.pathname)) return json(res, 403, { error: tr(M).signInRequired })
     if (!door.tapAllowed(req, req.method, url.pathname) || !door.voiceAllowed(req, url.pathname, viaShortcut)) return json(res, 403, { error: tr(M).bossUserOnly })

@@ -44,7 +44,8 @@ install -m 755 "$here/weevils-update" ~/.local/bin/weevils-update
 install -m 755 "$here/tmux-guard" ~/.local/bin/tmux
 
 # ---------------------------------------------------------------- Claude Code hooks: weevils-hook on the useful events, other hooks kept
-# Only weevils' own entries are written to the user's Claude Code settings: no global env, no other preference.
+# Only weevils' own entries are written to the user's Claude Code settings: no global env, no other preference (one
+# exception, below, only for someone who turned permission prompts off).
 # (weevils sessions get their quiet variables per session: QUIET_ENV in server/mux.ts, 'quiet' in wv.)
 settings=~/.claude/settings.json
 [ -s "$settings" ] || echo '{}' >"$settings"
@@ -58,12 +59,27 @@ jq --arg cmd "$HOME/.local/bin/weevils-hook" '
     else .hooks[$e] = ((.hooks[$e] // []) + [{"hooks":[{"type":"command","command":$cmd}]}]) end)
 ' "$settings" >"$tmp" && mv "$tmp" "$settings"
 
-# Agents run with --dangerously-skip-permissions unless WEEVILS_SAFE=1: Claude Code's one-time warning about it
-# would otherwise end the first session (weevboss included) before anyone sees it. Not as root: there the flag is
-# refused anyway, and install.sh sets WEEVILS_SAFE=1.
-if [ "$(cfg get WEEVILS_SAFE)" != 1 ] && [ "$(id -u)" != 0 ] && [ "$(jq -r '.skipDangerousModePermissionPrompt // false' "$settings")" != true ]; then
+# Claude Code's one-time warning about bypass-permissions mode: skipped only for someone who turned permission prompts
+# off (WEEVILS_SAFE=0, install.sh --no-ask-permissions), or it would end the first session (weevboss included) before
+# anyone sees it. Never as root (the flag is refused there). Agents ask by default, and then this setting is not
+# written; one weevils wrote earlier (marked by $skip_mark, or absent from the settings as they were before weevils,
+# $settings.bak-weevils) is taken back. install.sh --uninstall takes it back too.
+skip_mark=$HOME/.local/share/weevils/claude-skip-prompt
+weevils_skip() {
+  [ -f "$skip_mark" ] && return 0
+  [ -f "$settings.bak-weevils" ] && [ "$(jq -r '.skipDangerousModePermissionPrompt // false' "$settings.bak-weevils" 2>/dev/null)" != true ]
+}
+skip_now=$(jq -r '.skipDangerousModePermissionPrompt // false' "$settings")
+if [ "$(cfg get WEEVILS_SAFE)" = 0 ] && [ "$(id -u)" != 0 ]; then
+  if [ "$skip_now" != true ]; then
+    tmp=$(mktemp)
+    jq '.skipDangerousModePermissionPrompt = true' "$settings" >"$tmp" && mv "$tmp" "$settings"
+    mkdir -p "$(dirname "$skip_mark")" && : >"$skip_mark"
+  fi
+elif [ "$skip_now" = true ] && weevils_skip; then
   tmp=$(mktemp)
-  jq '.skipDangerousModePermissionPrompt = true' "$settings" >"$tmp" && mv "$tmp" "$settings"
+  jq 'del(.skipDangerousModePermissionPrompt)' "$settings" >"$tmp" && mv "$tmp" "$settings"
+  rm -f "$skip_mark"
 fi
 # weevils hooks whose script no longer exists on disk are removed (they made every Stop fail). Other hooks: untouched.
 for f in $(jq -r '.hooks[][]?.hooks[]?.command // empty' "$settings" | awk '{print $1}' | sort -u); do
@@ -74,23 +90,37 @@ for f in $(jq -r '.hooks[][]?.hooks[]?.command // empty' "$settings" | awk '{pri
   } ;; esac
 done
 
+# ---------------------------------------------------------------- the local token
+# What weevils' own commands send to weevilsd to be trusted without the access code (server/http.ts isLocal): one
+# header line in a 0600 file of weevils' data folder, which an automation's jail does not see. weevilsd creates it
+# too; written here first so a secondary machine can hand it to the main one below.
+local_token=$HOME/.local/share/weevils/local-token
+if ! grep -qiE '^x-weevils-local:[[:space:]]*[0-9a-f]{64}[[:space:]]*$' "$local_token" 2>/dev/null; then
+  mkdir -p "$(dirname "$local_token")"
+  (umask 077 && printf 'X-Weevils-Local: %s\n' "$(od -An -N32 -tx1 /dev/urandom | tr -d ' \n')" >"$local_token.tmp" && mv -f "$local_token.tmp" "$local_token")
+fi
+chmod 600 "$local_token"
+
 # ---------------------------------------------------------------- secondary machine: tunnel port, registered on the main machine
+# The main machine also gets this machine's local token (WEEVILS_TOKEN_STDIN=1, on stdin): its calls through the
+# tunnel carry it. An older main machine ignores the variable (federation then waits for it to update: weevils-update
+# hands the token over again on every run).
 tunnel_port=${WEEVILS_TUNNEL_PORT:-}
 if [ "$role" = secondary ]; then
   id=$(cfg get WEEVILS_MACHINE); id=${id:-$(hostname -s | tr 'A-Z' 'a-z' | tr -c 'a-z0-9-\n' '-' | cut -c1-20)}
   ssh_opts=(-o BatchMode=yes -o ConnectTimeout=10 -o StrictHostKeyChecking=accept-new)
   if [ -z "$tunnel_port" ]; then
     # The main machine picks (or finds again) the port it will listen on for us, and adds us to WEEVILS_REMOTES.
-    tunnel_port=$(ssh "${ssh_opts[@]}" "$main_host" "\$HOME/.local/bin/weevils-service add-remote $(printf '%q' "$id")" 2>/dev/null | tail -1 || true)
+    tunnel_port=$(ssh "${ssh_opts[@]}" "$main_host" "WEEVILS_TOKEN_STDIN=1 \$HOME/.local/bin/weevils-service add-remote $(printf '%q' "$id")" <"$local_token" 2>/dev/null | tail -1 || true)
     if ! [[ "$tunnel_port" =~ ^[0-9]+$ ]]; then
       # shellcheck disable=SC1090
       tunnel_port=$( { [ -f ~/.config/weevils/service.conf ] && . ~/.config/weevils/service.conf; echo "${WEEVILS_TUNNEL_PORT:-4192}"; } )
       echo "WARNING: could not register this machine on $main_host (ssh $main_host without password? weevils installed there?)." >&2
-      echo "  On $main_host, run: weevils-service add-remote $id http://127.0.0.1:$tunnel_port" >&2
+      echo "  On $main_host, run: WEEVILS_TOKEN_STDIN=1 weevils-service add-remote $id http://127.0.0.1:$tunnel_port < (this machine's ~/.local/share/weevils/local-token)" >&2
     fi
   else
-    ssh "${ssh_opts[@]}" "$main_host" "\$HOME/.local/bin/weevils-service add-remote $(printf '%q' "$id") http://127.0.0.1:$tunnel_port" >/dev/null 2>&1 ||
-      echo "WARNING: on $main_host, run: weevils-service add-remote $id http://127.0.0.1:$tunnel_port" >&2
+    ssh "${ssh_opts[@]}" "$main_host" "WEEVILS_TOKEN_STDIN=1 \$HOME/.local/bin/weevils-service add-remote $(printf '%q' "$id") http://127.0.0.1:$tunnel_port" <"$local_token" >/dev/null 2>&1 ||
+      echo "WARNING: on $main_host, run: WEEVILS_TOKEN_STDIN=1 weevils-service add-remote $id http://127.0.0.1:$tunnel_port < (this machine's ~/.local/share/weevils/local-token)" >&2
   fi
 fi
 

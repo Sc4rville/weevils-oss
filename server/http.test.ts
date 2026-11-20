@@ -1,13 +1,62 @@
 import type http from 'node:http'
 import { describe, expect, it } from 'vitest'
-import { browserSafe, isLocal, trustedFrom, trustedSource } from './http.ts'
+import { afterEach, beforeEach } from 'vitest'
+import { browserSafe, configureLocalAuth, fromThisMachine, isLocal, localTokenProblem, markInternal, parseLocalToken, trustedFrom, trustedSource } from './http.ts'
 
-/** A request as node:http hands it over: only the peer address and the headers matter here. */
+const TOKEN = 'ab'.repeat(32)
+const jailedSockets = new WeakSet<object>()
+beforeEach(() => configureLocalAuth({ token: TOKEN, jailed: (s) => jailedSockets.has(s) }))
+afterEach(() => configureLocalAuth(null))
+
+/** A request as node:http hands it over: only the peer address and the headers matter here. By default it carries the
+ *  machine's local token, as weevils-cli does. */
 const req = (headers: Record<string, string> = {}, remoteAddress = '127.0.0.1') =>
-  ({ socket: { remoteAddress }, headers: { host: '127.0.0.1:4179', ...headers } }) as unknown as http.IncomingMessage
+  ({ socket: { remoteAddress }, headers: { host: '127.0.0.1:4179', 'x-weevils-local': TOKEN, ...headers } }) as unknown as http.IncomingMessage
+const bare = (headers: Record<string, string> = {}) => {
+  const r = req(headers)
+  delete r.headers['x-weevils-local']
+  return r
+}
+
+describe('the local token', () => {
+  it('from this machine but without the token (any program that opens 127.0.0.1): not local, and said why', () => {
+    expect(fromThisMachine(bare())).toBe(true)
+    expect(isLocal(bare())).toBe(false)
+    expect(localTokenProblem(bare())).toBe('missing')
+    expect(trustedFrom(bare(), { from: 'weevboss' })).toBeUndefined()
+  })
+  it('a wrong token, a short one, or a token from far away: not local', () => {
+    expect(isLocal(req({ 'x-weevils-local': 'cd'.repeat(32) }))).toBe(false)
+    expect(localTokenProblem(req({ 'x-weevils-local': 'cd'.repeat(32) }))).toBe('wrong')
+    expect(isLocal(req({ 'x-weevils-local': 'ab' }))).toBe(false)
+    expect(isLocal(req({}, '10.0.0.5'))).toBe(false)
+    expect(localTokenProblem(req({}, '10.0.0.5'))).toBeNull()
+  })
+  it('the token file\'s line, as curl -H @file sends it, or the bare token', () => {
+    expect(isLocal(req({ 'x-weevils-local': TOKEN.toUpperCase() }))).toBe(true)
+    expect(parseLocalToken(`X-Weevils-Local: ${TOKEN}\n`)).toBe(TOKEN)
+    expect(parseLocalToken(TOKEN)).toBe(TOKEN)
+    expect(parseLocalToken('X-Weevils-Local: nope')).toBe('')
+  })
+  it('an automation\'s jail has no token: local (its routes are limited elsewhere)', () => {
+    const r = bare()
+    jailedSockets.add(r.socket)
+    expect(isLocal(r)).toBe(true)
+  })
+  it('never configured: nothing is local (fails closed)', () => {
+    configureLocalAuth(null)
+    expect(isLocal(req())).toBe(false)
+  })
+  it('a request weevilsd builds itself (the outbox replay) is local', () => {
+    configureLocalAuth(null)
+    const r = bare()
+    markInternal(r)
+    expect(isLocal(r)).toBe(true)
+  })
+})
 
 describe('isLocal', () => {
-  it('a loopback peer with a loopback Host is local (weevils-cli, curl)', () => {
+  it('a loopback peer with a loopback Host and the token is local (weevils-cli)', () => {
     expect(isLocal(req())).toBe(true)
     expect(isLocal(req({ host: 'localhost:4179' }))).toBe(true)
     expect(isLocal(req({ host: '[::1]:4179' }, '::1'))).toBe(true)

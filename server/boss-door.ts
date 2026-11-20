@@ -8,7 +8,7 @@
 import type http from 'node:http'
 import { signAs } from './authors.ts'
 import type { BossOrigin } from './boss-origins.ts'
-import { automated, isLocal, trustedFrom, trustedSource, userVoice } from './http.ts'
+import { automated, fromThisMachine, trustedFrom, trustedSource, userVoice } from './http.ts'
 import { isReplay } from './outbox-http.ts'
 import { OutboxError } from './outbox.ts'
 
@@ -61,7 +61,8 @@ export function bossDoor(d: BossDoorDeps) {
     /** The live voice websocket: a signed-in browser; in a test copy, anything this machine trusts. */
     liveAllowed: (req: http.IncomingMessage, authed: boolean) => (allowLocal() ? authed : userVoice(req, d.hasDevice(req))),
     /** A real browser on this machine, opened without the login link, may become a device: never a script (no browser
-     * user agent) nor an automated or headless browser. */
-    localClaimAllowed: (req: http.IncomingMessage) => isLocal(req) && !automated(req) && /^Mozilla\//.test(String(req.headers['user-agent'] ?? '')),
+     * user agent) nor an automated or headless browser. A browser has no local token: this is the loopback and browser
+     * checks only (http.ts fromThisMachine); the route adds that the caller is this user's own process (index.ts). */
+    localClaimAllowed: (req: http.IncomingMessage) => fromThisMachine(req) && !automated(req) && /^Mozilla\//.test(String(req.headers['user-agent'] ?? '')),
   }
 }

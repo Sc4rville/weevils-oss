@@ -600,6 +600,12 @@ describe('guards', () => {
     const codes = []
     for (let i = 0; i < 7; i++) codes.push((await fetch(b + '/weevils.bundle')).status)
     expect(codes).toEqual([200, 200, 200, 200, 200, 200, 404])
+    // A git clone's signed manifest: missing until published, then served as it is, next to the bundle.
+    expect((await fetch(b + '/main.txt')).status).toBe(404)
+    fs.writeFileSync(path.join(dir, 'main.txt'), `weevils-release main ${'b'.repeat(40)}\n`)
+    fs.writeFileSync(path.join(dir, 'main.txt.sig'), '-----BEGIN SSH SIGNATURE-----\nx\n-----END SSH SIGNATURE-----\n')
+    expect(await (await fetch(b + '/main.txt')).text()).toBe(`weevils-release main ${'b'.repeat(40)}\n`)
+    expect(await (await fetch(b + '/main.txt.sig')).text()).toContain('BEGIN SSH SIGNATURE')
     const script = await (await fetch(b + '/update')).text()
     own.close()
     expect(script).toContain('weevils-update')

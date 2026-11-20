@@ -42,6 +42,18 @@ function swBuild(): Plugin {
   }
 }
 
+// The dev server stands for this machine's own commands: it relays /api with weevils' local token (server/http.ts
+// isLocal), read from the developer's own data folder. Dev only: anything that reaches 127.0.0.1:4178 is then trusted
+// like the weevils command, as the dev server always was.
+function localToken(): Record<string, string> {
+  try {
+    const m = /^x-weevils-local:\s*([0-9a-f]{32,128})\s*$/im.exec(fs.readFileSync(path.join(os.homedir(), '.local', 'share', 'weevils', 'local-token'), 'utf8'))
+    return m ? { 'x-weevils-local': m[1] } : {}
+  } catch {
+    return {}
+  }
+}
+
 const publicUrl = configured('WEEVILS_PUBLIC_URL')
 const publicHost = process.env.WEEVILS_HOST ?? (publicUrl ? new URL(publicUrl).host : undefined)
 
@@ -54,7 +66,7 @@ export default defineConfig({
     allowedHosts: publicHost ? [publicHost] : [],
     hmr: publicHost ? { protocol: 'wss', host: publicHost, clientPort: 443 } : undefined,
     // weevilsd sert l'API ; en dev, le serveur de dev la relaie (flux SSE compris).
-    proxy: { '/api': { target: 'http://127.0.0.1:4179', changeOrigin: false, ws: true } },
+    proxy: { '/api': { target: 'http://127.0.0.1:4179', changeOrigin: false, ws: true, headers: process.env.VITEST ? {} : localToken() } },
   },
   // Tests en mode développement de React (act), même si le shell a NODE_ENV=production.
   // setup-env : HOME jetable et WEEVILS_* fixés avant tout import, jamais la vraie config du développeur.

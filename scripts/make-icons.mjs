@@ -15,7 +15,7 @@ try {
  const lightFilter='<filter id="light" color-interpolation-filters="sRGB"><feComponentTransfer><feFuncR type="linear" slope=".46"/><feFuncG type="linear" slope=".46"/><feFuncB type="linear" slope=".46"/></feComponentTransfer></filter>'
  const transparent=`<svg xmlns="http://www.w3.org/2000/svg" width="1046" height="1046" viewBox="0 0 1046 1046"><title>weevils</title><defs>${lightFilter}</defs><g filter="url(#light)">${mark}</g></svg>`
  fs.writeFileSync('public/branding/weevboss.svg',transparent)
- // Yann's replacement reference (2026-11-13): preserve its white background and margins exactly.
+ // The maintainer's replacement reference (2026-11-13): preserve its white background and margins exactly.
  const reference=fs.readFileSync('public/branding/app-icon-reference.jpg')
  const composition=`<svg xmlns="http://www.w3.org/2000/svg" width="512" height="512" viewBox="0 0 512 512"><title>weevils app icon</title><rect width="512" height="512" fill="#fff"/><image width="512" height="512" href="data:image/jpeg;base64,${reference.toString('base64')}"/></svg>`
  fs.writeFileSync('public/branding/app-icon.svg',composition)

@@ -150,7 +150,7 @@ const W = FR ? {
   vps: 'J’ai déjà un VPS', vpsSub: 'Loué n’importe où : une commande à coller sur le serveur, weevils s’y installe tout seul.',
   pc: 'Mon ordinateur', pcSub: 'Mac, Linux, ou Windows avec WSL. Les agents tournent sur cet ordinateur, avec tes droits, et seulement quand il est allumé.',
   thisPc: 'Branche cet ordinateur', thisPcSub: 'Colle cette commande dans un terminal de cet ordinateur, ou donne-la à ton assistant IA. Ensuite, un QR code ouvre weevils sur ton téléphone. Les agents tourneront ici, avec tes droits.',
-  pcWhat: 'Elle installe weevils dans ton dossier personnel et vérifie la signature du code. Ton mot de passe n’est demandé que s’il manque un outil système, pour cette seule commande. Ici, les agents demandent avant d’agir. Elle se retire en une ligne.', pcRead: 'Lire le script', pcSec: 'Notes de sécurité',
+  pcWhat: 'Elle installe weevils dans ton dossier personnel et vérifie la signature du code. Ton mot de passe n’est demandé que s’il manque un outil système, pour cette seule commande. Les agents demandent avant d’agir. Elle se retire en une ligne.', pcNet: 'À savoir : pour que ton téléphone le joigne de partout, cet ordinateur reçoit un lien HTTPS public. Il répond alors depuis Internet, derrière ton code d’accès. Pour l’éviter, ajoute --no-link à la fin de la commande : weevils reste sur cet ordinateur, et Tailscale (un réseau privé entre tes appareils) pourra le relier à ton téléphone plus tard.', pcRead: 'Lire le script', pcSec: 'Notes de sécurité',
   better: 'Mieux : un serveur', betterSub: 'Un serveur fait tourner tes agents même téléphone et ordinateur éteints, et ton téléphone les joint de partout. Même parcours, 2 minutes de plus.',
   macNote: 'Sur un Mac, le terminal est l’app Terminal. Elle peut demander une fois le mot de passe du Mac (rien ne s’affiche quand tu le tapes).',
   winNote: 'Sous Windows, colle-la dans PowerShell : weevils s’installe dans Ubuntu (WSL). Un VPS reste le plus simple.',
@@ -237,7 +237,7 @@ const W = FR ? {
   vps: 'I already have a VPS', vpsSub: 'Rented anywhere: one command to paste on the server, and weevils installs itself.',
   pc: 'My computer', pcSub: 'Mac, Linux, or Windows with WSL. Agents run on this computer, with your rights, and only while it’s on.',
   thisPc: 'Connect this computer', thisPcSub: 'Paste this command in a terminal on this computer, or give it to your AI assistant. Then a QR code opens weevils on your phone. Agents will run here, with your rights.',
-  pcWhat: 'It installs weevils in your home folder and checks the code’s signature. Your password is asked only if a system tool is missing, for that one command. Agents here ask before acting. It comes off in one line.', pcRead: 'Read the script', pcSec: 'Security notes',
+  pcWhat: 'It installs weevils in your home folder and checks the code’s signature. Your password is asked only if a system tool is missing, for that one command. Agents ask before acting. It comes off in one line.', pcNet: 'Good to know: so your phone can reach it from anywhere, this computer gets a public HTTPS link. It then answers from the Internet, behind your access code. To avoid that, add --no-link at the end of the command: weevils stays on this computer, and Tailscale (a private network between your devices) can link it to your phone later.', pcRead: 'Read the script', pcSec: 'Security notes',
   better: 'Better: a server', betterSub: 'A server keeps your agents working while your phone and computer are off, and your phone reaches them from anywhere. Same flow, 2 more minutes.',
   macNote: 'On a Mac, the terminal is the Terminal app. It may ask for your Mac password once (nothing shows while you type).',
   winNote: 'On Windows, paste it in PowerShell: weevils installs in Ubuntu (WSL). A VPS is still the simplest.',
@@ -766,7 +766,7 @@ function pcBox(here) {
     setTimeout(() => (copy.textContent = W.copy), 1600)
   }
   if (!here && navigator.share) box.append(h('button', { class: 'btn light', onclick: () => job && navigator.share({ text: code.textContent }).catch(() => {}) }, W.share))
-  box.append(h('p', { class: 'note' }, W.pcWhat, ' ', h('a', { href: '/install.sh', target: '_blank', rel: 'noopener' }, W.pcRead), ' · ', h('a', { href: '/security', target: '_blank', rel: 'noopener' }, W.pcSec)), h('p', { class: 'note' }, W.pcWait), h('p', { class: 'note' }, W.pcLimit))
+  box.append(h('p', { class: 'note' }, W.pcWhat, ' ', h('a', { href: '/install.sh', target: '_blank', rel: 'noopener' }, W.pcRead), ' · ', h('a', { href: '/security', target: '_blank', rel: 'noopener' }, W.pcSec)), h('p', { class: 'note' }, W.pcNet), h('p', { class: 'note' }, W.pcWait), h('p', { class: 'note' }, W.pcLimit))
   return box
 }
 function pc(reopened) {

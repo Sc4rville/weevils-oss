@@ -4,7 +4,8 @@
 # reached over SSH with no session open). Installed in ~/.local/bin by install.sh. Runs under macOS's bash 3.2.
 #
 #   weevils-service start | stop | restart | status | logs
-#   weevils-service add-remote <id> [url]     main machine: federate another weevilsd (prints its tunnel port)
+#   weevils-service add-remote <id> [url]     main machine: federate another weevilsd (prints its tunnel port);
+#                                             WEEVILS_TOKEN_STDIN=1: that machine's local token, read on stdin
 #   weevils-service config get <KEY> | set <KEY> <value> | default <KEY> <value>
 #   weevils-service mode                      systemd, launchd or background
 set -euo pipefail
@@ -171,8 +172,21 @@ listening() {
   else return 1; fi
 }
 
+# remote_token <id> — the secondary machine's local token, one line on stdin (« X-Weevils-Local: <hex> »), kept in
+# ~/.config/weevils/remotes/<id>.token (0600): weevilsd sends it with every call to that machine (server/remotes.ts).
+remote_token() {
+  local id=$1 line dir=$CONFIG_DIR/remotes f
+  IFS= read -r line || [ -n "$line" ] || return 0
+  printf '%s' "$line" | grep -qiE '^x-weevils-local:[[:space:]]*[0-9a-f]{32,128}[[:space:]]*$' || { echo "weevils-service: not a weevils local token" >&2; return 1; }
+  mkdir -p "$dir" && chmod 700 "$dir"
+  f=$dir/$(printf '%s' "$id" | tr -c 'A-Za-z0-9_.-' '_').token
+  [ "$(cat "$f" 2>/dev/null || true)" = "$line" ] && return 0
+  (umask 077 && printf '%s\n' "$line" >"$f.tmp" && mv -f "$f.tmp" "$f")
+}
+
 add_remote() {
   local id=${1:?id} url=${2:-} remotes port used
+  [ "${WEEVILS_TOKEN_STDIN:-0}" != 1 ] || remote_token "$id" || return 1
   remotes=$(cfg_get WEEVILS_REMOTES)
   local existing; existing=$(tr ',' '\n' <<<"$remotes" | sed -n "s/^[[:space:]]*$id=//p" | head -1)
   if [ -z "$url" ]; then

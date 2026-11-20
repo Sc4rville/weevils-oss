@@ -23,6 +23,19 @@ describe('explorateur : secrets jamais servis', () => {
     expect(isSecretPath('/etc/shadow')).toBe(true)
     expect(isSecretPath(path.join(HOME, '.config/weevils/secret'))).toBe(true)
     expect(isSecretPath(path.join(HOME, '.config/weevils-get/release_ed25519'))).toBe(true)
+    // weevils' local token (what its own commands send to be trusted without the code).
+    expect(isSecretPath(path.join(DATA_DIR, 'local-token'))).toBe(true)
+  })
+
+  it('the person\'s own private folders (WEEVILS_PRIVATE_DIRS) are never served', () => {
+    const notes = path.join(HOME, '.config', 'my-notes')
+    expect(isSecretPath(path.join(notes, 'n.md'))).toBe(false)
+    process.env.WEEVILS_PRIVATE_DIRS = '.config/my-notes'
+    try {
+      expect(isSecretPath(path.join(notes, 'n.md'))).toBe(true)
+    } finally {
+      delete process.env.WEEVILS_PRIVATE_DIRS
+    }
   })
 
   it('suit les liens symboliques et les ../', () => {

@@ -96,7 +96,6 @@ If a reviewed parentless Git snapshot is needed, derive it from this verified ex
 new immutable ref in the canonical repository and push it privately. Never force-push, delete or rewrite old refs.
 Making the existing repository public exposes its other refs/history too; a clean archive or parentless candidate
 does **not** clear the preserved private history. Public visibility and final distribution need explicit owner approval.
-Until then, friends need their own authorized access to the canonical private repository.
 
 ## Private preview access wrappers during builds
 

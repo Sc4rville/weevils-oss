@@ -1,6 +1,6 @@
 #!/usr/bin/env bash
-# While the weevils repository is private, get/server.mjs serves the code to the installs it starts (GET_BUNDLE).
-# This builds that bundle: a single commit snapshot of a committed revision (no history, no author e-mail), without
+# get/server.mjs serves the code to the installs it starts and to the updates of installs made from it (GET_BUNDLE),
+# signed, so they need nothing from GitHub. This builds that bundle: a single commit snapshot of a committed revision (no history, no author e-mail), without
 # the paths that must not be redistributed. Usage: get/make-bundle.sh [<rev>] [<out>] [<checkout>]
 # <checkout> is the clone to take <rev> from (default: the one this script is in). The bundle is what an install
 # gets: for Mac visitors, <rev> must hold the installer that supports macOS.

@@ -25,7 +25,7 @@ import crypto from 'node:crypto'
 import fs from 'node:fs'
 import path from 'node:path'
 import type { AutoDetail, AutoRun, AutoRunDetail, ConversationDetail, ConversationSummary, H24Activity, InterruptReason, Message, Project, Session, SessionDetail, Snapshot, Subagent, SubagentDetail, Tool } from '../shared/api.ts'
-import { CLAUDE_DIR, CODEX_DIR, DATA_DIR, EXPOSE_DOMAIN, PUBLIC_URL, USER_NAME, DONE_AFTER_MS, HOME, KILL_AFTER_MS, INBOX_DIR, LOGS_DIRS, MACHINE, ORCHESTRATOR, ORCH_DIR, PROJECT_ROOTS, PROJECTS_DIR, RECENT_MS, REMOTES, STALE_MS } from './config.ts'
+import { CLAUDE_DIR, CODEX_DIR, DATA_DIR, EXPOSE_DOMAIN, PUBLIC_URL, USER_NAME, DONE_AFTER_MS, HOME, KILL_AFTER_MS, INBOX_DIR, insideRoots, LOGS_DIRS, MACHINE, ORCHESTRATOR, ORCH_DIR, PROJECT_ROOTS, PROJECTS_DIR, RECENT_MS, REMOTES, STALE_MS } from './config.ts'
 import { Remote, parseRemotes } from './remotes.ts'
 import { ConversationStore, parseExport, readExportFile } from './conversations.ts'
 import { llmClassify, ruleMatch } from './classify.ts'
@@ -560,7 +560,7 @@ export class Weevils {
     keepWarm()
     // Tous les repos connus sont de confiance d'avance.
     try {
-      if (trustDirs(this.allRepos().map((r) => this.repoDir(r)))) console.log('[sessions] dossiers de ~/projects marqués de confiance pour Claude Code')
+      if (trustDirs(this.allRepos().map((r) => this.repoDir(r)).filter((d) => insideRoots(d)))) console.log('[sessions] dossiers de ~/projects marqués de confiance pour Claude Code')
     } catch (e) {
       console.error(`[sessions] confiance : ${(e as Error).message}`)
     }
@@ -762,7 +762,7 @@ export class Weevils {
       }
       try {
         const screen = await capture(p.name)
-        const reading = readScreen(screen, p.tool)
+        const reading = readScreen(screen, p.tool, { trustedFolder: insideRoots(p.cwd) })
         const state = this.stuckOr(p, screen, reading)
         if (state.kind === 'question') {
           dialog = { question: state.question, ...(state.detail ? { detail: state.detail } : {}), options: state.choices, selected: state.menu?.selected ?? -1 }
@@ -872,7 +872,7 @@ export class Weevils {
     try {
       // Some dialogs refuse keys for a moment after they open (Claude's trust prompt).
       await sleep(500)
-      const fresh = readScreen(await capture(pane), this.panes.find((p) => p.name === pane)?.tool).state
+      const fresh = this.readPane(await capture(pane), pane).state
       if (fresh.kind !== 'auto' || fresh.name !== state.name) return
       if (fresh.pick === 'enter' || !fresh.menu) await sendKey(pane, 'enter')
       else await this.pick(pane, fresh.menu, fresh.pick)
@@ -1859,7 +1859,7 @@ export class Weevils {
       const id = key.slice(7)
       // The id must match the question on screen now (or the stuck-screen question still shown): never a stale tap.
       const screen = await capture(pane.name)
-      const read = readScreen(screen, pane.tool).state
+      const read = readScreen(screen, pane.tool, { trustedFolder: insideRoots(pane.cwd) }).state
       // A Continue / Go back fallback only while the screen is exactly the one it was offered for.
       const shown = pane.screenDialog?.options.some((o) => o.id === id) || (!!pane.screenFallback?.some((o) => o.id === id) && stuckChoices(screen).some((o) => o.id === id))
       const state = read.kind === 'question' && read.choices.some((o) => o.id === id) ? read : undefined
@@ -1946,11 +1946,13 @@ export class Weevils {
     this.assertSourceExecution(cwd)
     const short = crypto.randomBytes(3).toString('hex')
     const name = wvName(path.basename(cwd), short)
-    // Jamais de dialogue de confiance au lancement : le dossier est marqué sûr avant.
-    if (tool === 'claude') trustDirs([cwd])
+    // No trust dialog at launch in the user's project folders (and weevils' own): marked trusted before. Anywhere else
+    // Claude Code asks, and the person answers from the app (server/terminal.ts).
+    const trusted = insideRoots(cwd)
+    if (tool === 'claude' && trusted) trustDirs([cwd])
     // Several Claude accounts (server/claude-accounts.ts): the session starts under the active one.
     const acc = tool === 'claude' && accounts()?.on() ? accounts() : null
-    acc?.trust(cwd)
+    if (trusted) acc?.trust(cwd)
     const extra = acc?.spawnEnv() ?? {}
     const mode = structuredFirst !== undefined && tool === 'claude' ? 'structured' as const : undefined
     // Le message de départ (dernier argument) passe lui aussi par tmux ; en mode structuré, par un fichier.
@@ -2222,7 +2224,7 @@ export class Weevils {
       await sendText(pane, command)
       for (let i = 0; i < 3; i++) {
         await sleep(700)
-        const state = readScreen(await capture(pane).catch(() => ''), this.toolOf(pane)).state
+        const state = this.readPane(await capture(pane).catch(() => ''), pane).state
         // The confirmation the command itself asks ("Switch model?"), answered yes; a menu is left to the app.
         const yes = state.kind === 'auto' ? state.pick : state.kind === 'question' && state.menu ? state.menu.options.findIndex((o) => /^yes\b/i.test(o.raw)) : -1
         if ((state.kind !== 'auto' && state.kind !== 'question') || yes === -1) break
@@ -2236,7 +2238,12 @@ export class Weevils {
     }
   }
 
-  private toolOf = (pane: string) => this.panes.find((p) => p.name === pane)?.tool
+  /** The screen of a pane, read with what weevils knows of it: its agent, and whether its folder is one where weevils
+   *  may answer folder trust (insideRoots). */
+  private readPane = (screen: string, pane: string, tool?: Tool) => {
+    const p = this.panes.find((x) => x.name === pane)
+    return readScreen(screen, tool ?? p?.tool, { trustedFolder: insideRoots(p?.cwd) })
+  }
 
   /**
    * Before a message: what covers the input box is answered or closed, never by a blind key.
@@ -2245,7 +2252,7 @@ export class Weevils {
    * Anything else stays, and the message waits (409) for the question to be answered in the app.
    */
   private async clearDialog(pane: string, known?: TerminalState): Promise<string | undefined> {
-    const state = known ?? readScreen(await capture(pane).catch(() => ''), this.toolOf(pane)).state
+    const state = known ?? this.readPane(await capture(pane).catch(() => ''), pane).state
     if (state.kind === 'none' || state.kind === 'hold') return undefined
     if (state.kind === 'auto') {
       if (state.pick === 'enter' || !state.menu) await sendKey(pane, 'enter')
@@ -2277,7 +2284,7 @@ export class Weevils {
       await sendText(pane, text)
       for (let i = 0; i < 20; i++) {
         await sleep(300)
-        const now = readScreen(await capture(pane).catch(() => ''), this.toolOf(pane)).state
+        const now = this.readPane(await capture(pane).catch(() => ''), pane).state
         if (now.kind !== 'question' || now.question !== state.question) {
           console.log(`[terminal] ${pane} · question answered in words: ${state.question}`)
           return true
@@ -2314,12 +2321,12 @@ export class Weevils {
     }
     if (managed?.tool === 'codex') {
       let screen = await capture(pane)
-      let reading = readScreen(screen, 'codex')
+      let reading = this.readPane(screen, pane, 'codex')
       // An update, a nudge, a menu nobody uses: answered or closed first, then the message goes.
       if (reading.state.kind === 'auto' || reading.state.kind === 'picker') {
         await this.clearDialog(pane)
         screen = await capture(pane)
-        reading = readScreen(screen, 'codex')
+        reading = this.readPane(screen, pane, 'codex')
       }
       if (reading.state.kind === 'question' || reading.state.kind === 'auto' || reading.state.kind === 'picker')
         throw new OutboxError(409, tr(M).notReceived(reading.state.kind === 'question' ? reading.state.question : tr(TerminalM).choiceGone))
@@ -2333,7 +2340,7 @@ export class Weevils {
       return
     }
     text = fitTerminal(text)
-    const state = readScreen(await capture(pane).catch(() => ''), 'claude').state
+    const state = this.readPane(await capture(pane).catch(() => ''), pane, 'claude').state
     if (await this.answerByText(pane, text, state)) return
     await this.clearDialog(pane, state)
     const before = Date.now()
@@ -2358,7 +2365,7 @@ export class Weevils {
       // Toutes les secondes : l'écran. Le texte y est (envoyé, ou en file pendant que l'agent travaille) et aucun dialogue ne le recouvre.
       if (Math.round((Date.now() - before) / 300) % 3 === 0) {
         const screen = await capture(pane).catch(() => '')
-        if (screen && readScreen(screen, this.toolOf(pane)).state.kind === 'none' && mark && flatScreen(screen).includes(mark)) {
+        if (screen && this.readPane(screen, pane).state.kind === 'none' && mark && flatScreen(screen).includes(mark)) {
           if (!codex && mark.length >= 8) return true
           const queueOf = (value: string) => value.split('Queued follow-up inputs')[1]?.split(/^[›❯>]/m)[0] ?? ''
           const exactReplies = (value: string) => queueOf(value).split('\n')
@@ -2663,7 +2670,7 @@ export class Weevils {
     for (let i = 0; i < 14; i++) {
       await sleep(1500)
       const screen = await capture(pane).catch(() => '')
-      const state = readScreen(screen, 'codex').state
+      const state = this.readPane(screen, pane, 'codex').state
       if (state.kind === 'auto' && state.name === 'trust') {
         await this.answerAuto(pane, screen, state)
         return

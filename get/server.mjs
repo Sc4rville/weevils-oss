@@ -52,7 +52,7 @@ export function config(env = process.env) {
     /** The public repository the page links to, once GitHub says it is public (the API asked without credentials). */
     codeUrl: (env.GET_CODE_URL || 'https://github.com/Sc4rville/weevils-oss').replace(/\/$/, ''),
     githubApi: (env.GET_GITHUB_API || 'https://api.github.com').replace(/\/$/, ''),
-    /** A git bundle served to the installs while the repository is private (see get/make-bundle.sh). */
+    /** A signed git bundle served to the installs this service starts and to their updates (see get/make-bundle.sh). */
     bundle: env.GET_BUNDLE || '',
     /** Tests only: private addresses accepted as machine addresses, and the URL their weevils will have (ip=url,…). */
     allowTargets: (env.GET_ALLOW_TARGETS || '').split(',').map((s) => s.trim()).filter(Boolean),
@@ -1000,7 +1000,7 @@ export function createServer(cfg = config(), deps = {}) {
         if (!limit.ok(`up:${ip}`, 30, 3600_000)) return fail(res, 429, 'slow_down')
         return send(res, 200, fs.readFileSync(path.join(HERE, '..', 'server', 'weevils-update')), 'text/x-shellscript; charset=utf-8')
       }
-      // The code, while the repository is private: for a live setup (its sid), or an installed weevils updating.
+      // The code (a signed snapshot): for a live setup (its sid), or an installed weevils updating.
       if (url.pathname === '/weevils.bundle' && req.method === 'GET') {
         const sid = url.searchParams.get('sid')
         const j = sid ? store.get(sid) : null
@@ -1014,6 +1014,14 @@ export function createServer(cfg = config(), deps = {}) {
       if (['/weevils.bundle.sig', '/weevils.bundle.sha256'].includes(url.pathname) && req.method === 'GET') {
         const f = cfg.bundle + url.pathname.slice('/weevils.bundle'.length)
         if (!cfg.bundle || !fs.existsSync(f)) return fail(res, 404, 'no_signature')
+        return send(res, 200, fs.readFileSync(f), 'text/plain; charset=utf-8')
+      }
+      // The signed release manifest of a git clone's updates (server/weevils-update): one line naming the exact main
+      // commit this service published after its checks (get/refresh-bundle.sh), « weevils-release main <sha> », and
+      // its signature with the release key. Next to the bundle; small, public.
+      if (['/main.txt', '/main.txt.sig'].includes(url.pathname) && req.method === 'GET') {
+        const f = cfg.bundle ? path.join(path.dirname(cfg.bundle), url.pathname.slice(1)) : ''
+        if (!f || !fs.existsSync(f)) return fail(res, 404, 'no_manifest')
         return send(res, 200, fs.readFileSync(f), 'text/plain; charset=utf-8')
       }
       // What the install does and never does, what leaves the machine, how to remove it (SECURITY.md).

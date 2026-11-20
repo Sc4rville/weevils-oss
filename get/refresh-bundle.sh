@@ -10,9 +10,12 @@ src=$(git -C "$here/.." rev-parse --show-toplevel)
 if [ -n "${WEEVILS_GET_REV:-}" ]; then rev=$WEEVILS_GET_REV
 else git -C "$src" fetch -q origin main; rev=$(git -C "$src" rev-parse --verify 'origin/main^{commit}'); fi
 stamp="$out.rev"
-[ -s "$out" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$rev" ] && exit 0
 # The key lives with a dedicated user when get/setup-signer.sh ran: sign through it.
 [ -n "${WEEVILS_RELEASE_SIGNER:-}" ] || [ ! -x /usr/local/lib/weevils-sign ] || export WEEVILS_RELEASE_SIGNER="$here/signer-client.sh"
+# The signed manifest of the same revision, for git clones of the repository (server/weevils-update fast-forwards to
+# exactly this commit, and only when its signature checks): « weevils-release main <sha> », next to the bundle.
+"$here/sign-main.sh" "$rev" "$(dirname "$out")/main.txt" || echo "sign-main failed for ${rev:0:7}: git clones stay where they are" >&2
+[ -s "$out" ] && [ "$(cat "$stamp" 2>/dev/null)" = "$rev" ] && exit 0
 "$here/make-bundle.sh" "$rev" "$out"
 echo "$rev" > "$stamp"
 # The public repository follows, with the same revision (secret scan first; see publish-oss.sh).

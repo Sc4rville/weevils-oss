@@ -51,6 +51,30 @@ export const LOGS_DIRS = process.env.WEEVILS_LOGS_DIR?.trim() ? [LOGS_DIR] : [pa
 export const INBOX_DIR = process.env.WEEVILS_INBOX_DIR?.trim() || path.join(DATA_DIR, 'inbox')
 export const DIST_DIR = path.resolve(import.meta.dirname, '..', 'dist')
 
+/** WEEVILS_PRIVATE_DIRS: more folders of yours (colon-separated, relative to the home folder or absolute) that an
+ *  automation's jail hides and the file explorer never serves, like weevils' own config (a notes app, a wallet…). */
+export const privateDirs = (env: NodeJS.ProcessEnv = process.env, home: string = HOME): string[] =>
+  (env.WEEVILS_PRIVATE_DIRS ?? '').split(':').map((p) => p.trim().replace(/^~(?=\/|$)/, home)).filter(Boolean).map((p) => (path.isAbsolute(p) ? path.normalize(p) : path.join(home, p)))
+
+const realOr = (p: string) => {
+  try {
+    return fs.realpathSync(p)
+  } catch {
+    return path.resolve(p)
+  }
+}
+/** dir is one of roots or inside one (symbolic links resolved). Where weevils answers an agent's « do you trust this
+ *  folder? » for the person: their project roots (PROJECT_ROOTS) and weevils' own data folder (weevboss, automation
+ *  workspaces). Anywhere else the person answers. */
+export function insideRoots(dir: string | undefined, roots: readonly string[] = [...PROJECT_ROOTS, DATA_DIR]): boolean {
+  if (!dir) return false
+  const d = realOr(dir)
+  return roots.some((r) => {
+    const root = realOr(r)
+    return d === root || d.startsWith(root.endsWith(path.sep) ? root : root + path.sep)
+  })
+}
+
 /** Nom d'hôte réduit comme le fait install.sh (slug) : minuscules, [a-z0-9-], 20 caractères. */
 export const hostSlug = (host: string) =>
   host.split('.')[0].toLowerCase().replace(/[^a-z0-9-]/g, '-').replace(/^-+|-+$/g, '').slice(0, 20) || 'main'

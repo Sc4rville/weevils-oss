@@ -47,15 +47,21 @@ Twitter/X, iMessage or WhatsApp, it shows a share card (Open Graph and Twitter t
    `/security` and linked from the script, the computer step and the footer. The code bundle is signed with the
    release key (`get/make-bundle.sh` signs with `~/.config/weevils-get/release_ed25519` on this VPS; the public half
    is `get/release-key.pub`, pinned in the script). Installs and `weevils-update` refuse a bundle whose signature
-   doesn't check; `/weevils.bundle.sig`, `/weevils.bundle.sha256` and `/release-key.pub` are public. On a computer:
+   doesn't check; `/weevils.bundle.sig`, `/weevils.bundle.sha256` and `/release-key.pub` are public. A git clone of
+   the repository updates through `/main.txt` and `/main.txt.sig`: one line, `weevils-release main <sha>`, the exact
+   main commit this service published after its checks, signed with the same key (`get/sign-main.sh`, run by
+   `refresh-bundle.sh`); `weevils-update` fast-forwards to that commit only, when the signature checks and the commit
+   descends from the one installed. On a computer:
    - Node.js goes in the home folder: the official build, checked against nodejs.org's SHA-256.
    - Missing system tools come from the distribution's own packages, unpacked in the home folder
      (`apt-get download`, no root). Elsewhere, one shown `sudo` command, then `sudo -k`.
    - cloudflared is checked against GitHub's published digest.
-   - Agents keep their permission prompts (`--ask-permissions`).
-   - Options after the id: `--no-link`, `--no-auto-update`, `--no-permission-prompts`.
+   - Agents keep their permission prompts (the installer's default, on a computer as on a server).
+   - The computer's phone link (a Cloudflare quick tunnel) makes it answer from the Internet, behind the access code:
+     the page and the script say so before the install; `--no-link` avoids it.
+   - Options after the id: `--no-link`, `--no-auto-update`, `--no-permission-prompts` (→ `install.sh --no-ask-permissions`).
 
-   `follow-main.sh` rebuilds (and signs) the bundle before restarting the service.
+   `follow-main.sh` rebuilds (and signs) the bundle and the main manifest before restarting the service.
 3. A live progress screen follows the install (the installer's step names). Its address is the setup's resume link:
    closing the page and opening it again brings the person back here, with no button to find.
 4. At the end the page shows the person's own weevils: its address, the access code, "Open my weevils", the link to
@@ -206,7 +212,7 @@ GET_PORT=4182 GET_BASE=https://get.scarville.tech node get/server.mjs
 | `GET_BASE` | public URL of this service (used in the install command and cloud-init) |
 | `GET_PREVIEW_KEY` | gate everything behind `/?k=<key>` (unset on scarville.tech since the launch) |
 | `GET_REPO` | the repository installs clone (default GitHub) |
-| `GET_BUNDLE` | while the repository is private: a bundle built by `get/make-bundle.sh [<rev>] [<out>] [<checkout>]` (one squashed commit, no history), kept on `origin/main` by `get/refresh-bundle.sh` (the `weevils-get-bundle` timer, every 2 min). It is what every install gets, so it must hold the installer that supports macOS; the file is read at each download, replacing it needs no restart |
+| `GET_BUNDLE` | the signed code snapshot installs and their updates download: a bundle built by `get/make-bundle.sh [<rev>] [<out>] [<checkout>]` (one squashed commit, no history), kept on `origin/main` by `get/refresh-bundle.sh` (the `weevils-get-bundle` timer, every 2 min). It is what every install gets, so it must hold the installer that supports macOS; the file is read at each download, replacing it needs no restart |
 | `GET_INSTALLER` | the `install.sh` the allowed step titles are read from, at start (default: this clone's). Same titles as the bundle's |
 | `GET_HETZNER_API` | Hetzner's API base (tests: `get/host-mock.mjs`) |
 | `GET_ALLOW_TARGETS`, `GET_TARGET_URLS` | tests only: a private machine address accepted, and the URL its weevils gets (`ip=url`) |

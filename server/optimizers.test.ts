@@ -653,6 +653,19 @@ describe('auto — the environment barriers', () => {
     expect(at(['--ro-bind', '/p/r/.git/hooks', '/p/r/.git/hooks'])).toBeGreaterThan(rwGit)
   })
 
+  it('the jail also hides the person\'s own private folders (WEEVILS_PRIVATE_DIRS), none by default', () => {
+    const at = (args: string[], p: string) => args.findIndex((_, i) => args[i] === '--tmpfs' && args[i + 1] === p)
+    const base = jailArgs({ home: '/h', hide: [], roots: [], rw: [] }, () => true)
+    expect(base.join(' ')).not.toMatch(/my-notes|wallet|\.config\/pli/)
+    process.env.WEEVILS_PRIVATE_DIRS = '.config/my-notes:/srv/wallet: :~/vault'
+    try {
+      const args = jailArgs({ home: '/h', hide: [], roots: [], rw: [] }, () => true)
+      for (const p of ['/h/.config/my-notes', '/srv/wallet', '/h/vault']) expect(at(args, p), p).toBeGreaterThan(0)
+    } finally {
+      delete process.env.WEEVILS_PRIVATE_DIRS
+    }
+  })
+
   it.skipIf(process.platform !== 'linux' || spawnSync('bwrap', ['--dev-bind', '/', '/', 'true']).status !== 0)('the jail holds: keys gone, the user’s files and the repo config read-only, the task folder writable, no sudo', () => {
     const home = path.join(dir, 'home')
     const p = path.join(dir, 'p')

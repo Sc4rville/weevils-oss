@@ -14,7 +14,7 @@ Codex sessions running on this machine, with an assistant called weevboss at the
 
 - `uname -s` must print `Linux` (a VPS, a home server, a desktop, or WSL2 on Windows) or `Darwin` (a Mac, Apple
   Silicon or Intel). Anything else: stop, tell the user weevils runs on Linux and macOS, and install nothing.
-- A regular user with sudo is best. Root works, but agents then keep their permission prompts. On a Mac: the user's
+- A regular user with sudo is best. Root works (agents there always keep their permission prompts). On a Mac: the user's
   own account, never root and never `sudo` in front of the installer (it refuses).
 - Install nothing yourself first: the installer adds what is missing (git, tmux, jq, Node.js 22, Claude Code…). On a
   Mac it takes them from Homebrew, and installs Homebrew too when it is missing, on Apple Silicon only: Homebrew no
@@ -80,6 +80,7 @@ The summary is `key=value` lines between `--- weevils summary ---` and `--- end 
 | `url`, `code`, `link` | the address the phone opens, the access code, and the login link `<url>/#k=<code>` |
 | `mode` | `public` (HTTPS from anywhere), `lan` (same Wi-Fi, http), `local` (this machine only) |
 | `https`, `port` | `yes`/`no`; the local port weevils listens on (127.0.0.1) |
+| `ask_permissions`, `ask_permissions_new` | `yes` when agents ask before acting (the default; `./install.sh --no-ask-permissions` turns it off, only if the user asks); `ask_permissions_new=yes` when this run switched an older install to asking: tell the user in one sentence |
 | `ready` | `yes` when Claude Code is installed and logged in |
 | `claude_installed`, `claude_logged` | Claude Code (required: weevboss runs on it) |
 | `codex_installed`, `codex_logged` | Codex (optional) |

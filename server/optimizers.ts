@@ -36,7 +36,7 @@ import type { AutoDetail, AutoMachine, AutoRun, AutoRunDetail, AutoSuggestion, O
 import { detectLang } from '../shared/detect-lang.ts'
 import { RunArchive, blobPath, extractLinks, gitFiles, headOf, mtimeFiles, IMAGE_MIME, MAX_REPORT } from './auto-runs.ts'
 import { fmtLocal, nextRun, nextStart, parseEvery, parseLocal, parseWindow, serverTz, validTz, windowText, MAX_AHEAD_MS, type Window } from './auto-time.ts'
-import { DATA_DIR, MACHINE, PORT, PROJECT_ROOTS, PROJECTS_DIR } from './config.ts'
+import { DATA_DIR, MACHINE, PORT, PROJECT_ROOTS, PROJECTS_DIR, privateDirs } from './config.ts'
 import type { Weevils } from './core.ts'
 import { claudeAvailable, claudeHaiku, parseJson, smart, relay as relayAnswer } from './fast.ts'
 import { lang, tr, user, withLang, type Lang } from './i18n.ts'
@@ -124,7 +124,7 @@ const TERMS = ['est', 'priority', 'heavy', 'notBefore', 'window', 'every', 'onSl
  * skipped, so nothing ever waits on a prompt; this list is the explicit side, for a session started in safe mode
  * too). weevils' CLI: read the sessions and the request ledger, start a session, message one, post or show in For you.
  * git: commit on its own branch (weevils pushes that branch itself at the end of a run, see pushBranch: the agent never
- * holds a push credential). Tests and builds through `heavy`. RunPod (GPU renders, paid: Yann's choice).
+ * holds a push credential). Tests and builds through `heavy`. RunPod (GPU renders, paid: the person's choice).
  */
 export const AUTO_WEEVILS = ['sessions', 'read', 'asks', 'projects', 'new', 'send', 'post', 'show', 'page', 'pages'] as const
 /** Every other subcommand of server/weevils-cli, denied by name (and refused by the CLI under WEEVILS_SCOPE). */
@@ -332,7 +332,7 @@ export function guardEnv(guard: string, env: NodeJS.ProcessEnv = process.env, pl
 }
 
 /** Hidden in the jail (an empty folder there): keys, logins, weevils' own config, the user's sockets. */
-const JAIL_HIDE = ['.ssh', '.config/gh', '.config/hub', '.codex', '.config/weevils', '.config/weevils-get', '.config/pli', '.aws', '.azure', '.config/gcloud', '.kube', '.docker', '.gnupg', '.password-store']
+const JAIL_HIDE = ['.ssh', '.config/gh', '.config/hub', '.codex', '.config/weevils', '.config/weevils-get', '.aws', '.azure', '.config/gcloud', '.kube', '.docker', '.gnupg', '.password-store']
 /** Hidden files (/dev/null there): logins kept in one file. */
 const JAIL_HIDE_FILES = ['.netrc', '.git-credentials', '.npmrc', '.pypirc', '.cargo/credentials', '.cargo/credentials.toml']
 /** Read-only in the jail: what runs later in the user's own sessions, unjailed (shell start files, ~/.local/bin, git and
@@ -364,7 +364,8 @@ export function jailArgs(o: { home: string; hide: string[]; roots: string[]; rw:
   }
   const pick = (list: string[]) => [...new Set(list.filter((p) => exists(p)).map(real))]
   const home = (list: string[]) => list.map((p) => path.join(o.home, p))
-  const hide = pick([...home(JAIL_HIDE.filter((p) => !o.show?.includes(p))), ...o.hide])
+  // Plus the person's own private folders (WEEVILS_PRIVATE_DIRS).
+  const hide = pick([...home(JAIL_HIDE.filter((p) => !o.show?.includes(p))), ...privateDirs(process.env, o.home), ...o.hide])
   const files = pick([...home(JAIL_HIDE_FILES), '/run/docker.sock', '/var/run/docker.sock', '/run/podman/podman.sock'])
   const ro = pick([...home(JAIL_RO), ...o.roots])
   const rw = pick([...o.rw, ...(o.git ? [o.git] : [])])

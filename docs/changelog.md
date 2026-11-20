@@ -2,6 +2,22 @@
 
 A short summary of what changed after the first working version.
 
+## 2026-11-20
+
+### Safer defaults before going public
+- Agents ask before acting on every install path (`WEEVILS_SAFE=1`); `--no-ask-permissions` lets them act without
+  asking. An install that never chose switches on its next installer run (an automatic update counts) and says so.
+- weevils never accepts Claude Code's bypass-permissions warning by itself, and answers "trust this folder?" only
+  inside the project roots; elsewhere it is a question in the app. `skipDangerousModePermissionPrompt` is written only
+  after an opt-out, and removed again (or at `--uninstall`) when weevils wrote it.
+- A per-machine local token (`~/.local/share/weevils/local-token`, 0600) is required for a request from the machine
+  to be trusted without the access code; the `weevils` command, the updater, Vite's dev proxy and federation send it.
+- A git clone updates only to the main commit named in a signed release manifest (`/main.txt` + `.sig`), checked
+  with the installed release key, and only when it descends from the current one.
+- The setup page and the script say, before installing, that a computer's phone link makes it reachable from the
+  Internet behind the access code, and how to avoid it (`--no-link`, Tailscale).
+- `WEEVILS_PRIVATE_DIRS`: your own private folders, hidden from automations and the file explorer.
+
 ## 2026-11-17
 
 ### Bring your conversations

@@ -90,7 +90,7 @@ export const api = {
   thinkLayout: (body: unknown) => call<{revision:number;positions:{id:string;x:number;y:number}[];evidence:string[]}>('POST','/api/think/organise',body),
   think: () => call<import('../shared/think').ThinkBoard>('GET','/api/think'),
   saveThink: (board: import('../shared/think').ThinkBoard) => call<import('../shared/think').ThinkBoard>('PUT','/api/think',board),
-  me: () => call<{ authed: boolean; device?: boolean }>('GET', '/api/me'),
+  me: () => call<{ authed: boolean; device?: boolean; localClaim?: boolean }>('GET', '/api/me'),
   /** This machine's own browser, opened without the login link, becomes a device (to write to weevboss). */
   claimLocal: () => call<{ ok: true }>('POST', '/api/login/local', {}),
   login: (secret: string) => call<{ ok: true }>('POST', '/api/login', { secret }),
@@ -236,8 +236,12 @@ export function useLive() {
     const start = m
       ? (history.replaceState(null, '', location.pathname), api.login(m[1]).then(() => ({ authed: true }), () => api.me()))
       : api.me().then(async (r) => {
-        // Trusted as this machine but not a device yet: claim one, or weevboss would refuse what the user writes.
-        if (r.authed && r.device === false && !automatedBrowser()) await api.claimLocal().catch(() => undefined)
+        // A browser on this machine without a device yet (the server says it may claim one): claim it, then ask again.
+        // Without it the login screen asks for the access code, as on a phone.
+        if (r.device === false && r.localClaim && !automatedBrowser()) {
+          const claimed = await api.claimLocal().then(() => true, () => false)
+          if (claimed) return api.me()
+        }
         return r
       })
     start.then((r) => setAuthed(r.authed)).catch(() => setOffline(true))

@@ -32,6 +32,7 @@ import * as claudeLogin from './claude-login.ts'
 import { accounts } from './claude-accounts.ts'
 import AccountsM from './i18n/claude-accounts.ts'
 import { servicePath, which as whichIn } from './platform.ts'
+import { askPermissions } from './agent-launch.ts'
 import { devilConfig } from './devil.ts'
 import { facts, macFacts } from './discover.ts'
 import { cartesia, edgeTts } from './fast.ts'
@@ -704,7 +705,7 @@ export class Setup {
       mail: { on: !!mail, address: mail?.address, authors: authors().filter((a) => a.emails.length).length, pending: authors().filter((a) => a.id !== BOSS && !a.emails.length).map((a) => a.name) },
       phone: { devices: this.deps.devices(), push: this.deps.push() },
       shortcut: this.deps.shortcut(),
-      security: { safe: process.env.WEEVILS_SAFE === '1', https, exposedHttp: (reach === 'lan' || (reach === 'public' && !https)) && m.kind !== 'container' },
+      security: { safe: askPermissions(), https, exposedHttp: (reach === 'lan' || (reach === 'public' && !https)) && m.kind !== 'container' },
       quota,
       pkg: pkgManager(),
       sudo: sd,

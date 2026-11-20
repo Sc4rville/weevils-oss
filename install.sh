@@ -2,13 +2,13 @@
 # weevils installer — one command on a fresh Linux machine or VPS, or on a Mac (Apple Silicon or Intel).
 # Idempotent: run it again to update. Runs under the bash 3.2 that macOS ships: no associative array, no mapfile.
 #
-#   git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
+#   git clone https://github.com/Sc4rville/weevils-oss ~/weevils && cd ~/weevils && ./install.sh
 #   curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 #   … | bash -s -- --secondary <ssh host of the main machine>      (a second machine, federated by the main one)
 #   ./install.sh --agent      run by an AI agent (see AGENTS.md): no questions, ends with a machine-readable summary
 #
 # Options: --yes  --agent  --name <first name>  --lang en|fr  --domain <host> | --url <https://…> | --lan  --port <n>
-#          --dir <path>  --secondary <ssh-host>  --machine <id>  --no-update  --ask-permissions  --no-auto-update  --uninstall [--purge]  --help
+#          --dir <path>  --secondary <ssh-host>  --machine <id>  --no-update  --ask-permissions | --no-ask-permissions  --no-auto-update  --uninstall [--purge]  --help
 # The messages are plain variables read by name in t(): shellcheck can't see that they are used.
 # shellcheck disable=SC2034
 set -euo pipefail
@@ -49,8 +49,8 @@ ORIG_PATH=$PATH
 # One plain variable per message (EN_<key>, FR_<key>), read by t(): bash 3.2 has no associative array.
 EN_title="weevils installer"
 FR_title="installation de weevils"
-EN_usage="usage: install.sh [--yes | --agent] [--name <first name>] [--lang en|fr] [--domain <host> | --url <https://…> | --lan] [--port <n>] [--dir <path>] [--secondary <ssh-host>] [--machine <id>] [--no-update] [--ask-permissions] [--no-auto-update] | --uninstall [--purge]"
-FR_usage="usage : install.sh [--yes | --agent] [--name <prénom>] [--lang en|fr] [--domain <hôte> | --url <https://…> | --lan] [--port <n>] [--dir <dossier>] [--secondary <hôte-ssh>] [--machine <id>] [--no-update] [--ask-permissions] [--no-auto-update] | --uninstall [--purge]"
+EN_usage="usage: install.sh [--yes | --agent] [--name <first name>] [--lang en|fr] [--domain <host> | --url <https://…> | --lan] [--port <n>] [--dir <path>] [--secondary <ssh-host>] [--machine <id>] [--no-update] [--ask-permissions | --no-ask-permissions] [--no-auto-update] | --uninstall [--purge]"
+FR_usage="usage : install.sh [--yes | --agent] [--name <prénom>] [--lang en|fr] [--domain <hôte> | --url <https://…> | --lan] [--port <n>] [--dir <dossier>] [--secondary <hôte-ssh>] [--machine <id>] [--no-update] [--ask-permissions | --no-ask-permissions] [--no-auto-update] | --uninstall [--purge]"
 EN_s_system="checking the system"
 FR_s_system="vérification du système"
 EN_no_tty="no terminal to ask questions: default answers, and no to anything that installs (run with --yes or from a terminal)"
@@ -163,10 +163,14 @@ EN_almost_install="almost ready: install Claude Code and log in once, then open 
 FR_almost_install="presque prêt : installe Claude Code et connecte-toi une fois, puis ouvre le lien"
 EN_codex_login="Codex is not logged in: run codex once in a terminal (optional)"
 FR_codex_login="Codex n'est pas connecté : lance codex une fois dans un terminal (optionnel)"
-EN_safe_off="agents run without permission prompts (WEEVILS_SAFE=1 in ~/.config/weevils/env to keep them)"
-FR_safe_off="les agents tournent sans demande de permission (WEEVILS_SAFE=1 dans ~/.config/weevils/env pour les garder)"
-EN_safe_on="agents ask before acting (WEEVILS_SAFE=1): answer them from the app"
-FR_safe_on="les agents demandent avant d'agir (WEEVILS_SAFE=1) : réponds-leur depuis l'app"
+EN_safe_off="agents run WITHOUT permission prompts, as you chose (WEEVILS_SAFE=0): they can run any command as you. To bring the prompts back: install.sh --ask-permissions"
+FR_safe_off="les agents tournent SANS demande de permission, comme tu l'as choisi (WEEVILS_SAFE=0) : ils peuvent lancer n'importe quelle commande en ton nom. Pour les remettre : install.sh --ask-permissions"
+EN_safe_on="agents ask before acting: answer them from the app (install.sh --no-ask-permissions to turn the prompts off)"
+FR_safe_on="les agents demandent avant d'agir : réponds-leur depuis l'app (install.sh --no-ask-permissions pour couper les demandes)"
+EN_safe_new="new default: agents now ask before acting (you answer from the app). To keep them acting without asking, as before: install.sh --no-ask-permissions"
+FR_safe_new="nouveau réglage par défaut : les agents demandent maintenant avant d'agir (tu réponds depuis l'app). Pour qu'ils continuent sans demander, comme avant : install.sh --no-ask-permissions"
+EN_root_noask="--no-ask-permissions ignored: Claude Code refuses to skip permission prompts as root."
+FR_root_noask="--no-ask-permissions ignoré : Claude Code refuse de sauter les demandes de permission en root."
 EN_no_qr="(no QR code: install qrencode to get one)"
 FR_no_qr="(pas de QR code : installe qrencode pour en avoir un)"
 EN_no_path="~/.local/bin is not in your PATH: wv won't be found. Fix:"
@@ -277,7 +281,7 @@ FR_mac_awake="sur un Mac, weevils tourne tant que ta session est ouverte ; il ga
 # ---------------------------------------------------------------- options
 
 YES=0 NAME='' LANG_OPT='' DOMAIN='' URL_OPT='' PORT='' DIR='' SECONDARY='' MACHINE='' NO_UPDATE=${WEEVILS_NO_UPDATE:-0}
-LAN=0 UNINSTALL=0 PURGE=0 AGENT=0 ASK_PERMS=0 NO_AUTO_UPDATE=0
+LAN=0 UNINSTALL=0 PURGE=0 AGENT=0 ASK_PERMS='' NO_AUTO_UPDATE=0
 while [ $# -gt 0 ]; do
   case "$1" in
     -y | --yes) YES=1 ;;
@@ -292,6 +296,7 @@ while [ $# -gt 0 ]; do
     --machine) MACHINE=${2:?--machine}; shift ;;
     --no-update) NO_UPDATE=1 ;;
     --ask-permissions) ASK_PERMS=1 ;;
+    --no-ask-permissions) ASK_PERMS=0 ;;
     --no-auto-update) NO_AUTO_UPDATE=1 ;;
     --lan) LAN=1 ;;
     --uninstall) UNINSTALL=1 ;;
@@ -731,11 +736,19 @@ configure() {
   [ "$LAN" = 0 ] || cfg set WEEVILS_HOST 0.0.0.0
   # --domain after an earlier --lan: back to 127.0.0.1, Caddy is the only way in (no plain http on every interface).
   [ -z "$DOMAIN" ] || [ "$(cfg get WEEVILS_HOST)" != 0.0.0.0 ] || cfg set WEEVILS_HOST 127.0.0.1
-  # Claude Code refuses --dangerously-skip-permissions as root: agents keep their permission prompts there.
-  [ "$(id -u)" != 0 ] || cfg default WEEVILS_SAFE 1
-  # --ask-permissions (a personal computer, from the setup page): agents ask before acting, answered from the app.
-  # A later choice in the app is kept: only a first value is written.
-  [ "$ASK_PERMS" = 0 ] || cfg default WEEVILS_SAFE 1
+  # Permission prompts: agents ask before acting (answered from the app) unless the person turns that off,
+  # --no-ask-permissions (WEEVILS_SAFE=0). A flag given now is written; without one, a value already there is kept (an
+  # explicit 0 or 1 stays), and an install that never chose gets the default, 1, said once on the end screen.
+  # Claude Code refuses --dangerously-skip-permissions as root: agents always keep their prompts there.
+  SAFE_NEW=0
+  if [ "$(id -u)" = 0 ]; then
+    [ "$ASK_PERMS" != 0 ] || warn "$(t root_noask)"
+    cfg set WEEVILS_SAFE 1
+  elif [ -n "$ASK_PERMS" ]; then cfg set WEEVILS_SAFE "$ASK_PERMS"
+  elif [ -z "$(cfg get WEEVILS_SAFE)" ]; then
+    cfg set WEEVILS_SAFE 1
+    [ "$fresh" = 1 ] || SAFE_NEW=1
+  fi
   # --no-auto-update: weevils never fetches a new version by itself (an update from the app, by hand, still works).
   [ "$NO_AUTO_UPDATE" = 0 ] || cfg set WEEVILS_AUTO_UPDATE 0
   # --url: HTTPS is served by something else in front (tailscale serve…): weevilsd back on 127.0.0.1, behind it.
@@ -952,7 +965,9 @@ agent_notes() {
   local svc="$DIR/server/weevils-service"
   if ! command -v claude >/dev/null; then info "$(t claude_later) $CLAUDE_INSTALLER"; fi
   if command -v codex >/dev/null && [ ! -s "$HOME/.codex/auth.json" ]; then info "$(t codex_login)"; fi
-  if [ "$("$svc" config get WEEVILS_SAFE)" = 1 ]; then info "$(t safe_on)"; else warn "$(t safe_off)"; fi
+  if [ "$("$svc" config get WEEVILS_SAFE)" = 0 ]; then warn "$(t safe_off)"
+  elif [ "${SAFE_NEW:-0}" = 1 ]; then warn "$(t safe_new)"
+  else info "$(t safe_on)"; fi
   case ":$ORIG_PATH:" in
     *":$HOME/.local/bin:"*) ;;
     *) local rc=.bashrc
@@ -1051,6 +1066,9 @@ sum_found() {
   kv sudo "$(if [ -z "$SUDO" ] || [ "$SUDO" = 'sudo -n' ]; then echo yes; elif [ "$SUDO_PW" = 1 ]; then echo password; else echo no; fi)"
   kv name "$("$DIR/server/weevils-service" config get WEEVILS_USER_NAME)"
   kv dir "$DIR"
+  kv ask_permissions "$([ "$("$DIR/server/weevils-service" config get WEEVILS_SAFE)" = 0 ] && echo no || echo yes)"
+  # yes: this run switched an install that had never chosen to the new default (weevils-update says so in For you).
+  kv ask_permissions_new "$([ "${SAFE_NEW:-0}" = 1 ] && echo yes || echo no)"
   kv service "$("$DIR/server/weevils-service" mode 2>/dev/null || echo unknown)"
 }
 
@@ -1178,6 +1196,17 @@ uninstall() {
     rm -f "$tmp"
     ok "$(t un_hooks)"
   fi
+
+  # Claude Code's skipDangerousModePermissionPrompt, when weevils set it (server/install.sh: marked, or absent from the
+  # settings as they were before weevils): taken back. One the person had set themselves stays.
+  local skip_mark=$HOME/.local/share/weevils/claude-skip-prompt
+  if [ -f "$settings" ] && command -v jq >/dev/null && [ "$(jq -r '.skipDangerousModePermissionPrompt // false' "$settings" 2>/dev/null)" = true ] &&
+    { [ -f "$skip_mark" ] || { [ -f "$settings.bak-weevils" ] && [ "$(jq -r '.skipDangerousModePermissionPrompt // false' "$settings.bak-weevils" 2>/dev/null)" != true ]; }; }; then
+    tmp=$(mktemp)
+    jq 'del(.skipDangerousModePermissionPrompt)' "$settings" >"$tmp" && cat "$tmp" >"$settings"
+    rm -f "$tmp"
+  fi
+  rm -f "$skip_mark"
 
   # The public URL came with the Caddy site: it goes with it (read before the commands are removed).
   [ ! -f "$site" ] || domain=$(awk 'index($0, "{") { print $1; exit }' "$site")

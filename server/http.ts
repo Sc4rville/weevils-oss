@@ -1,5 +1,6 @@
-// Qui parle au serveur : une requête « locale » (outil de cette machine, tunnel de fédération) est de confiance,
-// sans code. Module sans effet de bord (aucune lecture de config) : testable seul (server/http.test.ts).
+// Qui parle au serveur : une requête « locale » (outil de cette machine avec son jeton, tunnel de fédération avec le
+// jeton de l'autre machine) est de confiance, sans code. Module sans effet de bord (aucune lecture de config ; le jeton
+// lui est donné par configureLocalAuth) : testable seul (server/http.test.ts).
 import type http from 'node:http'
 import { normalizeFrom } from './authors.ts'
 
@@ -51,13 +52,60 @@ export function browserSafe(req: http.IncomingMessage): boolean {
 }
 
 /**
- * Requête née sur cette machine (weevils-cli, tunnel SSH de fédération, serveur de dev) : pair de bouclage, aucun
- * en-tête de proxy, et contrôles navigateur ci-dessus. Tout le reste doit présenter le code (cookie).
+ * Requête née sur cette machine : pair de bouclage, aucun en-tête de proxy, et contrôles navigateur ci-dessus. Ça ne
+ * suffit plus à faire confiance (n'importe quel programme de la machine peut ouvrir 127.0.0.1) : voir isLocal.
  */
-export function isLocal(req: http.IncomingMessage): boolean {
+export function fromThisMachine(req: http.IncomingMessage): boolean {
   if (!LOOPBACK_PEERS.has(req.socket.remoteAddress ?? '')) return false
   if (PROXY_HEADERS.some((h) => req.headers[h] !== undefined)) return false
   return browserSafe(req)
+}
+
+/** The header a local caller of weevils (weevils-cli, weevils-update, the main machine of a federation, Vite's dev
+ *  proxy) sends: the line of weevils' per-machine token file (DATA_DIR/local-token, 0600, created by weevilsd). */
+export const LOCAL_TOKEN_HEADER = 'x-weevils-local'
+/** The token from the token file's line (« X-Weevils-Local: <hex> »), or the bare token. */
+export const parseLocalToken = (text: string): string => /^(?:x-weevils-local:\s*)?([0-9a-f]{32,128})\s*$/i.exec(text.trim())?.[1]?.toLowerCase() ?? ''
+
+const internal = new WeakSet<http.IncomingMessage>()
+/** A request weevilsd builds itself (the outbox replaying an intent it accepted, server/outbox-http.ts): local. */
+export function markInternal(req: http.IncomingMessage) {
+  internal.add(req)
+}
+
+let localAuth: { token: string; jailed?: (socket: http.IncomingMessage['socket']) => boolean } | null = null
+/** weevilsd, at start: the machine's token, and how to recognise an automation's jail (server/jail-peer.ts), which
+ *  cannot read the token and is let in without it, restricted to its own routes. Without it nothing is local. */
+export function configureLocalAuth(a: { token: string; jailed?: (socket: http.IncomingMessage['socket']) => boolean } | null) {
+  localAuth = a && a.token ? a : null
+}
+
+const tokenMatches = (req: http.IncomingMessage) => {
+  const want = localAuth?.token
+  const got = parseLocalToken(String(header(req, LOCAL_TOKEN_HEADER) ?? ''))
+  if (!want || !got || got.length !== want.length) return false
+  let diff = 0
+  for (let i = 0; i < want.length; i++) diff |= want.charCodeAt(i) ^ got.charCodeAt(i)
+  return diff === 0
+}
+
+/**
+ * Requête de confiance sans le code d'accès : née sur cette machine (fromThisMachine) ET portant le jeton de la machine
+ * (LOCAL_TOKEN_HEADER), que seul un programme qui lit les fichiers de l'utilisateur connaît. Exception : la prison
+ * d'une automatisation (pas de jeton, elle ne voit pas DATA_DIR), reconnue à son espace de processus, et limitée
+ * ailleurs à ses routes (server/jail-peer.ts jailedAllowed). Tout le reste présente le code (cookie).
+ */
+export function isLocal(req: http.IncomingMessage): boolean {
+  if (internal.has(req)) return true
+  if (!localAuth || !fromThisMachine(req)) return false
+  return tokenMatches(req) || !!localAuth.jailed?.(req.socket)
+}
+
+/** Why a request from this machine is not trusted: 'missing' (no token: an old command, or a program that does not
+ *  read the user's files), 'wrong' (a token from another install), or null when it is trusted or not from here. */
+export function localTokenProblem(req: http.IncomingMessage): 'missing' | 'wrong' | null {
+  if (!localAuth || !fromThisMachine(req) || isLocal(req)) return null
+  return header(req, LOCAL_TOKEN_HEADER) === undefined ? 'missing' : 'wrong'
 }
 
 /** « from » (weevboss, un auteur déclaré) n'est accepté que d'une requête locale, jamais du téléphone. */

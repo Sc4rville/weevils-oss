@@ -4,6 +4,7 @@
 // Linux only: the peer's socket is found in /proc/net/tcp*, its process among /proc/*/fd, and its pid namespace
 // compared with ours. Anything not found (another user's process, sshd's tunnel, macOS) is not jailed.
 import fs from 'node:fs'
+import { execFile } from 'node:child_process'
 import type net from 'node:net'
 
 const ownNs = (() => {
@@ -96,4 +97,26 @@ export function sameUserPeer(socket: net.Socket | undefined, read: (f: string) =
   if (!socket || process.platform !== 'linux' || !socket.remotePort || !socket.localPort) return true
   const e = peerEntry(socket.remotePort, socket.localPort, read)
   return !e || e.uid === process.getuid?.()
+}
+
+/**
+ * The peer of this loopback connection is a process of this user, on Linux and on a Mac. Linux: the socket's owner
+ * in /proc/net/tcp*. A Mac has no /proc: lsof, run as this user, sees only this user's own processes, so a process
+ * other than weevilsd that holds the peer's port is ours; none (another account's, or gone) is refused. Elsewhere, or
+ * when lsof can't run: false (refused), since nothing says the caller is this user.
+ */
+export async function ownPeer(socket: net.Socket | undefined, opts: { platform?: string; lsof?: (port: number) => Promise<string> } = {}): Promise<boolean> {
+  const platform = opts.platform ?? process.platform
+  if (!socket?.remotePort || !socket.localPort) return false
+  if (platform === 'linux') {
+    const e = peerEntry(socket.remotePort, socket.localPort, (f) => fs.readFileSync(f, 'utf8'))
+    return !!e && e.uid === process.getuid?.()
+  }
+  if (platform !== 'darwin') return false
+  const port = socket.remotePort
+  const lsof = opts.lsof ?? ((p: number) => new Promise<string>((resolve) => {
+    execFile('/usr/sbin/lsof', ['-nP', '-a', `-u${process.getuid?.() ?? ''}`, `-iTCP:${p}`, '-sTCP:ESTABLISHED', '-t'], { timeout: 3000 }, (_e, out) => resolve(String(out ?? '')))
+  }))
+  const pids = (await lsof(port)).split('\n').map((l) => Number(l.trim())).filter((n) => n > 0)
+  return pids.some((pid) => pid !== process.pid)
 }

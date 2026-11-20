@@ -26,7 +26,15 @@ if (process.argv.includes('--once')) {
   // Nudge the running weevils to keep its quota fresh while nobody has the app open: its own 5 min throttle and
   // back-off still decide whether Anthropic is asked; this only reads its loopback API.
   const port = process.env.WEEVILS_PORT ?? '4179'
-  const nudge = () => void fetch(`http://127.0.0.1:${port}/api/usage`).catch(() => {})
+  // With weevils' local token (server/http.ts isLocal), read from its data folder.
+  const token = (() => {
+    try {
+      return /^x-weevils-local:\s*([0-9a-f]{32,128})/im.exec(fs.readFileSync(path.join(DATA_DIR, 'local-token'), 'utf8'))?.[1]
+    } catch {
+      return undefined
+    }
+  })()
+  const nudge = () => void fetch(`http://127.0.0.1:${port}/api/usage`, { headers: token ? { 'x-weevils-local': token } : {} }).catch(() => {})
   nudge()
   setInterval(nudge, 5 * 60_000 + 5000)
   tick()

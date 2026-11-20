@@ -5,11 +5,13 @@
 #
 # - Only a plain install moves: no local change, no extra worktree, nothing of its own (local commits, another
 #   branch). Anything else is someone's working copy, left alone.
-# - Where the new version comes from: GitHub once the repository answers without credentials; until then (it is
-#   private) the setup service, which serves the same snapshot new installs get (WEEVILS_UPDATE_URL, default
-#   https://get.scarville.tech).
-# - Only signed code: a snapshot must carry a valid signature from weevils' release key (get/release-key.pub of the
-#   version installed now), or nothing changes.
+# - Where the new version comes from: a clone of the repository (github.com/Sc4rville/weevils-oss) fetches it from GitHub;
+#   an install made from a snapshot (the setup page) downloads the snapshot new installs get from the setup service
+#   (WEEVILS_UPDATE_URL, default https://get.scarville.tech).
+# - Only signed code, either way: a snapshot must carry a valid signature from weevils' release key, and a clone moves
+#   only to the exact commit named in a release manifest signed with that key (get/sign-main.sh), published by the
+#   setup service once that commit passed its checks. The key is get/release-key.pub of the version installed now;
+#   without it, or when a signature does not check, nothing changes.
 # - Calmly: never while a session is working (weevilsd's own list); it tries again next time.
 # - Then the installer, as on a re-run (`./install.sh --agent --no-update`: every setting kept, the app rebuilt, weevilsd
 #   restarted; agent sessions live in tmux and go on). If it fails, back to the version before.
@@ -35,6 +37,25 @@ say() { printf '%s %s\n' "$(date -u +%FT%TZ)" "$*" >>"$log"; [ "$now" = 0 ] || p
 exec 9>"$state/update.lock"
 command -v flock >/dev/null && { flock -n 9 || exit 0; }
 
+# weevilsd trusts this machine's own commands by the local token they send (server/http.ts isLocal).
+local_token=$state/local-token
+lt=()
+[ ! -r "$local_token" ] || lt=(-H "@$local_token")
+
+# A secondary machine hands its local token to the main one on every run (best effort): a main machine that updated
+# after this one then gets it within one run, and its calls through the tunnel are trusted again.
+svc_conf=$HOME/.config/weevils/service.conf
+if [ -r "$local_token" ] && [ -f "$svc_conf" ] && grep -q '^WEEVILS_ROLE=secondary$' "$svc_conf"; then
+  # shellcheck disable=SC1090
+  main_host=$( . "$svc_conf" && printf '%s' "${WEEVILS_MAIN_HOST:-}")
+  # shellcheck disable=SC1090
+  tport=$( . "$svc_conf" && printf '%s' "${WEEVILS_TUNNEL_PORT:-}")
+  mid=$(cfgv WEEVILS_MACHINE)
+  if [ -n "$main_host" ] && [ -n "$mid" ] && [[ "$tport" =~ ^[0-9]+$ ]]; then
+    ssh -o BatchMode=yes -o ConnectTimeout=10 "$main_host" "WEEVILS_TOKEN_STDIN=1 \$HOME/.local/bin/weevils-service add-remote $(printf '%q' "$mid") http://127.0.0.1:$tport" <"$local_token" >/dev/null 2>&1 || true
+  fi
+fi
+
 dir=${WEEVILS_DIR:-$HOME/weevils}
 [ -d "$dir/.git" ] && [ -f "$dir/install.sh" ] && [ -f "$dir/server/install.sh" ] || { say "no weevils in $dir"; exit 0; }
 port=$(cfgv WEEVILS_PORT)
@@ -53,12 +74,31 @@ snap=$(g log -1 --format=%s | sed -n 's/^weevils \([0-9a-f]\{7,40\}\)$/\1/p')
 # ---------------------------------------------------------------- is there a newer version?
 mode='' new='' to=''
 if [ -z "$snap" ] && g ls-remote -q origin main >/dev/null 2>&1; then
-  # A clone of the public repository, on main and with nothing of its own: fast-forward only.
+  # A clone of the public repository, on main and with nothing of its own: fast-forward only, and only to the commit
+  # the setup service published after its checks, named in a manifest signed with weevils' release key
+  # (get/sign-main.sh: « weevils-release main <sha> », $from_url/main.txt and main.txt.sig). Never GitHub's main as
+  # it is: a commit pushed there is not installed until it is signed. Checked against get/release-key.pub of the
+  # version installed now; no key, no manifest, a signature that does not check, or a commit that is not a descendant
+  # of this one: nothing changes.
   [ "$(g rev-parse --abbrev-ref HEAD)" = main ] || { say "not on main: left alone"; exit 0; }
-  g fetch -q origin main
-  new=$(g rev-parse FETCH_HEAD)
+  key=$dir/get/release-key.pub
+  [ -s "$key" ] || { say "no release key in $dir to check an update against: not updated"; exit 0; }
+  man=$(mktemp) mansig=$(mktemp) allowed=$(mktemp)
+  trap 'rm -f "$man" "$mansig" "$allowed"' EXIT
+  if ! { curl -fsS -m 20 "$from_url/main.txt" -o "$man" && curl -fsS -m 20 "$from_url/main.txt.sig" -o "$mansig"; } 2>/dev/null; then
+    say "no signed release manifest from $from_url: not updated"; exit 0
+  fi
+  printf 'weevils-release %s\n' "$(cat "$key")" >"$allowed"
+  ssh-keygen -Y verify -f "$allowed" -I weevils-release -n weevils-release -s "$mansig" <"$man" >/dev/null 2>&1 ||
+    { say "the release manifest's signature does not check: not updated"; exit 0; }
+  new=$(sed -n '1s/^weevils-release main \([0-9a-f]\{40\}\)$/\1/p' "$man")
+  [ -n "$new" ] && [ "$(wc -l <"$man" | tr -d ' ')" = 1 ] || { say "the release manifest does not name a commit: not updated"; exit 0; }
   [ "$new" != "$cur" ] || exit 0
-  g merge-base --is-ancestor "$cur" "$new" || { say "local commits: left alone"; exit 0; }
+  g fetch -q origin main
+  g cat-file -e "$new^{commit}" 2>/dev/null || g fetch -q origin "$new" 2>/dev/null || true
+  g cat-file -e "$new^{commit}" 2>/dev/null || { say "${new:0:7} (signed) is not on origin/main: not updated"; exit 0; }
+  # Never backwards nor sideways: an older signed manifest (served again), or local commits, leave it as it is.
+  g merge-base --is-ancestor "$cur" "$new" || { say "${new:0:7} is not a descendant of ${cur:0:7}: left alone"; exit 0; }
   mode=git from=$(g rev-parse --short HEAD) to=$(g rev-parse --short "$new")
 elif [ -n "$snap" ]; then
   latest=$(curl -fsS -m 20 "$from_url/version" 2>/dev/null | sed -n 's/.*"rev":"\([0-9a-f]\{40\}\)".*/\1/p' || true)
@@ -74,7 +114,7 @@ fi
 
 # ---------------------------------------------------------------- calmly
 if [ "$now" = 0 ]; then
-  working=$(curl -fsS -m 8 "http://127.0.0.1:$port/api/snapshot" 2>/dev/null | python3 -c 'import json,sys
+  working=$(curl -fsS -m 8 ${lt[@]+"${lt[@]}"} "http://127.0.0.1:$port/api/snapshot" 2>/dev/null | python3 -c 'import json,sys
 d=json.load(sys.stdin)
 print(sum(1 for s in d.get("sessions", []) if s.get("status") == "working" and not s.get("archived")))' 2>/dev/null || echo unknown)
   [ "$working" = 0 ] || { say "$to is out, a session is working ($working): later"; exit 0; }
@@ -128,6 +168,11 @@ if install_ok; then
   say "updated to $to"
   if [ "$lang" = fr ]; then post "weevils s'est mis à jour : version $to (avant $from)." # i18n-ignore
   else post "weevils updated itself: version $to (was $from)."; fi
+  # An install that had never chosen just got the new default: agents ask before acting. Said once, with the way back.
+  if grep -q '^ask_permissions_new=yes$' "$run"; then
+    if [ "$lang" = fr ]; then post "Nouveau : tes agents demandent maintenant la permission avant d'agir, et tu réponds depuis l'app. Pour qu'ils agissent sans demander, comme avant : $dir/install.sh --no-ask-permissions." # i18n-ignore
+    else post "New: your agents now ask for permission before acting, and you answer from the app. To let them act without asking, as before: $dir/install.sh --no-ask-permissions."; fi
+  fi
 else
   echo "$to" >"$state/update.failed"
   say "the installer failed on $to (see $run): back to $from"

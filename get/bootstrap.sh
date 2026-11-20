@@ -7,8 +7,8 @@
 # The setup id only lets this script tell the page that opened it how far the install is.
 #
 # WHAT IT IS: weevils lets you watch and drive the Claude Code / Codex sessions of this machine from your phone. Its
-# agents run HERE, as you, with your files. On a computer they ask before acting (you answer from the app); on a
-# rented server, which the setup page recommends and creates at Hetzner, they act without asking.
+# agents run HERE, as you, with your files. They ask before acting (you answer from the app), on a computer as on a
+# rented server; --no-permission-prompts lets them act without asking.
 #
 # WHAT IT DOES, as you, in your home folder:
 #   1. Downloads the weevils code, checks its signature against the release key pinned below (refused if it does not
@@ -24,8 +24,10 @@
 #      forgets it (sudo -k). On a Mac: Homebrew's own installer, only if Homebrew is missing.
 #   3. A computer: opens an HTTPS link so your phone can reach weevils from anywhere (a Cloudflare quick tunnel to
 #      127.0.0.1, user service weevils-link; cloudflared from Cloudflare's GitHub release, checked against the
-#      SHA-256 GitHub publishes). Only weevils' own app is reachable there, behind your access code (72
-#      random bits). --no-link: no link, weevils stays on this machine (reach it later through Tailscale, say).
+#      SHA-256 GitHub publishes). THIS COMPUTER THEN ANSWERS FROM THE INTERNET: anyone who has the link's address
+#      reaches weevils' login page, and anyone with your access code (72 random bits) drives your agents, as you.
+#      To avoid it: --no-link (no link, weevils stays on this machine; reach it later through Tailscale, a private
+#      network between your own devices).
 #   4. Tells the setup page how far it is: step names only, then your weevils' address; the login link is sealed with
 #      a key only your open page holds, so the setup service never sees your access code.
 #   Run as root (that is how a fresh server starts it): it installs for a regular user with passwordless sudo.
@@ -49,8 +51,8 @@ _weevils_get() {
   # The shared copy (get.scarville.tech/install.sh): the setup id comes as the argument, and this setup's settings
   # are read as plain values, checked one by one (nothing fetched here is run).
   # Options after the setup id: --no-link (no public link for the phone: weevils stays on this machine only),
-  # --no-auto-update (never fetch a new version by itself), --no-permission-prompts (a computer's agents act without
-  # asking, as on a server).
+  # --no-auto-update (never fetch a new version by itself), --no-permission-prompts (agents act without asking, on a
+  # computer as on a server).
   local opt link=1 extra=() prompts=1
   for opt in "${@:2}"; do
     case $opt in
@@ -86,6 +88,15 @@ _weevils_get() {
     printf '  weevils · %s\n' "$1" >&2
     exit 1
   }
+
+  # Said before anything is installed: a computer's phone link makes it answer from the Internet.
+  if [ "$MODE" = pc ] && [ "$link" = 1 ]; then
+    if [ "$UI_LANG" = fr ]; then
+      say "à savoir : ton téléphone joindra cet ordinateur par un lien HTTPS public. L'ordinateur répond alors depuis Internet, derrière ton code d'accès (garde-le pour toi). Pour l'éviter : relance avec --no-link (weevils reste sur cet ordinateur ; plus tard, Tailscale le relie à ton téléphone en privé)." # i18n-ignore
+    else
+      say "good to know: your phone will reach this computer through a public HTTPS link. The computer then answers from the Internet, behind your access code (keep it to yourself). To avoid that: run again with --no-link (weevils stays on this computer; later, Tailscale links it to your phone privately)."
+    fi
+  fi
 
   case $OS in
     Linux | Darwin) ;;
@@ -330,8 +341,9 @@ _weevils_get() {
     esac
   }
 
-  # A computer: its agents ask before acting (answered from the app), unless the person said otherwise.
-  [ "$MODE" != pc ] || [ "$prompts" = 0 ] || extra+=(--ask-permissions)
+  # Agents ask before acting (answered from the app), the installer's default everywhere, unless the person said
+  # otherwise.
+  [ "$prompts" = 1 ] || extra+=(--no-ask-permissions)
   case $MODE in
     vps) run_install --domain "$REACH" ${extra[@]+"${extra[@]}"} ;;
     url) run_install --url "$REACH" ${extra[@]+"${extra[@]}"} ;;

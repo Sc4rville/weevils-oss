@@ -1,6 +1,7 @@
 import { Readable } from 'node:stream'
 import type http from 'node:http'
 import { OutboxError, type OutboxTask } from './outbox.ts'
+import { markInternal } from './http.ts'
 import { tr, withLang } from './i18n.ts'
 import M from './i18n/outbox.ts'
 type Handler = (req: http.IncomingMessage, res: http.ServerResponse, url: URL, params: string[]) => Promise<void> | void
@@ -21,6 +22,7 @@ export async function executeOutbox(task: OutboxTask, routes: [string, RegExp, H
     req.headers = { ...(task.locale ? { 'x-weevils-locale': task.locale } : {}), host: 'localhost', 'content-type': 'application/json' }
     Object.assign(req, { socket: { remoteAddress: '127.0.0.1' } })
     replays.add(req)
+    markInternal(req)
     let status = 200, result: any = {}, ended = false
     const res = {
       writeHead(code: number) { status = code; return this },

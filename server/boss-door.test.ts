@@ -9,6 +9,7 @@ import { afterEach, describe, expect, it, vi } from 'vitest'
 import { bossDoor } from './boss-door.ts'
 import { automated, userVoice } from './http.ts'
 import { executeOutbox } from './outbox-http.ts'
+import { LOCAL } from '../test/local-token.ts'
 import { Outbox, OutboxError } from './outbox.ts'
 
 const SAFARI = 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_0 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.0 Mobile/15E148 Safari/604.1'
@@ -16,7 +17,7 @@ const HEADLESS = 'Mozilla/5.0 (X11; Linux x86_64) AppleWebKit/537.36 (KHTML, lik
 
 /** A request as node:http hands it over: peer address, headers, url. */
 const req = (headers: Record<string, string> = {}, remoteAddress = '127.0.0.1', url = '/api/main') =>
-  ({ socket: { remoteAddress }, url, headers: { host: '127.0.0.1:4179', ...headers } }) as unknown as http.IncomingMessage
+  ({ socket: { remoteAddress }, url, headers: { host: '127.0.0.1:4179', ...LOCAL, ...headers } }) as unknown as http.IncomingMessage
 /** The phone through Caddy, with its device cookie. */
 const phone = (extra: Record<string, string> = {}) => req({ host: 'weevils.example.com', 'x-forwarded-for': '203.0.113.7', 'x-forwarded-proto': 'https', cookie: 'wv=good', 'user-agent': SAFARI, ...extra }, '127.0.0.1')
 
@@ -141,6 +142,10 @@ describe('bossDoor taps, live voice, local claim', () => {
     expect(door.localClaimAllowed(req({ 'user-agent': HEADLESS }))).toBe(false)
     expect(door.localClaimAllowed(req({ 'user-agent': SAFARI, 'x-weevils-automated': '1' }))).toBe(false)
     expect(door.localClaimAllowed(phone())).toBe(false) // from elsewhere: the login link, with the code
+    // A browser has no local token: the claim never needed it (the route adds that the caller is this user's process).
+    const browser = req({ 'user-agent': 'Mozilla/5.0 (Macintosh; Intel Mac OS X 14_0) Safari/605.1.15' })
+    delete browser.headers['x-weevils-local']
+    expect(door.localClaimAllowed(browser)).toBe(true)
   })
 })
 

@@ -11,14 +11,22 @@ Hetzner. Agents then work on a machine that holds nothing else of yours. Your He
 browser: the page calls Hetzner's API directly (`api.hetzner.cloud`), and the token never reaches the setup service.
 After the server exists, you can delete the token in Hetzner's console. The page only works when it is open.
 
+Agents ask before acting, on a server as on a computer: Claude Code's and Codex's permission prompts, answered from
+the app. `--no-permission-prompts` on the setup page's command (`install.sh --no-ask-permissions` otherwise) lets
+them act without asking. weevils never accepts Claude Code's safety warnings for you: the bypass-permissions warning
+is yours to answer, and it answers "do you trust this folder?" only for folders inside your project roots.
+
 On your own computer, weevils works the same way, but its agents can reach everything your user can. There:
 
-- agents ask before acting (Claude Code's permission prompts, answered from the app). `--no-permission-prompts` turns
-  that off, as on a server.
-- the phone reaches the computer through a Cloudflare quick tunnel to weevils' port on `127.0.0.1` (`cloudflared`,
-  from Cloudflare's GitHub release, checked against the SHA-256 GitHub publishes for it). Only weevils'
-  app is behind it, and only with your access code (72 random bits; a wrong code waits 800 ms). `--no-link` installs
-  without it: weevils stays on this machine until you set up a way in (Tailscale, for one).
+- **the computer answers from the Internet.** The phone reaches it through a Cloudflare quick tunnel to weevils' port
+  on `127.0.0.1` (`cloudflared`, from Cloudflare's GitHub release, checked against the SHA-256 GitHub publishes for
+  it): a public `https://….trycloudflare.com` address. Only weevils' app is behind it, and only with your access
+  code (72 random bits; a wrong code waits 800 ms); a browser that logged in keeps a device cookie for a year (log
+  out, or the "lost a phone" steps in the README, to revoke it). The setup page and the script say so before the
+  install. `--no-link` installs without it: weevils stays on this machine until you set up a private way in
+  (Tailscale, a private network between your own devices).
+- programs on the computer don't get in without the code either, unless they can read weevils' local token
+  (`~/.local/share/weevils/local-token`, readable by your user only), which weevils' own commands send.
 
 ## What the install does
 
@@ -42,10 +50,12 @@ In short, as you and in your home folder:
    then drops it (`sudo -k`). If nothing is missing, no password is asked. On a Mac, root is needed only for
    Homebrew's own installer, when Homebrew is missing.
 4. When run as root (that is how a fresh server starts it), it creates a regular user with passwordless sudo and
-   installs as that user. Agents on a server of their own install and configure things themselves.
+   installs as that user, so agents there can install and configure things (asking you first, unless you turned the
+   prompts off). On such a server, the HTTPS site (Caddy) opens ports 80 and 443 in ufw when ufw is active.
 
 The install never sends your files, code, conversations, keys or passwords anywhere. It never opens a port on your
-router or firewall, and it never runs anything from the setup service that the release key didn't sign.
+router, and on a computer never touches its firewall. Apart from this script itself (read it first; SHA-256 at
+`/install.sh.sha256`), it never runs anything from the setup service that the release key didn't sign.
 
 ## What leaves your machine
 
@@ -55,8 +65,13 @@ router or firewall, and it never runs anything from the setup service that the r
 - **At your first login**, once: a "claimed" signal, so the setup service stops keeping your sealed link.
 - **Updates**: every 20 to 30 minutes, weevils asks the setup service for its current version. When there is a newer
   one, it downloads the bundle and checks its signature with the release key of the version you already run. It
-  installs the bundle only if the signature checks. Turn updates off with `--no-auto-update` at install time, in the
+  installs the bundle only if the signature checks. A clone of the GitHub repository instead reads the setup
+  service's release manifest (`/main.txt`, `/main.txt.sig`: the main commit it published after its checks, signed
+  with the same key), checks the signature the same way, and fast-forwards to that exact commit from GitHub, only
+  when it descends from the one installed. Turn updates off with `--no-auto-update` at install time, in the
   app's settings, or with `weevils config set WEEVILS_AUTO_UPDATE 0`. They then stop entirely.
+- **The computer's phone link**, when there is one: the app's traffic between your phone and the computer goes
+  through Cloudflare's quick tunnel, which carries the HTTPS connection to your phone.
 - **The setup page** counts visits anonymously: counters only, no cookie, no IP address kept, deleted after 90 days.
 
 Nothing else. Your agents talk to Anthropic and OpenAI the way Claude Code and Codex always do.
@@ -80,9 +95,13 @@ ssh-keygen -Y verify -f allowed -I weevils-release -n weevils-release -s weevils
 
 The key signs on the machine that serves the setup page, so it protects the code between that machine and yours. It
 does not protect against that machine itself being taken over; there the key belongs to a dedicated user that only
-signs, so the sessions and automations running on that machine cannot read it. A bundle is published only after the
-tests pass on it, and an install refuses a bundle that is unsigned or older than the one it runs. The code is public at https://github.com/Sc4rville/weevils-oss: each bundle (one commit « weevils <rev> ») is
-published there with the same message, after a secret scan, so what you install is what you can read.
+signs, so the sessions and automations running on that machine cannot read it. A bundle, and the release manifest
+of the same main commit, is published only after the tests pass on it; an install refuses a bundle that is unsigned
+or older than the one it runs, and a clone refuses a manifest that is unsigned or names a commit that does not
+descend from its own. The first install from a clone is the code you cloned: read it, or check that its commit is
+the one in `/main.txt` (signed as above). The code is public at https://github.com/Sc4rville/weevils-oss, and each
+bundle (one commit « weevils <rev> ») is also published at https://github.com/Sc4rville/weevils-oss with the same
+message, after a secret scan, so what you install is what you can read.
 
 ## Remove it
 
@@ -91,7 +110,7 @@ published there with the same message, after a secret scan, so what you install 
 ```
 
 That stops and removes the service, the phone link, the update timer, the commands, and the hooks in
-`~/.claude/settings.json`. Node.js links in `~/.local/bin` go too. `--purge` also removes weevils' settings and data, Node.js's files in
+`~/.claude/settings.json` (with `skipDangerousModePermissionPrompt` when weevils wrote it). Node.js links in `~/.local/bin` go too. `--purge` also removes weevils' settings and data, Node.js's files in
 `~/.local/share/weevils/node` included. Claude Code stays, since you may use it without weevils.
 
 ## Reporting a problem

@@ -20,6 +20,7 @@ import {
 import M from './i18n/foryou.ts'
 import { withLang } from './i18n.ts'
 import TM from './i18n/tips.ts'
+import { LOCAL } from '../test/local-token.ts'
 
 // Only for the last block (the hooks in core.ts, with a real Weevils): tmux and the voice are simulated, as in
 // lifecycle.test.ts. The stream itself imports none of them.
@@ -1111,7 +1112,7 @@ describe('arrange', () => {
 // ---------------------------------------------------------------- routes
 
 describe('routes', () => {
-  const local = { socket: { remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:4179' } }
+  const local = { socket: { remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:4179', ...LOCAL } }
   const phone = { socket: { remoteAddress: '127.0.0.1' }, headers: { host: 'weevils.example.com', 'x-forwarded-for': '203.0.113.7', cookie: 'wv=valid' } }
   const call = async (fy: ForYou, method: string, url: string, body: unknown = {}, req: unknown = phone) => {
     const got = { status: 0, body: undefined as any }
@@ -1786,7 +1787,7 @@ describe('evidence labels (shared/evidence.ts)', () => {
     const call = async (url: string, body: unknown) => {
       const [, , handler] = routes.find(([m, re]) => m === 'POST' && re.test(url))!
       const res = {} as { status?: number; body?: { item?: ForYouItem } }
-      await handler({ body, socket: { remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:4179' } } as never, res as never, new URL('http://x' + url), [])
+      await handler({ body, socket: { remoteAddress: '127.0.0.1' }, headers: { host: '127.0.0.1:4179', ...LOCAL } } as never, res as never, new URL('http://x' + url), [])
       return res
     }
     const media = await call('/api/foryou/media', { path: fx.card.file, caption: fx.card.title, cwd, evidence: fx.evidence })

@@ -24,33 +24,15 @@
     "text": "Tell weevboss which card worked for you and why. Use that feedback when preparing the next layouts."
   },
   {
-    "id": "d:mwdzpr02",
-    "kind": "boss",
-    "source": "TLO is live at https://tlo.scarville.tech, with all 992 images integrated. Navigation, feedback and sound have been checked on mobile and desktop, so you can try the complete site now. No GPU pods remain active, and there was no new spend.",
-    "text": "TLO is live. Explore the rooms and finished journeys at https://tlo.scarville.tech."
-  },
-  {
     "id": "i:7d522374d46a",
     "kind": "improve",
     "source": "You want For you cards coloured by project while keeping the header simple. Ask weevboss to prepare a consistent project palette across themes, then preview it on a TLO split-panel card and a horizontal weevils card.",
     "text": "Preview project colours on a TLO split-panel card and a horizontal weevils card, across themes."
   },
   {
-    "id": "d:mwdz1xu6",
-    "kind": "boss",
-    "source": "Weevils’ recovery note is ready, and syncing between copies has stopped as you asked. Your prepared work is preserved, with the app and running instances untouched. The link to share is https://github.com/Sc4rville/weevils-oss; friends will need an invitation while it remains private.",
-    "text": "weevils is still private. Friends need an invitation to access https://github.com/Sc4rville/weevils-oss."
-  },
-  {
     "id": "i:weevils-content:2026-11-12",
     "kind": "insight",
     "source": "Did you know Playwright can test a fresh browser session with no saved login? Ask your agents to check that your friends can open the release and complete its first steps without your private settings.",
     "text": "Use Playwright to check the first steps in a fresh browser session, without your saved login or private settings."
-  },
-  {
-    "id": "d:mwdy3tz5",
-    "kind": "boss",
-    "source": "Weevils now has an installation package that passed a clean install, with licensing and English setup guidance in place; secret scans also passed across its history and archives. Your existing app, betas and accounts were preserved. It’s still invitation-only: public release needs logo rights confirmed, private context in older material addressed, and first-use plus desktop/mobile checks completed.",
-    "text": "The weevils installation package passed a clean install. Before public release: confirm logo rights, address private context in older material, and finish first-use and desktop/mobile checks."
   }
 ]

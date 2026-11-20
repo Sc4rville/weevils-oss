@@ -12,7 +12,7 @@ describe('une session qui attend l’utilisateur', () => {
   })
   it('un compte rendu sans demande n’attend rien ; un « ? » dans une URL ou du code non plus', () => {
     expect(asksUser('Tout est fait : 12 tests verts, poussé sur main.')).toBeNull()
-    expect(asksUser('Déployé sur https://x.scarville.tech/?v=2 et vérifié.')).toBeNull()
+    expect(asksUser('Déployé sur https://x.example.com/?v=2 et vérifié.')).toBeNull()
     expect(asksUser('Corrigé :\n```js\nconst a = b ? c : d\n```\nC’est en ligne.')).toBeNull()
   })
 })

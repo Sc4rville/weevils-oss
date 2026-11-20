@@ -8,7 +8,7 @@ vi.mock('./app-context', () => ({ useApp: () => ({ push: nav.push }) }))
 vi.mock('./foryou-open', () => ({ useForYouOpen: () => nav.conversation }))
 import { FeedText, SoftwareResultLink } from './foryou-links'
 import { setLang } from '../i18n'
-const base: ForYouItem = { id: 'd:mwf42vcp', kind: 'boss', tone: 'neutral', at: 1, who: 'weevboss', text: 'It’s live at https://tlo.scarville.tech.', open: { page: 'boss' }, software: { id: 'vps:tlo', name: 'TLO', state: 'running', url: 'https://tlo.scarville.tech/' } }
+const base: ForYouItem = { id: 'd:mwf42vcp', kind: 'boss', tone: 'neutral', at: 1, who: 'weevboss', text: 'It’s live at https://tlo.example.com.', open: { page: 'boss' }, software: { id: 'vps:tlo', name: 'TLO', state: 'running', url: 'https://tlo.example.com/' } }
 it('both real-card shapes open the software; the conversation remains separate across languages', async () => {
  const host = document.createElement('div'), root = createRoot(host)
  document.body.append(host)
@@ -16,7 +16,7 @@ it('both real-card shapes open the software; the conversation remains separate a
   for (const lang of ['en','fr','en'] as const) {
    await act(async () => { setLang(lang); root.render(<><FeedText text={base.text} item={base}/><SoftwareResultLink item={base}/></>) })
    const link=host.querySelector('a')!
-   expect(link.href).toBe('https://tlo.scarville.tech/')
+   expect(link.href).toBe('https://tlo.example.com/')
    await act(async () => { link.click() })
    expect(nav.push).toHaveBeenLastCalledWith({ kind: 'software', id: 'vps:tlo' })
    expect(host.querySelector('button')!.textContent).toBe(lang==='en'?'Open TLO':'Ouvrir TLO')

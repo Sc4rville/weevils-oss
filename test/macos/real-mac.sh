@@ -117,7 +117,7 @@ chmod 755 "$HOME/.local/bin/claude"
 mkdir -p "$HOME/projects/demo-été" && git -C "$HOME/projects/demo-été" init -q 2>/dev/null
 sleep 6 # the daemon rescans the project folders
 "$HOME/.local/bin/weevils" projects 2>&1 | sed 's/^/  | /'
-proj=$(curl -sf -m 8 "http://127.0.0.1:$port/api/snapshot" | jq -r '.projects[] | select(.name | test("demo")) | .id' | head -1)
+proj=$(curl -sf -m 8 -H "@$HOME/.local/share/weevils/local-token" "http://127.0.0.1:$port/api/snapshot" | jq -r '.projects[] | select(.name | test("demo")) | .id' | head -1)
 note "project id: ${proj:-none}"
 check "the daemon lists the project (a folder name with an accent)" [ -n "$proj" ]
 new=$("$HOME/.local/bin/weevils" new "${proj:-demo}" "say hello — été" 2>&1)
@@ -125,8 +125,8 @@ note "weevils new: $new"
 sleep 4
 tmux -u -L weevils list-sessions 2>&1 | sed 's/^/  | /'
 check "a wv-* tmux session exists on the weevils socket" sh -c "tmux -u -L weevils list-sessions -F '#{session_name}' | grep -q '^wv-'"
-curl -sf -m 8 "http://127.0.0.1:$port/api/snapshot" | jq -c '.sessions[] | {id: .id[0:8], tool, status, title, cwd: (.cwd // .projectId)}' 2>&1 | sed 's/^/  | /'
-check "the daemon lists the session (tmux output parsed under launchd's environment)" sh -c "curl -sf -m 8 http://127.0.0.1:$port/api/snapshot | jq -e '[.sessions[] | select(.status != \"done\")] | length >= 1'"
+curl -sf -m 8 -H "@$HOME/.local/share/weevils/local-token" "http://127.0.0.1:$port/api/snapshot" | jq -c '.sessions[] | {id: .id[0:8], tool, status, title, cwd: (.cwd // .projectId)}' 2>&1 | sed 's/^/  | /'
+check "the daemon lists the session (tmux output parsed under launchd's environment)" sh -c "curl -sf -m 8 -H @$HOME/.local/share/weevils/local-token http://127.0.0.1:$port/api/snapshot | jq -e '[.sessions[] | select(.status != \"done\")] | length >= 1'"
 check "weevils sessions prints it" sh -c "'$HOME/.local/bin/weevils' sessions | grep -q claude"
 sed 's/^/  | /' "$HOME/.local/share/weevils-test/claude.env" 2>/dev/null
 check "the agent's PATH has Homebrew and ~/.local/bin" sh -c "grep '^PATH=' '$HOME/.local/share/weevils-test/claude.env' | grep -q '$(brew --prefix)/bin' && grep '^PATH=' '$HOME/.local/share/weevils-test/claude.env' | grep -q '$HOME/.local/bin'"
@@ -143,7 +143,7 @@ after=$(daemon_pid)
 note "pid $before → $after"
 check "a new process" sh -c "[ -n '$after' ] && [ '$before' != '$after' ]"
 check "the tmux session survived the restart" sh -c "tmux -u -L weevils list-sessions -F '#{session_name}' | grep -q '^wv-'"
-check "the daemon still lists the session" sh -c "sleep 3; curl -sf -m 8 http://127.0.0.1:$port/api/snapshot | jq -e '[.sessions[] | select(.status != \"done\")] | length >= 1'"
+check "the daemon still lists the session" sh -c "sleep 3; curl -sf -m 8 -H @$HOME/.local/share/weevils/local-token http://127.0.0.1:$port/api/snapshot | jq -e '[.sessions[] | select(.status != \"done\")] | length >= 1'"
 "$svc" stop >"$out" 2>&1
 check "stop: nothing answers" wait_down
 check "stop: launchd no longer has it" sh -c "! launchctl print gui/$uid/$label >/dev/null 2>&1"

@@ -194,7 +194,7 @@ describe('auto — the task sessions are real sessions of their project', () => 
     expect([cwd2, tool, to]).toEqual([cwd, 'codex', name])
     expect(command[0]).toBe('bwrap')
     expect(command).toContain('codex')
-    expect(command).toContain('--dangerously-bypass-approvals-and-sandbox')
+    expect(command).not.toContain('--dangerously-bypass-approvals-and-sandbox')
     expect(command).not.toContain('--settings')
     expect(command.join(' ')).not.toContain(`--tmpfs ${path.join(os.homedir(), '.codex')}`)
     expect(command.at(-1)).toMatch(/^\[from:weevboss\] Tu prends le relais\. Plan validé : finir les tests\.\n\n/)

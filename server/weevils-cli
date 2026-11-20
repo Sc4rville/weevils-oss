@@ -1,6 +1,8 @@
 #!/usr/bin/env bash
 # weevils — la commande de l'orchestrateur (et de n'importe quel agent sur cette machine) pour parler aux sessions.
-# Elle appelle le weevilsd local : une requête née sur la machine est de confiance, pas de code à fournir.
+# Elle appelle le weevilsd local avec le jeton de la machine (~/.local/share/weevils/local-token, en-tête
+# X-Weevils-Local) : pas de code à fournir. Dans la prison d'une automatisation, ce fichier est caché : weevilsd la
+# reconnaît à son espace de processus et ne lui ouvre que ses routes (server/jail-peer.ts).
 #
 #   weevils sessions                     weevils read <id> [n]        weevils send <id> "message"
 #   weevils recall <id>                  rouvre mot pour mot une ligne du journal de weevboss (message, groupe g…, jour d…)
@@ -22,6 +24,16 @@
 #   weevils mem [search <mots> | add [rule|decision|fact] "texte" | rm <id>]   la mémoire interne (décisions, règles, faits)
 set -euo pipefail
 base="http://127.0.0.1:${WEEVILS_PORT:-4179}"
+local_token=$HOME/.local/share/weevils/local-token
+if [ -r "$local_token" ]; then
+  # The header is read from the file (-H @file): the token never shows in the process list.
+  curl() { command curl -H "@$local_token" "$@"; }
+elif [ -n "$(ls -A "$HOME/.local/share/weevils" 2>/dev/null)" ]; then
+  # A real install without its token (weevilsd creates it at start): say so plainly rather than fail without a word.
+  if [ "$(sed -n 's/.*"lang" *: *"\([a-z]*\)".*/\1/p' ~/.local/share/weevils/prefs.json 2>/dev/null)" = fr ]; then
+    echo "weevils : pas de jeton local ($local_token) : weevilsd refusera. Relance-le : weevils-service restart" >&2 # i18n-ignore
+  else echo "weevils: no local token ($local_token): weevilsd will refuse this. Restart it: weevils-service restart" >&2; fi
+fi
 from=${WEEVILS_FROM:-weevils}
 # A project agent is not weevboss. Session sends/new resolve an available source thread on the local server.
 sender_from=${WEEVILS_FROM:-agent}

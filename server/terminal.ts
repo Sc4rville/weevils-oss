@@ -219,6 +219,8 @@ const nameFor = (agent: Agent | undefined) => (agent ?? 'claude')
 
 interface Ctx {
   agent: Agent
+  /** The session runs in a folder inside the user's project roots (PROJECT_ROOTS): only there is folder trust answered. */
+  trustedFolder: boolean
   menu: Menu
   head: string
   labels: string[]
@@ -377,16 +379,21 @@ function classifyMenu(c: Ctx, rawRegion: string[]): TerminalState {
   if (/select login method|sign in with chatgpt|use an openai api key|sign in another way|log ?in to (?:claude|codex)/i.test(head + ' ' + labels.join(' ')))
     return { kind: 'hold', name: 'signin', hold: { reason: 'auth', text: t.signin(c.agent) } } // i18n-ignore : code de raison, pas un texte affiché
 
-  // ---- folder trust: weevils launches agents in the user's own folders and pre-marks them; answer yes, by label.
+  // ---- folder trust: answered yes (by label) only for a folder inside the user's project roots, the folders weevils
+  // pre-marks; anywhere else the person decides, like any other question.
   if (/trust (?:this|the files in this) folder|quick safety check|do you trust/i.test(head + ' ' + labels.join(' '))) {
     if (/pre-approves|adds \d+ director|mint HTTP headers|continue without these permissions/i.test(head + ' ' + labels.join(' ')))
       return question(c, 'trust-rules', t.trustRules(c.agent), (raw) => (/^yes/i.test(raw) ? t.trustYes : /^no/i.test(raw) ? t.trustNo : raw))
-    if ((i = pick(/^(?:yes,? i trust|trust and continue|yes,? continue|yes,? proceed|trust)/i)) >= 0) return { kind: 'auto', name: 'trust', menu, pick: i }
+    if ((i = pick(/^(?:yes,? i trust|trust and continue|yes,? continue|yes,? proceed|trust)/i)) >= 0) {
+      if (c.trustedFolder) return { kind: 'auto', name: 'trust', menu, pick: i }
+      return question(c, 'trust', t.trustFolder(c.agent), (raw, k) => (k === i ? t.trustYes : /^(?:no|back|exit|quit)\b/i.test(raw) ? t.trustStop : raw))
+    }
   }
 
-  // ---- bypass-permissions warning at launch: weevils chose this mode when it started the agent.
+  // ---- bypass-permissions warning at launch: never accepted for the person. It shows only when someone turned off
+  // permission prompts (WEEVILS_SAFE=0) and Claude Code's own setting does not skip it: they answer it themselves.
   if (/bypass permissions mode|dangerously-skip/i.test(head) && (i = pick(/^yes,? i accept|^yes,? continue anyway|^i understand/i)) >= 0)
-    return { kind: 'auto', name: 'bypass-warning', menu, pick: i }
+    return question(c, 'bypass-warning', t.bypassWarning(c.agent), (raw, k) => (k === i ? t.bypassAccept : /^(?:no|exit|quit)\b/i.test(raw) ? t.bypassStop : raw))
 
   // ---- updates are weevils' job (and `npm -g` would fail without root): skip.
   if ((i = pick(/^skip$/i)) >= 0 && labels.some((l) => /^update now/i.test(l))) return { kind: 'auto', name: 'update', menu, pick: i }
@@ -476,7 +483,8 @@ function holdOf(lines: string[], agent: Agent): Hold | undefined {
 
 // ---------------------------------------------------------------- entry point
 
-export function readScreen(text: string, agent?: Agent): Reading {
+/** opts.trustedFolder: the session's folder is inside the user's project roots (insideRoots in server/config.ts). */
+export function readScreen(text: string, agent?: Agent, opts: { trustedFolder?: boolean } = {}): Reading {
   const who = nameFor(agent)
   const lines = text.replace(/\x1b\[[0-9;?]*[A-Za-z]/g, '').split('\n').map(clean)
   while (lines.length && blank(lines[lines.length - 1])) lines.pop()
@@ -505,7 +513,7 @@ export function readScreen(text: string, agent?: Agent): Reading {
     let start = end
     while (start > 0 && end - start < 40 && !RULE.test(lines[start - 1])) start--
     const region = lines.slice(start, end)
-    return done(classifyMenu({ agent: who, menu, head, labels: menu.options.map((o) => o.raw), lines: lines.slice(-12) }, region))
+    return done(classifyMenu({ agent: who, trustedFolder: opts.trustedFolder === true, menu, head, labels: menu.options.map((o) => o.raw), lines: lines.slice(-12) }, region))
   }
 
   // Settings slider without a cursor line (/effort), a Claude panel (/usage, /config, /fast: a "▔" top rule, an

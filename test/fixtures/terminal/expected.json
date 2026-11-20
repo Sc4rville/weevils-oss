@@ -1,8 +1,12 @@
 {
  "claude-00-trust-folder-launch.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Yes, I trust this folder"
+  "question": "Claude is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "No, stop",
+   "Yes, I trust it"
+  ]
  },
  "claude-01-new-project-mcp-server-mcp-json-approval.txt": {
   "kind": "question",
@@ -187,9 +191,13 @@
   ]
  },
  "claude-29-bypass-permissions-warning-launch.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "bypass-warning",
-  "pick": "Yes, I accept"
+  "question": "Claude is about to act without asking your permission. Accept?",
+  "labels": [
+   "No, stop",
+   "Yes, I accept"
+  ]
  },
  "claude-30-managed-org-settings-approval-launch.txt": {
   "kind": "question",
@@ -278,14 +286,22 @@
   "pick": "enter"
  },
  "claude-live-B3-next.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Yes, I trust this folder"
+  "question": "Claude is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "No, stop",
+   "Yes, I trust it"
+  ]
  },
  "claude-live-B4-next.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "bypass-warning",
-  "pick": "Yes, I accept"
+  "question": "Claude is about to act without asking your permission. Accept?",
+  "labels": [
+   "No, stop",
+   "Yes, I accept"
+  ]
  },
  "claude-live-B5-next.txt": {
   "kind": "none"
@@ -319,9 +335,13 @@
   "kind": "picker"
  },
  "claude-live-C1-trust.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Yes, I trust this folder"
+  "question": "Claude is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "No, stop",
+   "Yes, I trust it"
+  ]
  },
  "claude-live-C2-mcpjson.txt": {
   "kind": "question",
@@ -606,9 +626,13 @@
   "kind": "none"
  },
  "codex-05-trust-this-folder-git-repos-only.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Trust and continue"
+  "question": "Codex is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "Yes, I trust it",
+   "No, stop"
+  ]
  },
  "codex-06-agent-command-center-full-screen-task-li.txt": {
   "kind": "picker"
@@ -823,9 +847,13 @@
   ]
  },
  "codex-handling-17-trust-folder.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Yes, continue"
+  "question": "Codex is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "Yes, I trust it",
+   "No, stop"
+  ]
  },
  "codex-handling-18-update-available-at-startup.txt": {
   "kind": "auto",
@@ -881,9 +909,13 @@
   ]
  },
  "codex-history-00-codex-folder-trust-on-a-session-weevils.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Trust and continue"
+  "question": "Codex is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "Yes, I trust it",
+   "Open restricted"
+  ]
  },
  "codex-history-04-codex-usage-limit-turn-ends-with-error-n.txt": {
   "kind": "hold",
@@ -960,14 +992,22 @@
   ]
  },
  "handling-06-trust-folder.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Yes, I trust this folder"
+  "question": "Claude is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "Yes, I trust it",
+   "No, stop"
+  ]
  },
  "handling-07-bypass-permissions-warning-at-launch.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "bypass-warning",
-  "pick": "Yes, I accept"
+  "question": "Claude is about to act without asking your permission. Accept?",
+  "labels": [
+   "No, stop",
+   "Yes, I accept"
+  ]
  },
  "handling-08-new-mcp-server-in-project-mcp-json.txt": {
   "kind": "question",
@@ -1037,9 +1077,13 @@
   ]
  },
  "history-01-claude-folder-trust-quick-safety-check.txt": {
-  "kind": "auto",
+  "kind": "question",
   "name": "trust",
-  "pick": "Yes, I trust this folder"
+  "question": "Claude is starting in a folder outside your projects. Do you trust it?",
+  "labels": [
+   "Yes, I trust it",
+   "No, stop"
+  ]
  },
  "history-03-claude-usage-limit-options-menu-weekly-l.txt": {
   "kind": "auto",

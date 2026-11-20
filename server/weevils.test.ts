@@ -80,12 +80,12 @@ describe('rangement des sessions', () => {
 })
 
 describe('questions à l’écran', () => {
-  it('Claude : confiance dans le dossier — weevils répond lui-même, ce n’est pas une question pour toi', () => {
+  it('Claude : confiance dans un dossier hors des projets — c’est une question pour toi, jamais une réponse de weevils', () => {
     const screen = ' Quick safety check: Is this a project you created or one you trust? (Like your own code)\n ❯ No, exit\n   Yes, I trust this folder\n Enter to confirm · Esc to cancel'
-    expect(attentionFromScreen(screen)).toBeUndefined()
+    expect(attentionFromScreen(screen)).toMatch(/outside your projects|hors de tes projets/)
   })
-  it('Codex : confiance dans le dossier, pareil', () => {
-    expect(attentionFromScreen('  Trust this folder? Codex can read files.\n› 1. Trust and continue\n  enter continue · esc back')).toBeUndefined()
+  it('Codex : confiance dans un dossier hors des projets, pareil', () => {
+    expect(attentionFromScreen('  Trust this folder? Codex can read files.\n› 1. Trust and continue\n  enter continue · esc back', 'codex')).toMatch(/outside your projects|hors de tes projets/)
   })
   it('écran normal : rien', () => {
     expect(attentionFromScreen('› Ask Codex to do anything\n  ← for agents')).toBeUndefined()

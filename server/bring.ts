@@ -383,6 +383,8 @@ export interface RemoteLike {
   online: boolean
   snap: { machines?: { name?: string }[] } | null
   call<T>(method: string, path: string, body?: unknown): Promise<T>
+  /** The headers that authenticate this machine to the remote (its local token). */
+  headers?(): Record<string, string>
 }
 
 export interface BringDeps extends PlaceDeps {
@@ -530,7 +532,7 @@ export class Bring {
     const tmp = path.join(this.d.dataDir, 'uploads', `bring-${crypto.randomBytes(6).toString('hex')}`)
     try {
       fs.mkdirSync(path.dirname(tmp), { recursive: true })
-      const res = await fetch(`${r.url}/api/bring/local/file?key=${encodeURIComponent(it.key)}`, { signal: AbortSignal.timeout(10 * 60_000) })
+      const res = await fetch(`${r.url}/api/bring/local/file?key=${encodeURIComponent(it.key)}`, { headers: r.headers?.() ?? {}, signal: AbortSignal.timeout(10 * 60_000) })
       if (!res.ok || !res.body) throw new Error(String(res.status))
       await pipeline(res.body as unknown as NodeJS.ReadableStream, fs.createWriteStream(tmp, { mode: 0o600 }))
       const h = (n: string) => decode(res.headers.get(n) ?? '')

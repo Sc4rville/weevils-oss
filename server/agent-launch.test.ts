@@ -58,3 +58,20 @@ describe('the plain-voice rule', () => {
     expect(core).toContain('turns.prepare({ id, claude: [...CLAUDE]')
   })
 })
+
+describe('permission prompts', () => {
+  it('agents ask by default; only an explicit WEEVILS_SAFE=0 turns that off', async () => {
+    const { askPermissions } = await import('./agent-launch.ts')
+    expect(askPermissions({})).toBe(true)
+    expect(askPermissions({ WEEVILS_SAFE: '' })).toBe(true)
+    expect(askPermissions({ WEEVILS_SAFE: '1' })).toBe(true)
+    expect(askPermissions({ WEEVILS_SAFE: '0' })).toBe(false)
+    expect(askPermissions({ WEEVILS_SAFE: ' 0 ' })).toBe(false)
+  })
+  it('with nothing set (a test HOME): no bypass flag at all', () => {
+    expect(CLAUDE).toEqual(['claude'])
+    expect(CODEX_FLAGS).toEqual([])
+    expect(projectClaude('en').join(' ')).not.toMatch(/dangerously/)
+    expect(projectCodexFlags('en').join(' ')).not.toMatch(/dangerously/)
+  })
+})

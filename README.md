@@ -23,12 +23,16 @@ No API cost: weevils drives the official `claude` and `codex` commands you are a
 ### What it does, what it never does, how to remove it
 
 - **It does**: installs in your home folder (`~/weevils`), runs a small service on `127.0.0.1`, adds its hooks to
-  `~/.claude/settings.json`, and lets your phone reach that service with a private access code. On a computer set
-  up from [tryweevils](https://tryweevils.scarville.tech), agents ask before acting and the phone link is a
-  Cloudflare tunnel; on a server of its own, agents act without asking.
+  `~/.claude/settings.json`, and lets your phone reach that service with a private access code. Agents ask before
+  acting (you answer from the phone) unless you turn that off. On a computer set up from
+  [tryweevils](https://tryweevils.scarville.tech), the phone link is a public Cloudflare tunnel: the computer then
+  answers from the Internet, behind the access code (`--no-link` to avoid it, then Tailscale).
 - **It never** sends your files, code, conversations, keys or passwords anywhere, never opens a port on your router
-  or firewall, and never runs code that weevils' release key didn't sign. The install never asks for a password
-  unless a system tool is missing, and then only for that one command.
+  (on a server with `--domain`, it opens 80 and 443 in an active ufw, after asking), and never updates itself to code that weevils' release key didn't sign: a snapshot from the setup
+  page carries the key's signature, and a clone of this repository moves only to the main commit named in a signed
+  release manifest. (The code you clone or install the first time is checked by you, or by the setup page's signed
+  script.) The install never asks for a password unless a system tool is missing, and then only for that one
+  command.
 - **Remove it**: `~/weevils/install.sh --uninstall --purge && rm -rf ~/weevils`.
 
 All the details, including what leaves your machine and how to check a release's signature, are in
@@ -53,7 +57,7 @@ You need a Linux machine (a VPS, a home server, WSL2) or a Mac (Apple Silicon or
 installed and logged in as a regular user (not root). Codex is optional.
 
 ```sh
-git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
+git clone https://github.com/Sc4rville/weevils-oss ~/weevils && cd ~/weevils && ./install.sh
 ```
 
 The installer asks for your first name, your language and a domain (optional, see below), then installs what
@@ -73,7 +77,8 @@ How the phone reaches the machine:
 
 Other options: `--yes` (no questions), `--agent` (for an AI agent: no questions, a machine-readable summary at the
 end), `--url <https://…>` (HTTPS already served by something else, like `tailscale serve`), `--name`, `--lang en|fr`, `--port`, `--secondary <ssh host>` (add a second
-machine), `--uninstall` (`--purge` also deletes settings and data). Everything the script does:
+machine), `--no-ask-permissions` (agents act without asking, see Security), `--uninstall` (`--purge` also deletes
+settings and data). Everything the script does:
 [docs/install.md](docs/install.md).
 
 ## First session
@@ -121,13 +126,18 @@ which explains every setting. After a change: `weevils-service restart` (for the
 
 - **The access code is shell access.** Anyone with it can type into your agents. It lives in
   `~/.config/weevils/secret`; keep it private.
-- **On a server, agents run without permission prompts** (`--dangerously-skip-permissions`), so they never wait for
-  you while you are away. Set `WEEVILS_SAFE=1` to keep the prompts and answer them from the phone (the default on a
-  computer set up from the setup page).
+- **Agents ask before acting**, everywhere: Claude Code's and Codex's permission prompts reach your phone and you
+  answer them there. `./install.sh --no-ask-permissions` (`WEEVILS_SAFE=0`) lets them act without asking
+  (`--dangerously-skip-permissions`): they never wait for you, and can run any command as you. weevils never accepts
+  Claude Code's safety warnings for you; it answers "do you trust this folder?" only inside your project folders.
+  An older install that never chose switches to asking on its next update, and says so.
 - **Use HTTPS** (`--domain`, or Tailscale with `--url`) for anything beyond your home network.
-- **Requests from the machine itself are trusted without the code** (the `weevils` command, a second machine's
-  tunnel). If you put a proxy other than the installer's Caddy in front, it must send `X-Forwarded-For`
-  (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
+- **Programs on the machine need its local token**: weevils trusts a request from the machine itself without the
+  code only when it carries `~/.local/share/weevils/local-token` (0600), which the `weevils` command, the updater
+  and a second machine's tunnel send. Any other program that opens `127.0.0.1` is asked to sign in. This guards
+  against what cannot read your files (another account, a sandboxed app, a container); a program running as you can
+  read the token, as it can read the access code. If you put a proxy other than the installer's Caddy in front, it
+  must send `X-Forwarded-For` (nginx: `proxy_set_header X-Forwarded-For $proxy_add_x_forwarded_for;`).
 - **Lost a phone?** `rm ~/.config/weevils/secret ~/.local/share/weevils/tokens.json && weevils-service restart`, then
   log in again with the new code (`cat ~/.config/weevils/secret`).
 - The machine page shows a few facts about the machine (CPU, memory, disk). It only looks up the hosting provider

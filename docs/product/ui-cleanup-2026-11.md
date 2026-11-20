@@ -215,7 +215,7 @@ paths, commands, ids or jargon on screen, no permanent help text.
 
 ## Third pass (branch resume2/ui-audit, r162)
 
-A fresh read of every screen on Yann's live instance (phone viewport, read-only) and of every catalog.
+A fresh read of every screen on the maintainer's live instance (phone viewport, read-only) and of every catalog.
 
 ### Session page
 

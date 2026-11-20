@@ -9,7 +9,7 @@ import path from 'node:path'
 import type { Consumer, DaySummary, Episode, FsListing, InfraDetail, InfraPoint, Level, Offer, ServerProc } from '../shared/infra.ts'
 import { facts, offer } from './discover.ts'
 import { diskView } from './disk-usage.ts'
-import { DATA_DIR, EXPOSE_DOMAIN, EXPOSE_SITES_DIR, HOME, MACHINE, ORCH_DIR, ORCHESTRATOR } from './config.ts'
+import { DATA_DIR, EXPOSE_DOMAIN, EXPOSE_SITES_DIR, HOME, MACHINE, ORCH_DIR, ORCHESTRATOR, privateDirs } from './config.ts'
 import { tr } from './i18n.ts'
 import M from './i18n/infra.ts'
 import { availableMem, type Platform } from './platform.ts'
@@ -738,9 +738,9 @@ export async function detail(lookup: (id: string) => { title: string; projectId:
 const SECRET_HOME = [
   '.ssh', '.gnupg', '.aws', '.azure', '.kube', '.password-store', '.docker/config.json', '.netrc', '.pgpass',
   '.git-credentials', '.npmrc', '.pypirc', '.claude.json', '.claude/.credentials.json', '.codex/auth.json',
-  '.config/gh', '.config/weevils', '.config/weevils-get', '.config/pli', '.config/rclone', '.local/share/keyrings',
+  '.config/gh', '.config/weevils', '.config/weevils-get', '.config/rclone', '.local/share/keyrings',
 ]
-const SECRET_DATA = ['tokens.json', 'tmux-token', 'shortcut-token', 'claude-login', 'pumps']
+const SECRET_DATA = ['tokens.json', 'tmux-token', 'shortcut-token', 'local-token', 'claude-login', 'pumps']
 const SECRET_SYSTEM = ['/etc/shadow', '/etc/gshadow', '/etc/sudoers', '/etc/sudoers.d', '/etc/ssh', '/root', '/proc', '/sys']
 const SECRET_NAME = /^(id_(rsa|dsa|ecdsa|ed25519)\w*|.*\.(pem|key|p12|pfx|keystore|kdbx)|\.env(\..*)?|credentials(\.json)?|secrets?(\.\w+)?)$/i
 
@@ -751,6 +751,7 @@ export function isSecretPath(p: string): boolean {
   let full = path.resolve(p)
   try { full = fs.realpathSync(full) } catch { /* inexistant : on juge le chemin demandé */ }
   if (SECRET_HOME.some((s) => within(full, path.join(HOME, s)))) return true
+  if (privateDirs().some((s) => within(full, s))) return true
   if (SECRET_DATA.some((s) => within(full, path.join(DATA_DIR, s)))) return true
   if (SECRET_SYSTEM.some((s) => within(full, s))) return true
   return SECRET_NAME.test(path.basename(full))

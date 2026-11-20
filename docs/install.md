@@ -4,8 +4,8 @@ One command on a Linux machine or VPS (Ubuntu/Debian tested; dnf and pacman supp
 (Apple Silicon or Intel: see [macOS](#macos) for what differs). On Windows, use WSL2 (see below).
 
 ```sh
-git clone https://github.com/Sc4rville/weevils-oss && cd weevils && ./install.sh
-# once the repo is public:
+git clone https://github.com/Sc4rville/weevils-oss ~/weevils && cd ~/weevils && ./install.sh
+# or, without cloning first (it clones into ~/weevils):
 curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash
 ```
 
@@ -28,17 +28,20 @@ Or ask your AI agent: paste `install https://github.com/Sc4rville/weevils-oss` i
 3. Clones weevils into `--dir` (default `~/weevils`) when piped from curl, or uses the clone it runs from.
 4. Writes your settings to `~/.config/weevils/env` from `.env.example`. Values already there are kept;
    a flag you pass (`--name`, `--lang`, `--port`, `--domain`, `--lan`, `--machine`) updates its key. A new config
-   takes the first free pair of ports from 4179/4180. As root, it sets `WEEVILS_SAFE=1` (see below).
+   takes the first free pair of ports from 4179/4180. Agents ask before acting: `WEEVILS_SAFE=1` unless you pass
+   `--no-ask-permissions` (see [Permissions](#permissions)).
 5. `npm ci` and `vite build`.
 6. `server/install.sh`: commands in `~/.local/bin` (`wv`, `weevils`, `weevils-service`, `weevils-hook`) and the
    service — a `systemd --user` unit with linger (survives logout and reboot; it warns when linger can't be turned
    on), or a background process where there is no systemd (containers, WSL), controlled with
    `weevils-service start|stop|status|logs`, plus an `@reboot` line in your crontab. On a Mac: a launchd agent.
 7. In your Claude Code settings (`~/.claude/settings.json`, saved once to `settings.json.bak-weevils`): the
-   `weevils-hook` hook on six events (your other hooks are kept; weevils hooks whose script is gone are removed),
-   and, unless `WEEVILS_SAFE=1`, `skipDangerousModePermissionPrompt: true`, so Claude Code's one-time warning about
-   running without permission prompts doesn't end the first session. Nothing else there: weevils sessions get
-   their quiet variables (no auto-update, no tips) per session.
+   `weevils-hook` hook on six events (your other hooks are kept; weevils hooks whose script is gone are removed).
+   Only if you turned permission prompts off (`--no-ask-permissions`, `WEEVILS_SAFE=0`), also
+   `skipDangerousModePermissionPrompt: true`, so Claude Code's one-time warning about running without them doesn't
+   end the first session; weevils notes that it wrote it (`~/.local/share/weevils/claude-skip-prompt`) and takes it
+   back when you turn the prompts on again or uninstall. Nothing else there: weevils sessions get their quiet
+   variables (no auto-update, no tips) per session.
 8. With `--domain` (Linux only): Caddy (official apt repo, or the distribution's package on dnf and pacman) and a
    site in `/etc/caddy/weevils.caddy`, imported from your Caddyfile (an existing Caddyfile keeps its sites; the
    original is kept in `Caddyfile.bak-weevils`). If Caddy rejects the result (say the domain is already a site
@@ -54,10 +57,21 @@ Or ask your AI agent: paste `install https://github.com/Sc4rville/weevils-oss` i
 
 ### Permissions
 
-Agents run without permission prompts (`claude --dangerously-skip-permissions`, `codex
---dangerously-bypass-approvals-and-sandbox`), so they never wait for you while you're away; the end screen says so.
-`WEEVILS_SAFE=1` in `~/.config/weevils/env` keeps the prompts (you answer them from the app); `wv` follows it too.
-Claude Code refuses to skip them as root, so a root install sets `WEEVILS_SAFE=1`. A regular user with sudo is better.
+Agents ask before acting: Claude Code's and Codex's own permission prompts, which you answer from the app
+(`WEEVILS_SAFE=1`, the default for every install: the setup page, an AI agent following AGENTS.md, or `./install.sh`
+by hand). weevils never accepts Claude Code's safety warnings for you: the bypass-permissions warning is always
+yours to answer, and the "do you trust this folder?" question is answered by weevils only for folders inside your
+project roots (`WEEVILS_PROJECTS`, `~/projects` by default) and weevils' own data folder; anywhere else it shows in
+the app like any other question.
+
+To let agents act without asking (they then never wait for you, and can run any command as you):
+`./install.sh --no-ask-permissions` (`WEEVILS_SAFE=0`). `./install.sh --ask-permissions` brings the prompts back.
+`wv` follows the same setting (`WV_SAFE=0 wv …` for one session). Claude Code refuses to skip them as root, so a root
+install always asks. The end screen says which way it is.
+
+An install made before this default existed, which never chose (no `WEEVILS_SAFE` line), switches to asking on its
+next installer run, which an automatic update also is: its end screen and « for you » say so once, with the
+`--no-ask-permissions` way back. An explicit `WEEVILS_SAFE=0` or `1` is kept.
 
 ## Options
 
@@ -68,6 +82,7 @@ Claude Code refuses to skip them as root, so a root install sets `WEEVILS_SAFE=1
 | `--name <first name>` | how the agents call you |
 | `--lang en\|fr` | language of the installer and of the server (default: the one in your settings, else your locale) |
 | `--domain <host>` | HTTPS through Caddy; the domain must point to the machine, ports 80/443 open. Linux only |
+| `--ask-permissions`, `--no-ask-permissions` | agents ask before acting (the default), or act without asking (`WEEVILS_SAFE`, [Permissions](#permissions)) |
 | `--url <https://…>` | the address the phone opens when something else serves HTTPS in front (`tailscale serve`, your own proxy to 127.0.0.1:4179); sets `WEEVILS_PUBLIC_URL` |
 | `--lan` | listen on every interface (`WEEVILS_HOST=0.0.0.0`) for a phone on the same home network, plain http |
 | `--port <n>` | port of weevilsd on 127.0.0.1 (default 4179); a re-run moves the Caddy site too |
@@ -219,8 +234,8 @@ Stops the service and removes its units (on a Mac: its launchd agents), the comm
 `weevils`, `weevils-service`, `weevils-hook`), the weevils hooks in `~/.claude/settings.json`, the `@reboot` crontab
 line, and the Caddy site (`/etc/caddy/weevils.caddy` and its import line, with sudo; the public URL that came with
 it is cleared). It keeps `~/.config/weevils` (settings, access code) and `~/.local/share/weevils` (data) unless
-`--purge`, the clone, the agent sessions still open in tmux, linger, and `skipDangerousModePermissionPrompt` in your
-Claude settings.
+`--purge`, the clone, the agent sessions still open in tmux, and linger. `skipDangerousModePermissionPrompt` in your
+Claude settings goes too when weevils wrote it (after `--no-ask-permissions`); one you had set yourself stays.
 
 ## Several machines
 
@@ -232,7 +247,19 @@ curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.
 
 The secondary machine runs its own weevilsd (no app, no weevboss) and a reverse SSH tunnel to the main machine.
 It registers itself there (`weevils-service add-remote <id>` adds it to `WEEVILS_REMOTES` and picks a free port from
-4192), so its sessions show up in the main app.
+4192), so its sessions show up in the main app. It also hands over its local token (below), kept on the main machine
+in `~/.config/weevils/remotes/<id>.token`: the main machine's calls through the tunnel carry it. Its automatic update
+hands it over again on every run, so a main machine that updates after it picks it up within half an hour.
+
+### The local token
+
+weevilsd trusts a request from the machine itself without the access code only when it carries the machine's local
+token: `~/.local/share/weevils/local-token` (0600, created at the first start), sent as the `X-Weevils-Local` header
+by the `weevils` command, `weevils-update`, the main machine of a federation and Vite's dev server. Any other program
+that opens `127.0.0.1` gets a 401 that says so (`local_token_missing`). Two exceptions: an automation's jail, which
+cannot read the file, is recognised by its process namespace and only reaches the routes of its own commands; and a
+real browser on the machine, which may claim a device once (`POST /api/login/local`: a browser user agent, not
+automated, and a process of your own user).
 
 Conversations already on another computer (Claude Code or Codex, before weevils was there) come over without
 installing anything on it: « bring my conversations » in the app shows one line to paste in that computer's terminal,

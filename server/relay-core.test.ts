@@ -153,7 +153,9 @@ describe('weevboss pendant la limite de Claude', () => {
     expect(mux.spawnWv).toHaveBeenCalledTimes(1)
     const [name, dir, tool, title, command] = mux.spawnWv.mock.calls[0] as [string, string, Tool, string, string[]]
     expect([dir, tool, title]).toEqual([ORCH_DIR, 'codex', 'weevboss'])
-    expect(command.slice(0, 2)).toEqual(['codex', '--dangerously-bypass-approvals-and-sandbox'])
+    expect(command[0]).toBe('codex')
+    // Agents ask for permission by default (WEEVILS_SAFE unset): no bypass flag.
+    expect(command.join(' ')).not.toContain('--dangerously')
     expect(command.at(-1)).toMatch(/^où en sont mes sessions \? ⟦weevils — tu es weevboss, sur Codex pendant que Claude est indisponible \(limite d'usage atteinte jusqu'à 18 h\)/)
     expect(command.at(-1)).toContain('user: lance les tests du panier | you: c’est lancé dans demo')
     expect(command.join(' ')).not.toContain('claude')
@@ -184,7 +186,7 @@ describe('weevboss pendant la limite de Claude', () => {
     await w.sendMain('merci')
     expect(mux.killWv).not.toHaveBeenCalled()
     const command = (mux.spawnWv.mock.calls.at(-1) as unknown[])[4] as string[]
-    expect(command.slice(0, 4)).toEqual(['claude', '--dangerously-skip-permissions', '--resume', 'boss'])
+    expect(command.slice(0, 3)).toEqual(['claude', '--resume', 'boss'])
     expect(command.at(-1)).toMatch(/^merci ⟦weevils — /)
     expect(command.at(-1)).toContain('Codex a répondu à ta place')
     expect(command.at(-1)).toContain('user: où en est demo ? | codex: demo : deux sessions arrêtées, plans prêts')

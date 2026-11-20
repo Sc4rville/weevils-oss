@@ -1,7 +1,15 @@
-import { MACHINE } from './config.ts'
+import fs from 'node:fs'
+import path from 'node:path'
+import { CONFIG_DIR, MACHINE } from './config.ts'
+import { LOCAL_TOKEN_HEADER, parseLocalToken } from './http.ts'
 // Fédération : le weevilsd du VPS lit les weevilsd des autres machines (le PC) à travers un tunnel SSH inversé.
-// Côté PC, la requête arrive de 127.0.0.1 sans en-tête de proxy ni Origin, Host 127.0.0.1:<port du tunnel> : elle est de confiance,
-// comme un outil local (server/http.ts).
+// Côté PC, la requête arrive de 127.0.0.1 sans en-tête de proxy ni Origin, Host 127.0.0.1:<port du tunnel>, avec le
+// jeton local du PC : elle est de confiance, comme un outil local (server/http.ts isLocal). Ce jeton, le PC l'a donné à
+// la machine principale en s'y inscrivant (server/install.sh, weevils-update → weevils-service add-remote), qui le
+// garde dans ~/.config/weevils/remotes/<id>.token (0600).
+
+/** Where the main machine keeps the local token of the secondary machine <id>. */
+export const remoteTokenFile = (id: string, dir = CONFIG_DIR) => path.join(dir, 'remotes', `${id.replace(/[^A-Za-z0-9_.-]/g, '_')}.token`)
 
 import type { Snapshot } from '../shared/api.ts'
 import { lang, tr } from './i18n.ts'
@@ -13,17 +21,29 @@ export class Remote {
   snap: Snapshot | null = null
   online = false
   private onChange: () => void
+  private tokenFile: string
 
   constructor(id: string, url: string, onChange: () => void) {
     this.id = id
     this.url = url.replace(/\/$/, '')
     this.onChange = onChange
+    this.tokenFile = remoteTokenFile(id)
+  }
+
+  /** The remote's local token, read on each call (a re-registration replaces the file without a restart). */
+  headers(): Record<string, string> {
+    try {
+      const t = parseLocalToken(fs.readFileSync(this.tokenFile, 'utf8'))
+      return t ? { [LOCAL_TOKEN_HEADER]: t } : {}
+    } catch {
+      return {}
+    }
   }
 
   start() {
     const tick = async () => {
       try {
-        const res = await fetch(`${this.url}/api/snapshot`, { signal: AbortSignal.timeout(2500) })
+        const res = await fetch(`${this.url}/api/snapshot`, { headers: this.headers(), signal: AbortSignal.timeout(2500) })
         if (!res.ok) throw new Error(String(res.status))
         let s = (await res.json()) as Snapshot
         const owner = s.machines?.[0]
@@ -62,7 +82,7 @@ export class Remote {
     if (!this.online) throw new Error(tr(M).offline(this.id))
     const res = await fetch(`${this.url}${path}`, {
       method,
-      headers: { 'X-Weevils-Locale': lang(), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
+      headers: { ...this.headers(), 'X-Weevils-Locale': lang(), ...(body !== undefined ? { 'content-type': 'application/json' } : {}) },
       body: body !== undefined ? JSON.stringify(body) : undefined,
       signal: AbortSignal.timeout(15_000),
     })
