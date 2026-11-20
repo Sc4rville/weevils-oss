@@ -174,7 +174,7 @@ Counters only, one file a day in `<GET_DATA>/stats` (mode 600), deleted after 90
 - **Visits and visitors.** The page sends a beacon when it opens (`/api/hit`; no cookie, no identifier). A visitor is
   told apart for one day by a hash of their address and browser with a salt that only lives in memory and changes every
   day: neither the hashes nor the salt are written. Bots, link previewers, this server's own traffic and private
-  addresses (2.24.59.87, 127.*, 172.*) are not counted.
+  addresses (the server's own, 127.*, 172.*) are not counted.
 - **Where from**: the app it was opened in, else the referring site's address (its origin only); iMessage and WhatsApp
   send none and count as « direct ». **Where the link was pasted**: the link-preview fetches (WhatsApp or Signal,
   iMessage, Twitter/X, Telegram, Slack…). **Device**: from the browser's name. **Country**: from the page's time zone

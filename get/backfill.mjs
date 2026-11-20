@@ -5,16 +5,18 @@
 // previews, options (price checks and VPS forms), installs started (servers created, VPS connections, scripts
 // fetched), installs that went through (an install's full run of progress reports) and code downloads. The log has no
 // time zone, so no country; and no beacon, so no « opened their weevils ». Test traffic is left out: this VPS
-// (2.24.59.87), 127.*, 172.*, headless browsers and bots. A day that already has its file is kept (--force rewrites it).
+// (its own addresses), 127.*, 172.*, headless browsers and bots. A day that already has its file is kept (--force rewrites it).
 // Installs that went through also get their line in the register, marked « log ». Prints numbers only.
 import fs from 'node:fs'
+import os from 'node:os'
 import path from 'node:path'
 import readline from 'node:readline'
 import { BOT, appendInstall, config, deviceOf, previewerOf, readJson, sourceOf, total, writeJson } from './server.mjs'
 
 const cfg = config()
 const force = process.argv.includes('--force')
-const TEST = (ip) => !ip || ip === '2.24.59.87' || ip.startsWith('127.') || ip.startsWith('172.') || ip === '::1'
+const OWN = new Set([...Object.values(os.networkInterfaces()).flat().map((a) => a.address), ...(process.env.GET_OWN_IPS || '').split(',').filter(Boolean)])
+const TEST = (ip) => !ip || OWN.has(ip) || ip.startsWith('127.') || ip.startsWith('172.') || ip === '::1'
 const days = {}
 const day = (d) => (days[d] ??= { day: d, visits: 0, visitors: 0, sources: {}, devices: {}, countries: {}, previews: {}, chose: {}, started: {}, succeeded: {}, switched: {}, bundles: 0, seen: new Set(), picked: new Set() })
 const bump = (o, k) => (o[k] = (o[k] || 0) + 1)

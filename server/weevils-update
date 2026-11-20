@@ -88,7 +88,9 @@ if [ "$mode" = bundle ]; then
   curl -fsSL -m 600 "$from_url/weevils.bundle" -o "$b" || { say "could not download $to"; exit 0; }
   # Signed with weevils' release key: the public half comes from the version installed now (get/release-key.pub), so
   # only code signed by the same key replaces it. A signature that does not check: nothing changes.
+  # No key in the version installed now: nothing can be checked, so nothing is installed (never unsigned code).
   key=$dir/get/release-key.pub
+  [ -s "$key" ] || { say "$to: no release key in $dir to check it against, not installed"; exit 0; }
   if [ -s "$key" ]; then
     sig=$(mktemp) allowed=$(mktemp)
     printf 'weevils-release %s\n' "$(cat "$key")" >"$allowed"
@@ -101,6 +103,9 @@ if [ "$mode" = bundle ]; then
   fi
   g fetch -q "$b" main || { say "could not read the download"; exit 0; }
   new=$(g rev-parse FETCH_HEAD)
+  # Never backwards: an older snapshot, even properly signed (served again by a compromised or stale server), is
+  # refused. Each snapshot is committed when it is built, so its date only grows.
+  if [ "$(g log -1 --format=%ct "$new")" -lt "$(g log -1 --format=%ct "$cur")" ]; then say "$to is older than $from: not installed"; exit 0; fi
   # Each snapshot is a single commit: the branch moves to it (the tree had no local change, nothing is lost).
   g reset -q --hard "$new"
 else
@@ -109,6 +114,7 @@ fi
 
 # ---------------------------------------------------------------- the installer, as on a re-run
 run=$state/update-install.log
+(umask 077; : >>"$run") && chmod 600 "$run"
 install_ok() { (cd "$dir" && WEEVILS_NO_UPDATE=1 ./install.sh --agent --no-update) >"$run" 2>&1 || true; grep -q '^status=ok$' "$run"; }
 lang=$(sed -n 's/.*"lang" *: *"\(fr\|en\)".*"from" *: *"choice".*/\1/p' "$state/prefs.json" 2>/dev/null || true)
 lang=${lang:-$(cfgv WEEVILS_LANG)}

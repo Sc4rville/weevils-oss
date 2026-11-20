@@ -318,7 +318,8 @@ export function guardEnv(guard: string, env: NodeJS.ProcessEnv = process.env, pl
     GIT_SSH_COMMAND: no,
     GIT_CONFIG_COUNT: String(git.length),
     ENABLE_CLAUDEAI_MCP_SERVERS: 'false',
-    // weevils' CLI talks to weevilsd on its real port; under this scope it runs only the profile's subcommands.
+    // weevils' CLI talks to weevilsd on its real port; under this scope it runs only the profile's subcommands, and
+    // weevilsd itself answers a jailed caller only on those routes (server/jail-peer.ts).
     WEEVILS_PORT: String(PORT),
     WEEVILS_SCOPE: 'automation',
   }
@@ -331,7 +332,7 @@ export function guardEnv(guard: string, env: NodeJS.ProcessEnv = process.env, pl
 }
 
 /** Hidden in the jail (an empty folder there): keys, logins, weevils' own config, the user's sockets. */
-const JAIL_HIDE = ['.ssh', '.config/gh', '.config/hub', '.codex', '.config/weevils', '.aws', '.azure', '.config/gcloud', '.kube', '.docker', '.gnupg', '.password-store']
+const JAIL_HIDE = ['.ssh', '.config/gh', '.config/hub', '.codex', '.config/weevils', '.config/weevils-get', '.config/pli', '.aws', '.azure', '.config/gcloud', '.kube', '.docker', '.gnupg', '.password-store']
 /** Hidden files (/dev/null there): logins kept in one file. */
 const JAIL_HIDE_FILES = ['.netrc', '.git-credentials', '.npmrc', '.pypirc', '.cargo/credentials', '.cargo/credentials.toml']
 /** Read-only in the jail: what runs later in the user's own sessions, unjailed (shell start files, ~/.local/bin, git and
@@ -349,8 +350,9 @@ const JAIL_RO = ['.bashrc', '.bash_profile', '.bash_login', '.profile', '.zshrc'
  *   whose config and hooks stay read-only (a core.fsmonitor or a hook would run in the user's next git command), and
  *   the files listed in JAIL_RO;
  * - no new privileges: sudo, su, pkexec, crontab and at raise nothing.
- * Not covered: the network (a script can still send what it reads), Claude Code's own login and ~/.claude.json, the
- * loopback ports (weevils' API: its CLI is denied and pointed at a dead port, not walled off).
+ * - its own process namespace: weevilsd recognises its loopback calls (server/jail-peer.ts) and answers only the routes
+ *   of the profile's CLI subcommands (AUTO_WEEVILS), never the file explorer, the config or the ledger's writes.
+ * Not covered: the network (a script can still send what it reads), Claude Code's own login and ~/.claude.json.
  */
 export function jailArgs(o: { home: string; hide: string[]; roots: string[]; rw: string[]; git?: string; /** kept visible among JAIL_HIDE: the login of the agent that runs the task (Codex: .codex) */ show?: string[] }, exists: (p: string) => boolean = fs.existsSync): string[] {
   const real = (p: string) => {
@@ -374,6 +376,9 @@ export function jailArgs(o: { home: string; hide: string[]; roots: string[]; rw:
     ...ro.flatMap((p) => ['--ro-bind', p, p]),
     ...rw.flatMap((p) => ['--bind', p, p]),
     ...gitRo.flatMap((p) => ['--ro-bind', p, p]),
+    // Its own process namespace: weevilsd tells a jailed caller on loopback from the user's own scripts by it
+    // (server/jail-peer.ts) and lets it reach only the profile's routes.
+    '--unshare-pid', '--proc', '/proc',
     '--die-with-parent',
     '--',
   ]

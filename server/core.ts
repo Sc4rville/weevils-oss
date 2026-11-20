@@ -78,6 +78,7 @@ import { moves, readScreen, redactScreen, screenId, stuckChoices, stuckQuestion,
 import { activeRequestLang, installationLang, lang, onLangChange, tr, user, withLang, type Lang } from './i18n.ts'
 import TipsM from './i18n/tips.ts'
 import { normalizeFrom, parseSigned, publicAuthors, signAs } from './authors.ts'
+import { isSecretPath } from './infra.ts'
 
 interface HookState {
   event: string
@@ -3030,7 +3031,7 @@ export class Weevils {
     const full = path.resolve(dir, rel)
     if (!full.startsWith(dir + path.sep)) throw new Error(tr(M).pathRefused)
     const real = fs.realpathSync(full)
-    if (!real.startsWith(fs.realpathSync(dir) + path.sep)) throw new Error(tr(M).pathRefused)
+    if (!real.startsWith(fs.realpathSync(dir) + path.sep) || isSecretPath(real)) throw new Error(tr(M).pathRefused)
     const st = fs.statSync(real)
     const max = 400_000
     const fd = fs.openSync(real, 'r')

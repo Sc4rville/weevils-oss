@@ -12,6 +12,10 @@
 # The messages are plain variables read by name in t(): shellcheck can't see that they are used.
 # shellcheck disable=SC2034
 set -euo pipefail
+# The summary ends with the login link: whatever file this output goes to (~/weevils-install.log) is the user's alone.
+for _fd in 1 2; do _out=$(readlink "/proc/$$/fd/$_fd" 2>/dev/null || true); [ -n "$_out" ] && [ -f "$_out" ] && [ -O "$_out" ] && chmod 600 "$_out" 2>/dev/null || true; done
+[ ! -f "$HOME/weevils-install.log" ] || [ ! -O "$HOME/weevils-install.log" ] || chmod 600 "$HOME/weevils-install.log" 2>/dev/null || true
+unset _fd _out
 
 # Where this script lives when it runs from a clone (empty when piped from curl). Read here: inside a function,
 # bash reports "bash" for a script that comes from stdin.

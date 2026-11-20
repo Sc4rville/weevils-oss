@@ -40,6 +40,8 @@ import { startMailBridge } from './mailbridge.ts'
 import { resetAuthors, threadAuthor } from './authors.ts'
 import { explain, grepRepo, readExplain } from './explain.ts'
 import { brief, detail as infraDetail, listDir, readAny, startInfra } from './infra.ts'
+import { jailedAllowed, jailedPeer, sameUserPeer } from './jail-peer.ts'
+import { loginLimiter } from './login-limit.ts'
 import { startDiskUsage } from './disk-usage.ts'
 import { anchorFor, entries as spendEntries, logCalibration, summarize } from './spend.ts'
 import { claudeQuota, claudeWindows, quotas, rate as tokenRate, today as usageToday } from './usage.ts'
@@ -294,6 +296,7 @@ const loginLink = (req: http.IncomingMessage) => {
   return `${(PUBLIC_URL || `${proto}://${host}`).replace(/\/$/, '')}/#k=${SECRET}`
 }
 
+const logins = loginLimiter()
 const cookieToken = (req: http.IncomingMessage) => /(?:^|;\s*)wv=([\w-]+)/.exec(req.headers.cookie ?? '')?.[1]
 /** The cookie names a browser signed in with the access code (or claimed by a real browser on this machine). */
 const hasDevice = (req: http.IncomingMessage) => {
@@ -497,7 +500,13 @@ const routes: [string, RegExp, Handler][] = [
   }],
   ['POST', /^\/api\/login$/, async (req, res) => {
     const body = await readBody(req)
+    const who = String(req.headers['x-forwarded-for'] ?? req.socket.remoteAddress ?? '').split(',')[0].trim()
+    if (!logins.allowed(who)) {
+      await new Promise((r) => setTimeout(r, 800))
+      return json(res, 429, { error: tr(M).wrongCode })
+    }
     if (typeof body.secret !== 'string' || !sameCode(body.secret, SECRET)) {
+      logins.failed(who)
       await new Promise((r) => setTimeout(r, 800))
       return json(res, 401, { error: tr(M).wrongCode })
     }
@@ -1016,6 +1025,8 @@ const server = http.createServer((req, res) => withLang(requestLang(req), async 
     // Le Raccourci Siri n'a pas de cookie : son jeton personnel n'ouvre que le tour de parole et le son qui va avec.
     const viaShortcut = /^\/api\/voice\/(turn|clip\/)/.test(url.pathname) && shortcutAuthed(req, url)
     if (!PUBLIC.has(url.pathname) && !viaShortcut && !authed(req)) return json(res, 401, { error: tr(M).signInRequired })
+    // An automation's jail calling on loopback: only its CLI profile's routes (server/jail-peer.ts).
+    if (!hasDevice(req) && isLocal(req) && jailedPeer(req.socket) && !jailedAllowed(req.method, url.pathname)) return json(res, 403, { error: tr(M).signInRequired })
     if (!door.tapAllowed(req, req.method, url.pathname) || !door.voiceAllowed(req, url.pathname, viaShortcut)) return json(res, 403, { error: tr(M).bossUserOnly })
     if (req.method === 'GET' && url.pathname === '/api/outbox/capabilities') return json(res, 200, { enabled: true, version: 1 })
     const receipt = /^\/api\/outbox\/([a-zA-Z0-9_-]{16,120})$/.exec(url.pathname)
@@ -1096,11 +1107,11 @@ pages.live = {
 }
 try { pages.publishMachine() } catch (e) { console.error('[pages] machine', e) }
 
-// Hooks Claude Code : port séparé, local uniquement, pas d'authentification nécessaire. Une page web ouverte sur
-// cette machine (Origin étrangère, DNS rebinding) ne peut pas y forger d'événements.
+// Hooks Claude Code : port séparé, local uniquement. Une page web ouverte sur cette machine (Origin étrangère, DNS
+// rebinding) ne peut pas y forger d'événements, ni un autre compte de la machine (server/jail-peer.ts sameUserPeer).
 http
   .createServer(async (req, res) => {
-    if (!browserSafe(req)) return void res.writeHead(403).end()
+    if (!browserSafe(req) || !sameUserPeer(req.socket)) return void res.writeHead(403).end()
     try {
       const body = await readBody(req, 256 << 10)
       w.hook(body, req.headers['x-pid'] as string | undefined)

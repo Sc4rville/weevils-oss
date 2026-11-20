@@ -522,7 +522,7 @@ describe('anonymous stats', () => {
     const log = [
       line(0, '203.0.113.5', 'GET', '/', 200, iphone, 'https://t.co/'),
       line(1, '203.0.113.5', 'GET', '/', 200),
-      line(2, '2.24.59.87', 'GET', '/', 200),
+      line(2, '203.0.113.250', 'GET', '/', 200),
       line(3, '172.17.0.2', 'GET', '/', 200),
       line(4, '198.51.100.9', 'GET', '/', 200, 'Mozilla/5.0 HeadlessChrome/131.0'),
       line(5, '198.51.100.10', 'GET', '/', 404, 'WhatsApp/2.23.20.0 A'),
@@ -532,7 +532,7 @@ describe('anonymous stats', () => {
       line(81, '198.51.100.7', 'GET', '/weevils.bundle?sid=abcdefghjk', 200, 'curl/8.5.0'),
       ...[90, 100, 110, 120, 130, 140].map((dt) => line(dt, '198.51.100.7', 'POST', '/r/abcdefghjk', 200, 'curl/8.5.0')),
     ].join('\n')
-    const r = spawnSync('node', [path.join(import.meta.dirname, 'backfill.mjs')], { input: log, env: { ...process.env, GET_DATA: data }, encoding: 'utf8' })
+    const r = spawnSync('node', [path.join(import.meta.dirname, 'backfill.mjs')], { input: log, env: { ...process.env, GET_DATA: data, GET_OWN_IPS: '203.0.113.250' }, encoding: 'utf8' })
     expect(r.status).toBe(0)
     expect(r.stdout).not.toMatch(/\d+\.\d+\.\d+\.\d+/)
     expect(JSON.parse(fs.readFileSync(path.join(data, 'stats', '2026-11-13.json'), 'utf8'))).toMatchObject({ visits: 2, visitors: 1, sources: { twitter: 1, direct: 1 }, previews: { whatsapp: 1 }, chose: { hetzner: 1 }, started: { hetzner: 1 }, succeeded: { hetzner: 1 }, bundles: 1 })
@@ -836,5 +836,24 @@ describe('a Mac', () => {
   it('resumes a computer setup on the first screen, where its command already is', async () => {
     expect(page).toContain("const computer = os === 'linux' || os === 'windows' || os === 'mac'")
     expect(page).toContain('if (!computer) pc()')
+  })
+})
+
+describe('progress reports: one machine per setup', () => {
+  it('a report from another address cannot finish or fail the setup', async () => {
+    const made = createServer(config({ GET_BASE: 'https://get.example', GET_HANDOFF: '' }), { notifier: null })
+    const b = `http://127.0.0.1:${await listen(made.server)}`
+    try {
+      const job = made.store.create('vps', 'en', 'pub')!
+      const post = (ip: string, fields: Record<string, string>) => fetch(`${b}/r/${job.sid}`, { method: 'POST', headers: { 'x-forwarded-for': ip }, body: new URLSearchParams(fields) })
+      expect((await post('203.0.113.9', { event: 'start' })).status).toBe(200)
+      expect((await post('198.51.100.66', { event: 'done', url: 'https://evil.example', mode: 'public', ready: 'yes' })).status).toBe(404)
+      expect((await post('198.51.100.66', { event: 'failed', error: 'x' })).status).toBe(404)
+      expect(job.state).toBe('running')
+      expect((await post('203.0.113.9', { event: 'done', url: 'https://ok.example', mode: 'public', ready: 'yes' })).status).toBe(200)
+      expect(job.result?.url).toBe('https://ok.example')
+    } finally {
+      made.server.close()
+    }
   })
 })

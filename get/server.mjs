@@ -927,6 +927,10 @@ export function createServer(cfg = config(), deps = {}) {
           return send(res, 200, { ok: true })
         }
         if (j.state === 'done') return fail(res, 404, 'no_job')
+        // One machine per setup: the first report pins its address, a report from elsewhere (someone who saw the
+        // setup id in a pasted command) cannot move it on, fail it or hand the page a link of its own.
+        j.reporter ||= ip
+        if (j.reporter !== ip) return fail(res, 404, 'no_job')
         j.touched = Date.now()
         const ev = f.get('event')
         let step = ''

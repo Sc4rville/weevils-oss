@@ -201,6 +201,8 @@ _weevils_get() {
   event start
   cd "$HOME"
   local log=$HOME/weevils-install.log
+  # It ends with the login link: the user's alone.
+  (umask 077; : >>"$log") && chmod 600 "$log"
   # A Linux computer: the system tools weevils needs (git, curl, tmux, jq, python3). One missing on Debian or Ubuntu:
   # its signed packages are fetched by apt as you (apt-get download, no root) and unpacked in your home folder
   # (~/.local/share/weevils/sys), never installed system-wide. Only where that can't work (another distribution, no

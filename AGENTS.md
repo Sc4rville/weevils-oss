@@ -35,7 +35,7 @@ On a Mac where `xcode-select -p` fails, git is not installed yet (calling it onl
 and, in step 4, start the installer with this line instead: it brings git and clones into `~/weevils` itself.
 
 ```sh
-nohup sh -c 'curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s -- --agent --lang <fr|en> [options from step 3]' > ~/weevils-install.log 2>&1 &
+umask 077; nohup sh -c 'curl -fsSL https://raw.githubusercontent.com/Sc4rville/weevils-oss/main/install.sh | bash -s -- --agent --lang <fr|en> [options from step 3]' > ~/weevils-install.log 2>&1 &
 ```
 
 ## 3. Pick the options
@@ -63,7 +63,7 @@ summary block at the end. It takes 2 to 10 minutes on a blank machine, longer th
 the background:
 
 ```sh
-cd ~/weevils && nohup ./install.sh --agent --lang <fr|en> [options from step 3] > ~/weevils-install.log 2>&1 &
+cd ~/weevils && umask 077 && nohup ./install.sh --agent --lang <fr|en> [options from step 3] > ~/weevils-install.log 2>&1 &
 ```
 
 Then wait for the summary, in checks of under a minute each, until the log ends with `--- end ---`:

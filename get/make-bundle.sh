@@ -15,6 +15,33 @@ work=$(mktemp -d "$(dirname "$out")/.bundle-work.XXXXXX")
 trap 'rm -rf "$work"' EXIT
 git -C "$src" archive "$commit" | tar -x -C "$work"
 rm -rf "$work/harness-interface-kit" "$work/harness-interface-kit.zip" "$work/content" "$work/docs/incidents"
+# The same exclusions as the open-source export (scripts/release-policy.json): the bundle is downloadable by anyone,
+# so private notes, reports and screenshots of the owner's instance never go in it.
+python3 - "$work" "$src/scripts/release-policy.json" <<'PY'
+import fnmatch, json, os, shutil, sys
+root, policy = sys.argv[1], json.load(open(sys.argv[2]))
+pats = policy["exclude"]
+def gone(rel):
+    return any(fnmatch.fnmatch(rel, p) or fnmatch.fnmatch(rel + "/", p) or (p.endswith("/**") and (rel == p[:-3] or rel.startswith(p[:-2]))) for p in pats)
+for d, dirs, files in os.walk(root, topdown=True):
+    rel_d = os.path.relpath(d, root)
+    for n in list(dirs):
+        rel = os.path.normpath(os.path.join(rel_d, n))
+        if gone(rel):
+            shutil.rmtree(os.path.join(d, n)); dirs.remove(n)
+    for n in files:
+        rel = os.path.normpath(os.path.join(rel_d, n))
+        if gone(rel):
+            os.remove(os.path.join(d, n))
+PY
+# Personal traces left in shipped files: refuse to publish rather than ship them.
+# Looked for: the publisher's home folder and this machine's own addresses (none written here).
+leak=(-e "$HOME/")
+for ip in $(hostname -I 2>/dev/null); do case $ip in 127.*|10.*|172.*|192.168.*|::1|f[cd]*|fe80*) ;; *) leak+=(-e "$ip") ;; esac; done
+if [ "$HOME" != / ] && grep -rIlF --exclude-dir=test --exclude='*.test.*' "${leak[@]}" "$work" >"$work.leaks" 2>/dev/null; then
+  echo "make-bundle: personal traces in $(wc -l <"$work.leaks") file(s):" >&2; sed "s|$work/||" "$work.leaks" >&2; rm -f "$work.leaks"; exit 1
+fi
+rm -f "$work.leaks"
 cd "$work"
 git init -q -b main
 git add -A
@@ -27,7 +54,13 @@ git bundle create -q "$out.tmp" HEAD main
 # ~/.config/weevils-get/release_ed25519; no key, no signature (a test bundle).
 key=${WEEVILS_RELEASE_KEY:-$HOME/.config/weevils-get/release_ed25519}
 rm -f "$out.tmp.sig"
-if [ -f "$key" ]; then ssh-keygen -q -Y sign -n weevils-release -f "$key" "$out.tmp" >/dev/null 2>&1; fi
+# Never an unsigned bundle where installs fetch it: no key or a failed signature stops here (WEEVILS_UNSIGNED_BUNDLE=1
+# for a throwaway test bundle). WEEVILS_RELEASE_SIGNER: a command that signs <file> into <file>.sig with a key this
+# user cannot read (get/sign-release.sh, run through sudo as a dedicated user).
+if [ -n "${WEEVILS_RELEASE_SIGNER:-}" ]; then $WEEVILS_RELEASE_SIGNER "$out.tmp" || { echo "make-bundle: signing failed" >&2; rm -f "$out.tmp"; exit 1; }
+elif [ -f "$key" ]; then ssh-keygen -q -Y sign -n weevils-release -f "$key" "$out.tmp" >/dev/null 2>&1 || { echo "make-bundle: signing failed" >&2; rm -f "$out.tmp"; exit 1; }
+elif [ "${WEEVILS_UNSIGNED_BUNDLE:-}" != 1 ]; then echo "make-bundle: no release key ($key); set WEEVILS_UNSIGNED_BUNDLE=1 for a test bundle" >&2; rm -f "$out.tmp"; exit 1; fi
+[ -f "$out.tmp.sig" ] || [ "${WEEVILS_UNSIGNED_BUNDLE:-}" = 1 ] || { echo "make-bundle: no signature produced" >&2; rm -f "$out.tmp"; exit 1; }
 (cd "$(dirname "$out")" && sha256sum "$(basename "$out.tmp")" | sed 's/\.tmp$//') >"$out.sha256.tmp"
 # The signature first, then the bundle: a download between the two moves fails its check and is tried again.
 [ ! -f "$out.tmp.sig" ] || mv -f "$out.tmp.sig" "$out.sig"
